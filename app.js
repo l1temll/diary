@@ -14,7 +14,6 @@ import {
   persistentMultipleTabManager,
   collection,
   doc,
-  addDoc,
   setDoc,
   updateDoc,
   deleteDoc,
@@ -22,19 +21,16 @@ import {
   writeBatch
 } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js";
 
-/* ==========================================================================
-   1. НАСТРОЙКИ FIREBASE (ВСТАВЬ СВОИ КЛЮЧИ СЮДА ПО ИНСТРУКЦИИ НИЖЕ)
-   Пока ключи не вставлены, приложение работает в автономном режиме и
-   сохраняет все изменения прямо в память твоего телефона/браузера!
-   ========================================================================== */
+// ============================================================================
+// 1. КОНФИГУРАЦИЯ FIREBASE (вставьте ваши ключи из консоли Firebase)
+// ============================================================================
 const firebaseConfig = {
-  apiKey: "AIzaSyDwVDsV2-mbp0mHxZhyTCIP3-ym9UAjrWc",
-  authDomain: "my-student-diary.firebaseapp.com",
-  projectId: "my-student-diary",
-  storageBucket: "my-student-diary.firebasestorage.app",
-  messagingSenderId: "801393969196",
-  appId: "1:801393969196:web:66bb0b1411f55249756989",
-  measurementId: "G-B0BZEGM91N"
+  apiKey: "ВСТАВЬТЕ_ВАШ_API_KEY",
+  authDomain: "ВАШ_ПРОЕКТ.firebaseapp.com",
+  projectId: "ВАШ_ПРОЕКТ",
+  storageBucket: "ВАШ_ПРОЕКТ.appspot.com",
+  messagingSenderId: "ВАШ_SENDER_ID",
+  appId: "ВАШ_APP_ID"
 };
 
 const isFirebaseConfigured =
@@ -51,6 +47,7 @@ if (isFirebaseConfigured) {
   app = initializeApp(firebaseConfig);
   auth = getAuth(app);
   googleProvider = new GoogleAuthProvider();
+  googleProvider.addScope("https://www.googleapis.com/auth/tasks.readonly");
   db = initializeFirestore(app, {
     localCache: persistentLocalCache({
       tabManager: persistentMultipleTabManager()
@@ -58,9 +55,9 @@ if (isFirebaseConfigured) {
   });
 }
 
-/* ==========================================================================
-   2. ВСТРОЕННАЯ БАЗА ТВОЕГО РАСПИСАНИЯ ИЗ RASPISANIE_SEMESTR1.ICS (275 ПАР)
-   ========================================================================== */
+// ============================================================================
+// 2. ЗВОНКИ И ВСТРОЕННАЯ БАЗА РАСПИСАНИЯ (ВСЕ 275 ПАР 1 СЕМЕСТРА)
+// ============================================================================
 const BELL_SCHEDULE = {
   "1": { start: "08:00", end: "09:30" },
   "2": { start: "09:40", end: "11:10" },
@@ -71,7 +68,6 @@ const BELL_SCHEDULE = {
   "7": { start: "18:20", end: "19:50" }
 };
 
-// Шаблоны пар из твоего файла raspisanie_semestr1.ics
 const CLASS_TEMPLATES = [
   [2, "09:40", "11:10", "Элективные курсы по физической культуре и спорту", "Практика", "Зал №2", "доц. Ловыгина О.Н."],
   [4, "13:20", "14:50", "Математический анализ", "Лекция", "Б-403", "Чернышова А.В."],
@@ -126,7 +122,6 @@ const CLASS_TEMPLATES = [
   [2, "09:40", "11:10", "Алгебра и геометрия", "Практика", "Б-403", "доц. Чернышова А.В."]
 ];
 
-// Полная карта дат 1 семестра (сентябрь - декабрь 2026)
 const SEMESTER_DATE_MAP = {
   "2026-09-01": [0, 1, 2], "2026-09-02": [3, 4], "2026-09-03": [5, 6, 7, 8], "2026-09-04": [9, 10, 11], "2026-09-05": [12, 13],
   "2026-09-07": [14, 15], "2026-09-08": [0, 1, 2], "2026-09-09": [3, 4], "2026-09-10": [16, 6, 7], "2026-09-11": [9, 10, 17], "2026-09-12": [18, 13],
@@ -162,32 +157,44 @@ function buildDefaultSchedule() {
         subject,
         type,
         room,
-        teacher
+        teacher,
+        isEvent: false
       });
     }
   }
   return list;
 }
 
-/* ==========================================================================
-   3. СОСТОЯНИЕ ПРИЛОЖЕНИЯ И ДАТЫ
-   ========================================================================== */
-const SEMESTER_START_MONDAY = "2026-08-31"; // Понедельник 1-й учебной недели
+const SEMESTER_START_MONDAY = "2026-08-31";
 
+// ============================================================================
+// 3. ГЛОБАЛЬНОЕ СОСТОЯНИЕ ПРИЛОЖЕНИЯ
+// ============================================================================
 const state = {
   user: null,
+  googleAccessToken: null,
   activeTab: "schedule",
-  selectedDate: getInitialStudyDate(), // 'YYYY-MM-DD'
-  addScope: "date", // 'date' | 'week' | 'semester'
+  selectedDate: getInitialStudyDate(),
+  addScope: "date",
   taskFilter: "active",
+  noteFilter: "all",
+  taskTargetMode: "current",
+  noteTargetMode: "current",
+  contextClassItem: null,
+  draftTaskPhotos: [],
+  draftNotePhotos: [],
   schedule: [],
   tasks: [],
   notes: [],
+  hiddenRules: [], // { id, mode: 'week' | 'forever', subject, number, type, weekNum, label }
   pendingDeleteItem: null,
   unsubscribers: [],
   noteDebounceTimers: {}
 };
 
+// ============================================================================
+// 4. УТИЛИТЫ ДАТЫ И ВРЕМЕНИ
+// ============================================================================
 function formatDateISO(dateObj) {
   const y = dateObj.getFullYear();
   const m = String(dateObj.getMonth() + 1).padStart(2, "0");
@@ -196,24 +203,23 @@ function formatDateISO(dateObj) {
 }
 
 function parseDateISO(dateStr) {
-  const [y, m, d] = dateStr.split("-").map(Number);
-  return new Date(y, m - 1, d);
+  const [y, m, d] = String(dateStr).split("-").map(Number);
+  return new Date(y, (m || 1) - 1, d || 1);
+}
+
+function getTodayISO() {
+  return formatDateISO(new Date());
 }
 
 function getInitialStudyDate() {
   const now = new Date();
-  // Если воскресенье — переключаем на понедельник следующей недели
-  if (now.getDay() === 0) {
-    now.setDate(now.getDate() + 1);
-  }
-  const iso = formatDateISO(now);
-  // Если дата вне 1 семестра 2026, но в пределах учебного года — оставляем её
-  return iso;
+  if (now.getDay() === 0) now.setDate(now.getDate() + 1);
+  return formatDateISO(now);
 }
 
 function getMondayOfDate(dateStr) {
   const d = parseDateISO(dateStr);
-  const day = d.getDay(); // 0 (Вс) .. 6 (Сб)
+  const day = d.getDay();
   const diff = day === 0 ? -6 : 1 - day;
   d.setDate(d.getDate() + diff);
   return d;
@@ -226,30 +232,66 @@ function getStudyWeekNumber(dateStr) {
   return Math.floor(diffDays / 7) + 1;
 }
 
-/* ==========================================================================
-   4. СТАРТ ПРИЛОЖЕНИЯ
-   ========================================================================== */
-document.addEventListener("DOMContentLoaded", () => {
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("./sw.js").catch(() => {});
-  }
+function timeToMinutes(tStr) {
+  if (!tStr) return 0;
+  const [h, m] = tStr.split(":").map(Number);
+  return (h || 0) * 60 + (m || 0);
+}
 
+function addDaysISO(dateStr, days) {
+  const d = parseDateISO(dateStr);
+  d.setDate(d.getDate() + days);
+  return formatDateISO(d);
+}
+
+// Находит следующую дату проведения пары по этому предмету
+function findNextClassDateForSubject(subjectName, afterDateStr) {
+  const cleanSubj = String(subjectName || "").trim().toLowerCase();
+  const candidates = getVisibleSchedule()
+    .filter((s) => s.date > afterDateStr && String(s.subject).trim().toLowerCase() === cleanSubj)
+    .sort((a, b) => a.date.localeCompare(b.date));
+  if (candidates.length > 0) return candidates[0].date;
+  return addDaysISO(afterDateStr, 7);
+}
+
+// ============================================================================
+// 5. ФИЛЬТРАЦИЯ СКРЫТЫХ ПАР
+// ============================================================================
+function isClassHidden(item) {
+  if (!item) return false;
+  const itemWeek = getStudyWeekNumber(item.date);
+  for (const rule of state.hiddenRules) {
+    if (rule.mode === "forever") {
+      if (rule.subject === item.subject) return true;
+    } else if (rule.mode === "week") {
+      if (rule.weekNum === itemWeek && rule.subject === item.subject && Number(rule.number) === Number(item.number)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+function getVisibleSchedule() {
+  return state.schedule.filter((item) => !isClassHidden(item));
+}
+
+// ============================================================================
+// 6. ИНИЦИАЛИЗАЦИЯ ПРИЛОЖЕНИЯ
+// ============================================================================
+document.addEventListener("DOMContentLoaded", () => {
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
   initNetworkListeners();
   initUIListeners();
-
-  // Загружаем локальные данные (или инициализируем 275 пар по умолчанию)
   loadLocalDataOrSeed();
   renderAll();
-
-  if (isFirebaseConfigured) {
-    initFirebaseAuth();
-  }
+  updateLiveWidget();
+  setInterval(updateLiveWidget, 1000);
+  if (isFirebaseConfigured) initFirebaseAuth();
 });
 
 function refreshIcons() {
-  if (window.lucide) {
-    window.lucide.createIcons();
-  }
+  if (window.lucide) window.lucide.createIcons();
 }
 
 function initNetworkListeners() {
@@ -274,9 +316,9 @@ function setSyncIndicator(active) {
   if (el) el.classList.toggle("hidden", !active);
 }
 
-/* ==========================================================================
-   5. ХРАНИЛИЩЕ: LOCALSTORAGE + FIREBASE FIRESTORE
-   ========================================================================== */
+// ============================================================================
+// 7. ХРАНИЛИЩЕ: LOCALSTORAGE + FIREBASE FIRESTORE
+// ============================================================================
 function loadLocalDataOrSeed() {
   const savedSched = localStorage.getItem("diary_schedule_v2");
   if (savedSched) {
@@ -285,25 +327,32 @@ function loadLocalDataOrSeed() {
     state.schedule = buildDefaultSchedule();
     localStorage.setItem("diary_schedule_v2", JSON.stringify(state.schedule));
   }
-
   state.tasks = JSON.parse(localStorage.getItem("diary_tasks_v2") || "[]");
   state.notes = JSON.parse(localStorage.getItem("diary_notes_v2") || "[]");
+  state.hiddenRules = JSON.parse(localStorage.getItem("diary_hidden_rules_v3") || "[]");
 }
 
 function saveLocalData() {
   localStorage.setItem("diary_schedule_v2", JSON.stringify(state.schedule));
   localStorage.setItem("diary_tasks_v2", JSON.stringify(state.tasks));
   localStorage.setItem("diary_notes_v2", JSON.stringify(state.notes));
+  localStorage.setItem("diary_hidden_rules_v3", JSON.stringify(state.hiddenRules));
 }
 
 function initFirebaseAuth() {
-  getRedirectResult(auth).catch((e) => console.warn(e));
+  getRedirectResult(auth)
+    .then((result) => {
+      if (result) {
+        const credential = GoogleAuthProvider.credentialFromResult(result);
+        if (credential?.accessToken) state.googleAccessToken = credential.accessToken;
+      }
+    })
+    .catch(() => {});
 
   onAuthStateChanged(auth, (user) => {
     state.user = user;
     state.unsubscribers.forEach((u) => u());
     state.unsubscribers = [];
-
     const btnLogin = document.getElementById("btn-login");
     const userProfile = document.getElementById("user-profile");
     const userAvatar = document.getElementById("user-avatar");
@@ -312,10 +361,7 @@ function initFirebaseAuth() {
       btnLogin.classList.add("hidden");
       userProfile.classList.remove("hidden");
       userProfile.classList.add("flex");
-      userAvatar.src =
-        user.photoURL ||
-        "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'><rect width='40' height='40' fill='%230A84FF'/></svg>";
-
+      userAvatar.src = user.photoURL || "";
       subscribeFirestore(user.uid);
     } else {
       btnLogin.classList.remove("hidden");
@@ -329,11 +375,9 @@ function initFirebaseAuth() {
 
 function subscribeFirestore(uid) {
   setSyncIndicator(true);
-
   const schedRef = collection(db, "users", uid, "schedule");
   const unsubSched = onSnapshot(schedRef, async (snap) => {
     if (snap.empty && !localStorage.getItem(`seeded_${uid}`)) {
-      // Первая авторизация: автоматически заливаем расписание 1 семестра в облако
       localStorage.setItem(`seeded_${uid}`, "1");
       await uploadBatchScheduleToCloud(buildDefaultSchedule());
       return;
@@ -342,6 +386,7 @@ function subscribeFirestore(uid) {
     saveLocalData();
     renderScheduleSection();
     updateSubjectsDatalist();
+    updateLiveWidget();
     setSyncIndicator(false);
   });
 
@@ -350,6 +395,7 @@ function subscribeFirestore(uid) {
     state.tasks = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
     saveLocalData();
     renderTasks();
+    renderScheduleSection();
   });
 
   const notesRef = collection(db, "users", uid, "notes");
@@ -357,48 +403,48 @@ function subscribeFirestore(uid) {
     state.notes = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
     saveLocalData();
     renderNotes();
+    renderScheduleSection();
   });
 
-  state.unsubscribers.push(unsubSched, unsubTasks, unsubNotes);
+  const hiddenRef = collection(db, "users", uid, "hiddenRules");
+  const unsubHidden = onSnapshot(hiddenRef, (snap) => {
+    state.hiddenRules = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    saveLocalData();
+    renderScheduleSection();
+    updateLiveWidget();
+  });
+
+  state.unsubscribers.push(unsubSched, unsubTasks, unsubNotes, unsubHidden);
 }
 
 async function uploadBatchScheduleToCloud(items) {
   if (!state.user || !db) return;
   setSyncIndicator(true);
-  // Firestore writeBatch поддерживает до 500 операций за раз (у нас 275)
   const chunks = [];
-  for (let i = 0; i < items.length; i += 400) {
-    chunks.push(items.slice(i, i + 400));
-  }
+  for (let i = 0; i < items.length; i += 400) chunks.push(items.slice(i, i + 400));
   for (const chunk of chunks) {
     const batch = writeBatch(db);
     for (const item of chunk) {
-      const ref = doc(db, "users", state.user.uid, "schedule", item.id);
-      batch.set(ref, item);
+      batch.set(doc(db, "users", state.user.uid, "schedule", item.id), item);
     }
     await batch.commit();
   }
   setSyncIndicator(false);
 }
 
-/* ==========================================================================
-   6. ОПЕРАЦИИ С РАСПИСАНИЕМ (КАСТОМИЗАЦИЯ НА ДАТУ / НЕДЕЛЮ / СЕМЕСТР)
-   ========================================================================== */
 async function saveScheduleItems(itemsToSave) {
   if (state.user && db) {
     await uploadBatchScheduleToCloud(itemsToSave);
   } else {
     for (const newItem of itemsToSave) {
       const idx = state.schedule.findIndex((s) => s.id === newItem.id);
-      if (idx >= 0) {
-        state.schedule[idx] = newItem;
-      } else {
-        state.schedule.push(newItem);
-      }
+      if (idx >= 0) state.schedule[idx] = newItem;
+      else state.schedule.push(newItem);
     }
     saveLocalData();
     renderScheduleSection();
     updateSubjectsDatalist();
+    updateLiveWidget();
   }
 }
 
@@ -407,9 +453,7 @@ async function removeScheduleItemsByIds(ids) {
   if (state.user && db) {
     setSyncIndicator(true);
     const batch = writeBatch(db);
-    for (const id of idSet) {
-      batch.delete(doc(db, "users", state.user.uid, "schedule", id));
-    }
+    for (const id of idSet) batch.delete(doc(db, "users", state.user.uid, "schedule", id));
     await batch.commit();
     setSyncIndicator(false);
   } else {
@@ -417,78 +461,185 @@ async function removeScheduleItemsByIds(ids) {
     saveLocalData();
     renderScheduleSection();
     updateSubjectsDatalist();
+    updateLiveWidget();
   }
 }
 
-/* ==========================================================================
-   7. ИМПОРТ ЛЮБОГО .ICS ФАЙЛА
-   ========================================================================== */
-function parseICSFile(icsText) {
-  const events = [];
-  const blocks = icsText.split("BEGIN:VEVENT").slice(1);
-  let idx = 1;
-
-  for (const block of blocks) {
-    const dtStartMatch = block.match(/DTSTART:(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})/);
-    const summaryMatch = block.match(/SUMMARY:(.*)/);
-    const locationMatch = block.match(/LOCATION:(.*)/);
-    if (!dtStartMatch || !summaryMatch) continue;
-
-    const [, y, m, d] = dtStartMatch;
-    const dateStr = `${y}-${m}-${d}`;
-    const rawSummary = summaryMatch[1].replace(/\\,/g, ",").trim();
-    const room = locationMatch ? locationMatch[1].replace(/\\,/g, ",").trim() : "Ауд.";
-
-    // Парсим формат: [Пара 2, 09:40-11:10] Предмет (тип) — Преподаватель
-    const metaMatch = rawSummary.match(/\[Пара\s*(\d+),\s*(\d{2}:\d{2})-(\d{2}:\d{2})\]\s*(.*)/i);
-    let number = 1;
-    let startTime = "08:00";
-    let endTime = "09:30";
-    let rest = rawSummary;
-
-    if (metaMatch) {
-      number = Number(metaMatch[1]);
-      startTime = metaMatch[2];
-      endTime = metaMatch[3];
-      rest = metaMatch[4];
-    }
-
-    const [subjAndType, teacherPart] = rest.split(/\s+—\s+/);
-    const teacher = teacherPart ? teacherPart.trim() : "";
-
-    let subject = subjAndType ? subjAndType.trim() : "Предмет";
-    let type = "Лекция";
-
-    const typeMatch = subject.match(/^(.*)\(([^)]+)\)\s*$/);
-    if (typeMatch) {
-      subject = typeMatch[1].trim();
-      const rawType = typeMatch[2].toLowerCase();
-      if (rawType.includes("лаб")) type = "Лабораторная";
-      else if (rawType.includes("практ") && rawType.includes("дист")) type = "Практика (Дистант)";
-      else if (rawType.includes("лек") && rawType.includes("дист")) type = "Лекция (Дистант)";
-      else if (rawType.includes("практ")) type = "Практика";
-      else type = "Лекция";
-    }
-
-    events.push({
-      id: `ics_${dateStr}_${idx++}_${Math.random().toString(36).slice(2, 6)}`,
-      date: dateStr,
-      number,
-      startTime,
-      endTime,
-      subject,
-      type,
-      room,
-      teacher
-    });
+async function saveHiddenRule(rule) {
+  if (state.user && db) {
+    await setDoc(doc(db, "users", state.user.uid, "hiddenRules", rule.id), rule);
+  } else {
+    state.hiddenRules.push(rule);
+    saveLocalData();
+    renderScheduleSection();
+    updateLiveWidget();
   }
-
-  return events;
 }
 
-/* ==========================================================================
-   8. РЕНДЕРИНГ ИНТЕРФЕЙСА
-   ========================================================================== */
+async function removeHiddenRule(ruleId) {
+  if (state.user && db) {
+    await deleteDoc(doc(db, "users", state.user.uid, "hiddenRules", ruleId));
+  } else {
+    state.hiddenRules = state.hiddenRules.filter((r) => r.id !== ruleId);
+    saveLocalData();
+    renderScheduleSection();
+    updateLiveWidget();
+  }
+}
+
+async function saveTaskItem(task) {
+  if (state.user && db) {
+    await setDoc(doc(db, "users", state.user.uid, "tasks", task.id), task);
+  } else {
+    const idx = state.tasks.findIndex((t) => t.id === task.id);
+    if (idx >= 0) state.tasks[idx] = task;
+    else state.tasks.push(task);
+    saveLocalData();
+    renderTasks();
+    renderScheduleSection();
+  }
+}
+
+async function saveNoteItem(note) {
+  if (state.user && db) {
+    await setDoc(doc(db, "users", state.user.uid, "notes", note.id), note);
+  } else {
+    const idx = state.notes.findIndex((n) => n.id === note.id);
+    if (idx >= 0) state.notes[idx] = note;
+    else state.notes.unshift(note);
+    saveLocalData();
+    renderNotes();
+    renderScheduleSection();
+  }
+}
+
+// ============================================================================
+// 8. СЖАТИЕ ФОТОГРАФИЙ ЧЕРЕЗ HTML5 CANVAS (ДЛЯ ГАЛЕРЕИ И КАМЕРЫ)
+// ============================================================================
+function compressImageFile(file, maxWidth = 900, quality = 0.72) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const scale = Math.min(1, maxWidth / img.width);
+        const w = Math.round(img.width * scale);
+        const h = Math.round(img.height * scale);
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+// ============================================================================
+// 9. ДИНАМИЧЕСКАЯ ПЛАШКА РЕАЛЬНОГО ВРЕМЕНИ (ТЕКУЩАЯ И СЛЕДУЮЩАЯ ПАРА)
+// ============================================================================
+function updateLiveWidget() {
+  const now = new Date();
+  const todayISO = formatDateISO(now);
+  const nowSec = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+  const clockEl = document.getElementById("live-clock");
+  if (clockEl) {
+    clockEl.textContent = now.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  }
+
+  const visible = getVisibleSchedule();
+  const todayClasses = visible
+    .filter((s) => s.date === todayISO)
+    .sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
+
+  let currentClass = null;
+  let nextClass = null;
+
+  for (const item of todayClasses) {
+    const startSec = timeToMinutes(item.startTime) * 60;
+    const endSec = timeToMinutes(item.endTime) * 60;
+    if (nowSec >= startSec && nowSec < endSec) {
+      currentClass = item;
+    } else if (nowSec < startSec && !nextClass) {
+      nextClass = item;
+    }
+  }
+
+  // Если на сегодня больше пар нет, ищем ближайшую пару в следующие дни
+  if (!nextClass) {
+    const upcoming = visible
+      .filter((s) => s.date > todayISO)
+      .sort((a, b) => a.date.localeCompare(b.date) || timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
+    if (upcoming.length > 0) nextClass = upcoming[0];
+  }
+
+  // Отрисовка блока "Текущая пара"
+  const curTitle = document.getElementById("live-current-title");
+  const curTimer = document.getElementById("live-current-timer");
+  const curMeta = document.getElementById("live-current-meta");
+  const curBox = document.getElementById("live-current-box");
+  const curProgWrap = document.getElementById("live-current-progress-wrap");
+  const curProg = document.getElementById("live-current-progress");
+
+  if (currentClass) {
+    const startSec = timeToMinutes(currentClass.startTime) * 60;
+    const endSec = timeToMinutes(currentClass.endTime) * 60;
+    const remSec = Math.max(0, endSec - nowSec);
+    const remMin = Math.floor(remSec / 60);
+    const remS = String(remSec % 60).padStart(2, "0");
+    const pct = Math.min(100, Math.max(0, Math.round(((nowSec - startSec) / (endSec - startSec)) * 100)));
+
+    curBox.className = "rounded-xl p-2.5 bg-ios-orange/15 border border-ios-orange/50 flex flex-col justify-between";
+    curTitle.textContent = currentClass.subject;
+    curTimer.textContent = `До конца: ${remMin}:${remS}`;
+    curMeta.innerHTML = `<span>${escapeHtml(currentClass.room)} • ${escapeHtml(currentClass.type)}</span><span class="font-bold text-white">${escapeHtml(currentClass.startTime)}–${escapeHtml(currentClass.endTime)}</span>`;
+    curProgWrap.classList.remove("hidden");
+    curProg.style.width = `${pct}%`;
+  } else {
+    curBox.className = "rounded-xl p-2.5 bg-white/[0.04] border border-white/10 flex flex-col justify-between";
+    curTitle.textContent = "Сейчас пары нет";
+    curTimer.textContent = "Свободно";
+    curMeta.innerHTML = `<span>Окно или внеучебное время</span><span></span>`;
+    curProgWrap.classList.add("hidden");
+  }
+
+  // Отрисовка блока "Следующая пара"
+  const nextTitle = document.getElementById("live-next-title");
+  const nextTimer = document.getElementById("live-next-timer");
+  const nextRoom = document.getElementById("live-next-room");
+  const nextRange = document.getElementById("live-next-time-range");
+
+  if (nextClass) {
+    nextTitle.textContent = nextClass.subject;
+    nextRoom.textContent = `${nextClass.room} (${nextClass.type})`;
+    nextRange.textContent = `${nextClass.startTime} – ${nextClass.endTime}`;
+
+    if (nextClass.date === todayISO) {
+      const startSec = timeToMinutes(nextClass.startTime) * 60;
+      const diffMin = Math.ceil((startSec - nowSec) / 60);
+      const h = Math.floor(diffMin / 60);
+      const m = diffMin % 60;
+      nextTimer.textContent = h > 0 ? `Через ${h} ч ${m} мин` : `Через ${m} мин`;
+    } else {
+      const dLabel = parseDateISO(nextClass.date).toLocaleDateString("ru-RU", { weekday: "short", day: "numeric", month: "short" });
+      nextTimer.textContent = dLabel;
+    }
+  } else {
+    nextTitle.textContent = "Нет запланированных пар";
+    nextRoom.textContent = "—";
+    nextRange.textContent = "";
+    nextTimer.textContent = "—";
+  }
+}
+
+// ============================================================================
+// 10. РЕНДЕРИНГ ВСЕХ РАЗДЕЛОВ
+// ============================================================================
 function renderAll() {
   renderScheduleSection();
   renderTasks();
@@ -497,25 +648,49 @@ function renderAll() {
 }
 
 function renderScheduleSection() {
+  const todayISO = getTodayISO();
   const monday = getMondayOfDate(state.selectedDate);
   const weekNum = getStudyWeekNumber(state.selectedDate);
+  const currentActualWeekNum = getStudyWeekNumber(todayISO);
+  const isCurrentStudyWeek = weekNum === currentActualWeekNum;
+
   const isOdd = Math.abs(weekNum) % 2 === 1;
   const parityText = isOdd ? "Нечетная (Числитель)" : "Четная (Знаменатель)";
-
   const saturday = new Date(monday);
   saturday.setDate(monday.getDate() + 5);
+  const fmtShort = (d) => d.toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
 
-  const fmtShort = (d) =>
-    d.toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
+  // Выделение текущей учебной недели ярким оранжевым акцентом
+  const weekHeaderCard = document.getElementById("week-header-card");
+  const weekCurrentBadge = document.getElementById("week-current-badge");
+  const weekTitle = document.getElementById("week-title");
 
-  document.getElementById("week-title").textContent =
-    weekNum >= 1 && weekNum <= 22
-      ? `Учебная неделя №${weekNum}`
-      : `Календарная неделя`;
+  weekTitle.textContent = weekNum >= 1 && weekNum <= 24 ? `Учебная неделя №${weekNum}` : `Календарная неделя`;
+  weekTitle.className = isCurrentStudyWeek ? "text-sm font-extrabold text-ios-orange" : "text-sm font-extrabold text-white";
+  weekCurrentBadge.classList.toggle("hidden", !isCurrentStudyWeek);
+  weekHeaderCard.className = isCurrentStudyWeek
+    ? "ios26-card-orange rounded-3xl p-3.5 space-y-2.5 transition-all"
+    : "ios26-card rounded-3xl p-3.5 space-y-2.5 transition-all";
+
   document.getElementById("week-subtitle").textContent = `${parityText} • ${fmtShort(monday)} – ${fmtShort(saturday)}`;
   document.getElementById("date-jump-picker").value = state.selectedDate;
 
-  // Рендерим кнопки дней недели (ПН - СБ) с реальными датами
+  // Счетчик скрытых пар
+  const hiddenCount = state.hiddenRules.length;
+  const badgeHidden = document.getElementById("badge-hidden-count");
+  const bannerHidden = document.getElementById("hidden-classes-banner");
+  const inlineHiddenCount = document.getElementById("inline-hidden-count");
+  if (badgeHidden) {
+    badgeHidden.textContent = hiddenCount;
+    badgeHidden.classList.toggle("hidden", hiddenCount === 0);
+  }
+  if (bannerHidden && inlineHiddenCount) {
+    inlineHiddenCount.textContent = hiddenCount;
+    bannerHidden.classList.toggle("hidden", hiddenCount === 0);
+  }
+
+  // Переключатель дней недели с ярким оранжевым выделением сегодняшнего дня
+  const visibleSchedule = getVisibleSchedule();
   const dayNames = ["ПН", "ВТ", "СР", "ЧТ", "ПТ", "СБ"];
   const daySelector = document.getElementById("day-selector");
   const buttonsHtml = [];
@@ -525,275 +700,509 @@ function renderScheduleSection() {
     d.setDate(monday.getDate() + i);
     const iso = formatDateISO(d);
     const isSelected = iso === state.selectedDate;
-    const countForDay = state.schedule.filter((s) => s.date === iso).length;
+    const isToday = iso === todayISO;
+    const countForDay = visibleSchedule.filter((s) => s.date === iso).length;
+
+    let btnClass = "ios26-card border-white/10 text-ios-gray font-medium";
+    if (isSelected && isToday) {
+      btnClass = "ios-active-orange font-extrabold";
+    } else if (isSelected) {
+      btnClass = "bg-white text-black border-white font-extrabold shadow-lg";
+    } else if (isToday) {
+      btnClass = "bg-ios-orange/20 border-2 border-ios-orange text-ios-orange font-extrabold";
+    }
 
     buttonsHtml.push(`
-      <button data-select-date="${iso}" class="ios-press flex flex-col items-center py-2 rounded-2xl border transition-all ${
-        isSelected
-          ? "bg-ios-blue border-ios-blue text-white font-bold shadow"
-          : "bg-ios-card border-white/5 text-ios-gray font-medium"
-      }">
-        <span class="text-[10px] opacity-80">${dayNames[i]}</span>
-        <span class="text-sm mt-0.5 ${isSelected ? "text-white" : "text-gray-200"}">${d.getDate()}</span>
+      <button data-select-date="${iso}" class="ios-press relative flex flex-col items-center py-2.5 rounded-2xl border transition-all ${btnClass}">
+        ${isToday ? `<span class="text-[8px] font-black uppercase tracking-tighter ${isSelected ? "text-black" : "text-ios-orange"}">СЕГОДНЯ</span>` : `<span class="text-[10px] opacity-80">${dayNames[i]}</span>`}
+        <span class="text-sm mt-0.5">${d.getDate()}</span>
         <div class="flex gap-0.5 mt-1 h-1.5 items-center">
-          ${
-            countForDay > 0
-              ? Array.from({ length: Math.min(countForDay, 4) })
-                  .map(
-                    () =>
-                      `<span class="w-1 h-1 rounded-full ${
-                        isSelected ? "bg-white" : "bg-ios-blue"
-                      }"></span>`
-                  )
-                  .join("")
-              : ""
-          }
+          ${countForDay > 0 ? Array.from({ length: Math.min(countForDay, 4) }).map(() => `<span class="w-1 h-1 rounded-full ${isSelected ? "bg-current" : isToday ? "bg-ios-orange" : "bg-ios-blue"}"></span>`).join("") : ""}
         </div>
       </button>
     `);
   }
   daySelector.innerHTML = buttonsHtml.join("");
 
-  // Рендерим карточки пар на выбранную дату
+  // Отрисовка карточек пар и мероприятий выбранного дня
   const listEl = document.getElementById("schedule-list");
-  const dayClasses = state.schedule
+  const dayClasses = visibleSchedule
     .filter((item) => item.date === state.selectedDate)
-    .sort((a, b) => Number(a.number) - Number(b.number));
+    .sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime) || Number(a.number || 0) - Number(b.number || 0));
 
   if (dayClasses.length === 0) {
-    const readableDate = parseDateISO(state.selectedDate).toLocaleDateString(
-      "ru-RU",
-      { weekday: "long", day: "numeric", month: "long" }
-    );
+    const readableDate = parseDateISO(state.selectedDate).toLocaleDateString("ru-RU", { weekday: "long", day: "numeric", month: "long" });
     listEl.innerHTML = `
-      <div class="bg-ios-card rounded-2xl p-8 text-center border border-white/5">
-        <div class="w-12 h-12 rounded-2xl bg-ios-elevated text-ios-gray mx-auto flex items-center justify-center mb-3">
+      <div class="ios26-card rounded-3xl p-8 text-center space-y-2">
+        <div class="w-12 h-12 rounded-2xl bg-ios-orange/15 text-ios-orange flex items-center justify-center mx-auto">
           <i data-lucide="coffee" class="w-6 h-6"></i>
         </div>
-        <p class="font-semibold text-base capitalize">${escapeHtml(readableDate)}</p>
-        <p class="text-xs text-ios-gray mt-1">В этот день пар нет. Нажми «+» сверху, чтобы добавить занятие на эту дату, неделю или весь семестр.</p>
+        <p class="font-extrabold text-base capitalize">${escapeHtml(readableDate)}</p>
+        <p class="text-xs text-ios-gray">В этот день пар и мероприятий нет. Нажмите «+» сверху, чтобы добавить занятие или мероприятие.</p>
       </div>
     `;
     refreshIcons();
     return;
   }
 
-  listEl.innerHTML = dayClasses
-    .map(
-      (item) => `
-      <article class="bg-ios-card rounded-2xl p-4 border border-white/5 flex gap-3.5 items-start">
-        <div class="flex flex-col items-center justify-center bg-ios-elevated rounded-xl px-2.5 py-2 min-w-[70px] text-center shrink-0">
-          <span class="text-xs font-bold text-ios-blue">${escapeHtml(item.number)} пара</span>
-          <span class="text-[11px] font-semibold text-white mt-1">${escapeHtml(item.startTime)}</span>
-          <span class="text-[10px] text-ios-gray">${escapeHtml(item.endTime)}</span>
-        </div>
+  const now = new Date();
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
 
-        <div class="flex-1 min-w-0">
-          <div class="flex items-center gap-2 flex-wrap mb-1">
-            <span class="text-[11px] font-semibold px-2 py-0.5 rounded-md border ${getBadgeStyle(item.type)}">
-              ${escapeHtml(item.type)}
+  listEl.innerHTML = dayClasses
+    .map((item) => {
+      const isLiveNow =
+        item.date === todayISO &&
+        nowMinutes >= timeToMinutes(item.startTime) &&
+        nowMinutes < timeToMinutes(item.endTime);
+
+      // Находим ДЗ, привязанные к этому предмету (на эту дату или активные по предмету)
+      const subjectTasks = state.tasks.filter(
+        (t) =>
+          String(t.subject).trim().toLowerCase() === String(item.subject).trim().toLowerCase() &&
+          (t.deadline === item.date || (!t.completed && t.deadline >= item.date))
+      );
+
+      // Находим заметки, привязанные к этой паре (по предмету и дате, либо общие по предмету)
+      const classNotes = state.notes.filter(
+        (n) =>
+          String(n.subject).trim().toLowerCase() === String(item.subject).trim().toLowerCase() &&
+          (!n.date || n.date === item.date)
+      );
+
+      return `
+      <article class="${isLiveNow ? "ios26-card-orange" : "ios26-card"} rounded-3xl p-4 space-y-3.5 transition-all">
+        <!-- Верхняя часть карточки пары -->
+        <div class="flex gap-3.5 items-start">
+          <div class="flex flex-col items-center justify-center ${isLiveNow ? "ios-active-orange" : "bg-white/[0.06] border border-white/10"} rounded-2xl px-2.5 py-2.5 min-w-[74px] text-center shrink-0">
+            <span class="text-[11px] font-extrabold ${isLiveNow ? "text-black" : item.isEvent ? "text-ios-purple" : "text-ios-orange"}">
+              ${item.isEvent ? "Событие" : `${escapeHtml(item.number)} пара`}
             </span>
-            <span class="text-xs text-ios-gray flex items-center gap-1">
-              <i data-lucide="map-pin" class="w-3 h-3"></i>
-              ${escapeHtml(item.room)}
-            </span>
+            <span class="text-xs font-extrabold ${isLiveNow ? "text-black" : "text-white"} mt-1">${escapeHtml(item.startTime)}</span>
+            <span class="text-[10px] ${isLiveNow ? "text-black/80" : "text-ios-gray"}">${escapeHtml(item.endTime)}</span>
           </div>
 
-          <h3 class="font-bold text-base leading-snug text-white break-words">
-            ${escapeHtml(item.subject)}
-          </h3>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-1.5 flex-wrap mb-1">
+              ${isLiveNow ? `<span class="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-ios-orange text-black">Идет сейчас</span>` : ""}
+              <span class="text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${getBadgeStyle(item.type)}">${escapeHtml(item.type)}</span>
+              <span class="text-xs text-gray-300 flex items-center gap-1">
+                <i data-lucide="map-pin" class="w-3 h-3 text-ios-orange"></i>${escapeHtml(item.room)}
+              </span>
+            </div>
+            <h3 class="font-extrabold text-base leading-snug text-white break-words">${escapeHtml(item.subject)}</h3>
+            ${item.teacher ? `<p class="text-xs text-ios-gray mt-1 flex items-center gap-1.5"><i data-lucide="user" class="w-3.5 h-3.5"></i><span>${escapeHtml(item.teacher)}</span></p>` : ""}
+          </div>
+
+          <!-- Кнопки управления парой -->
+          <div class="flex items-center gap-1 shrink-0">
+            <button data-copy-next-week="${item.id}" class="ios-press w-8 h-8 rounded-xl ios26-pill text-ios-gray hover:text-ios-orange flex items-center justify-center" title="Перенести / дублировать на следующую неделю">
+              <i data-lucide="calendar-plus" class="w-4 h-4"></i>
+            </button>
+            <button data-edit-schedule="${item.id}" class="ios-press w-8 h-8 rounded-xl ios26-pill text-ios-gray hover:text-white flex items-center justify-center" title="Изменить">
+              <i data-lucide="pencil" class="w-4 h-4"></i>
+            </button>
+            <button data-ask-delete-schedule="${item.id}" class="ios-press w-8 h-8 rounded-xl ios26-pill text-ios-gray hover:text-ios-red flex items-center justify-center" title="Скрыть или убрать пару">
+              <i data-lucide="eye-off" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Встроенный блок ДЗ прямо в карточке пары -->
+        <div class="pt-2.5 border-t border-white/10 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-bold uppercase tracking-wider text-ios-gray flex items-center gap-1.5">
+              <i data-lucide="check-circle-2" class="w-3.5 h-3.5 text-ios-orange"></i>
+              Домашнее задание (${subjectTasks.length})
+            </span>
+            <button data-quick-add-task="${item.id}" class="ios-press text-xs font-bold text-ios-orange flex items-center gap-1">
+              <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i>
+              <span>Добавить ДЗ</span>
+            </button>
+          </div>
 
           ${
-            item.teacher
-              ? `<p class="text-xs text-ios-gray mt-1 flex items-center gap-1.5">
-                   <i data-lucide="user" class="w-3.5 h-3.5"></i>
-                   <span>${escapeHtml(item.teacher)}</span>
-                 </p>`
-              : ""
+            subjectTasks.length > 0
+              ? `<div class="space-y-1.5">
+                  ${subjectTasks
+                    .map(
+                      (t) => `
+                    <div class="rounded-2xl bg-black/35 border border-white/10 p-2.5 flex items-start gap-2.5">
+                      <button data-toggle-task="${t.id}" class="ios-press mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${t.completed ? "bg-ios-green border-ios-green text-black" : "border-ios-orange"}">
+                        ${t.completed ? '<i data-lucide="check" class="w-3 h-3 stroke-[3]"></i>' : ""}
+                      </button>
+                      <div class="flex-1 min-w-0">
+                        <p class="text-xs font-medium text-white break-words ${t.completed ? "line-through text-ios-gray" : ""}">${escapeHtml(t.text)}</p>
+                        <div class="flex items-center gap-2 mt-1 flex-wrap">
+                          <span class="text-[10px] text-ios-orange bg-ios-orange/15 px-2 py-0.5 rounded-md font-semibold">До: ${escapeHtml(formatShortDate(t.deadline))}</span>
+                          <button data-shift-task-week="${t.id}" class="text-[10px] text-ios-blue hover:underline font-semibold">На след. нед. (+7д)</button>
+                          <button data-edit-task="${t.id}" class="text-[10px] text-ios-gray hover:text-white">Изм.</button>
+                        </div>
+                        ${renderPhotosRow(t.photos)}
+                      </div>
+                    </div>
+                  `
+                    )
+                    .join("")}
+                </div>`
+              : `<p class="text-[11px] text-ios-gray/70 italic">ДЗ не записано</p>`
           }
         </div>
 
-        <div class="flex flex-col gap-1 shrink-0">
-          <button data-edit-schedule="${item.id}" class="ios-press text-ios-gray hover:text-ios-blue p-1.5 rounded-lg" title="Изменить">
-            <i data-lucide="pencil" class="w-4 h-4"></i>
-          </button>
-          <button data-ask-delete-schedule="${item.id}" class="ios-press text-ios-gray hover:text-ios-red p-1.5 rounded-lg" title="Удалить">
-            <i data-lucide="trash-2" class="w-4 h-4"></i>
-          </button>
+        <!-- Встроенный блок личной заметки прямо в карточке пары -->
+        <div class="pt-2.5 border-t border-white/10 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-bold uppercase tracking-wider text-ios-gray flex items-center gap-1.5">
+              <i data-lucide="notebook-pen" class="w-3.5 h-3.5 text-ios-blue"></i>
+              Личная заметка к паре
+            </span>
+            <button data-quick-add-note="${item.id}" class="ios-press text-xs font-bold text-ios-blue flex items-center gap-1">
+              <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i>
+              <span>К этой / следующей паре</span>
+            </button>
+          </div>
+
+          ${
+            classNotes.length > 0
+              ? `<div class="space-y-1.5">
+                  ${classNotes
+                    .map(
+                      (n) => `
+                    <div class="rounded-2xl bg-black/35 border border-white/10 p-2.5 space-y-1.5">
+                      <div class="flex items-center justify-between gap-2">
+                        <span class="text-[10px] font-semibold text-ios-blue">${n.date ? `К паре ${formatShortDate(n.date)}` : "Общая по предмету"}</span>
+                        <div class="flex items-center gap-1.5">
+                          <button data-edit-note="${n.id}" class="text-[10px] text-ios-gray hover:text-white">Изм.</button>
+                          <button data-delete-note="${n.id}" class="text-[10px] text-ios-gray hover:text-ios-red">Удал.</button>
+                        </div>
+                      </div>
+                      <p class="text-xs text-gray-200 whitespace-pre-wrap break-words">${escapeHtml(n.content)}</p>
+                      ${renderPhotosRow(n.photos)}
+                    </div>
+                  `
+                    )
+                    .join("")}
+                </div>`
+              : ""
+          }
+
+          <!-- Поле быстрой заметки прямо внутри карточки -->
+          <div class="flex items-center gap-1.5">
+            <input type="text" data-inline-note-input="${item.id}" placeholder="Быстрая заметка к этой паре (Enter)..." class="flex-1 bg-black/40 border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white placeholder-ios-gray outline-none focus:border-ios-orange" />
+            <button data-inline-note-save="${item.id}" class="ios-press px-2.5 py-1.5 rounded-xl ios26-pill text-ios-orange text-xs font-bold">ОК</button>
+          </div>
         </div>
       </article>
-    `
-    )
+    `;
+    })
     .join("");
 
   refreshIcons();
 }
 
-function getBadgeStyle(type) {
-  const t = String(type).toLowerCase();
-  if (t.includes("дистант")) return "bg-ios-indigo/20 text-ios-indigo border-ios-indigo/40";
-  if (t.includes("лаб")) return "bg-ios-orange/15 text-ios-orange border-ios-orange/30";
-  if (t.includes("практ")) return "bg-ios-green/15 text-ios-green border-ios-green/30";
-  return "bg-ios-blue/15 text-ios-blue border-ios-blue/30";
+function renderPhotosRow(photos) {
+  if (!Array.isArray(photos) || photos.length === 0) return "";
+  return `
+    <div class="flex gap-1.5 overflow-x-auto no-scrollbar pt-1.5">
+      ${photos
+        .map(
+          (src) => `
+        <img src="${src}" data-view-photo="${src}" alt="Вложение" class="w-14 h-14 rounded-xl object-cover border border-white/15 cursor-pointer shrink-0 hover:opacity-90" />
+      `
+        )
+        .join("")}
+    </div>
+  `;
 }
 
-/* ==========================================================================
-   9. ДОМАШНИЕ ЗАДАНИЯ И ЗАМЕТКИ
-   ========================================================================== */
+function formatShortDate(dateStr) {
+  if (!dateStr) return "—";
+  const d = parseDateISO(dateStr.slice(0, 10));
+  if (isNaN(d)) return dateStr;
+  return d.toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
+}
+
+function getBadgeStyle(type) {
+  const t = String(type).toLowerCase();
+  if (t.includes("мероприят") || t.includes("событ")) return "bg-ios-purple/20 text-ios-purple border-ios-purple/40";
+  if (t.includes("дистант")) return "bg-ios-indigo/20 text-ios-indigo border-ios-indigo/40";
+  if (t.includes("лаб")) return "bg-ios-orange/20 text-ios-orange border-ios-orange/40";
+  if (t.includes("практ")) return "bg-ios-green/20 text-ios-green border-ios-green/40";
+  return "bg-ios-blue/20 text-ios-blue border-ios-blue/40";
+}
+
+// ============================================================================
+// 11. РЕНДЕРИНГ ТРЕКЕРА ДЗ
+// ============================================================================
 function renderTasks() {
   const container = document.getElementById("tasks-list");
+  const todayISO = getTodayISO();
+  const currentWeekNum = getStudyWeekNumber(state.selectedDate);
+
   const activeTasks = state.tasks.filter((t) => !t.completed);
   const completedTasks = state.tasks.filter((t) => t.completed);
+  const weekTasks = state.tasks.filter((t) => !t.completed && getStudyWeekNumber(String(t.deadline).slice(0, 10)) === currentWeekNum);
 
   document.getElementById("count-active-tasks").textContent = activeTasks.length;
+  document.getElementById("count-week-tasks").textContent = weekTasks.length;
   document.getElementById("count-completed-tasks").textContent = completedTasks.length;
 
   const badge = document.getElementById("nav-badge-tasks");
   badge.textContent = activeTasks.length;
   badge.classList.toggle("hidden", activeTasks.length === 0);
 
-  const list = state.taskFilter === "active" ? activeTasks : completedTasks;
-  list.sort((a, b) => new Date(a.deadline) - new Date(b.deadline));
+  let list = activeTasks;
+  if (state.taskFilter === "this-week") list = weekTasks;
+  else if (state.taskFilter === "completed") list = completedTasks;
+
+  list.sort((a, b) => String(a.deadline).localeCompare(String(b.deadline)));
 
   if (list.length === 0) {
     container.innerHTML = `
-      <div class="bg-ios-card rounded-2xl p-8 text-center border border-white/5">
-        <p class="font-semibold text-base">${
-          state.taskFilter === "active" ? "Нет активных заданий" : "Нет выполненных заданий"
-        }</p>
-        <p class="text-xs text-ios-gray mt-1">Нажми «+» в правом верхнем углу, чтобы добавить дедлайн.</p>
-      </div>
-    `;
+      <div class="ios26-card rounded-3xl p-8 text-center">
+        <p class="font-bold text-base">Заданий в этой категории нет</p>
+        <p class="text-xs text-ios-gray mt-1">Нажмите «Добавить ДЗ» выше или прямо в карточке нужной пары</p>
+      </div>`;
     return;
   }
 
   container.innerHTML = list
     .map((task) => {
-      const d = new Date(task.deadline);
-      const overdue = !task.completed && d < new Date();
-      const dateLabel = isNaN(d)
-        ? task.deadline
-        : d.toLocaleString("ru-RU", {
-            day: "2-digit",
-            month: "short",
-            hour: "2-digit",
-            minute: "2-digit"
-          });
+      const deadlineDate = String(task.deadline).slice(0, 10);
+      const overdue = !task.completed && deadlineDate < todayISO;
+      const dateLabel = formatShortDate(deadlineDate);
 
       return `
-        <article class="bg-ios-card rounded-2xl p-4 border border-white/5 flex items-start gap-3.5">
-          <button data-toggle-task="${task.id}" class="ios-press mt-0.5 w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 ${
-            task.completed
-              ? "bg-ios-green border-ios-green text-black"
-              : "border-ios-gray"
-          }">
+      <article class="ios26-card rounded-3xl p-4 space-y-2.5">
+        <div class="flex items-start gap-3">
+          <button data-toggle-task="${task.id}" class="ios-press mt-0.5 w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 ${task.completed ? "bg-ios-green border-ios-green text-black" : "border-ios-orange"}">
             ${task.completed ? '<i data-lucide="check" class="w-3.5 h-3.5 stroke-[3]"></i>' : ""}
           </button>
+
           <div class="flex-1 min-w-0">
-            <div class="flex items-center justify-between gap-2 mb-1">
-              <span class="text-xs font-semibold text-ios-blue truncate">${escapeHtml(task.subject)}</span>
-              <span class="text-[11px] font-medium px-2 py-0.5 rounded-md ${
-                overdue ? "bg-ios-red/20 text-ios-red" : "bg-ios-elevated text-ios-gray"
-              }">${escapeHtml(dateLabel)}</span>
+            <div class="flex items-center justify-between gap-2 mb-1 flex-wrap">
+              <span class="text-xs font-extrabold text-ios-orange truncate">${escapeHtml(task.subject)}</span>
+              <span class="text-[11px] font-bold px-2.5 py-0.5 rounded-full ${overdue ? "bg-ios-red/20 text-ios-red border border-ios-red/40" : "bg-white/10 text-gray-200"}">
+                Дедлайн: ${escapeHtml(dateLabel)}
+              </span>
             </div>
-            <p class="text-sm text-white break-words ${task.completed ? "line-through text-ios-gray" : ""}">
-              ${escapeHtml(task.text)}
-            </p>
+            <p class="text-sm text-white break-words ${task.completed ? "line-through text-ios-gray" : ""}">${escapeHtml(task.text)}</p>
+            ${renderPhotosRow(task.photos)}
+
+            <div class="flex items-center gap-3 mt-2 pt-2 border-t border-white/10 text-xs">
+              <button data-shift-task-week="${task.id}" class="ios-press text-ios-blue font-semibold flex items-center gap-1">
+                <i data-lucide="calendar-plus" class="w-3.5 h-3.5"></i>
+                <span>На след. неделю (+7д)</span>
+              </button>
+              <button data-edit-task="${task.id}" class="ios-press text-ios-gray hover:text-white font-semibold ml-auto">Изменить</button>
+              <button data-delete-task="${task.id}" class="ios-press text-ios-gray hover:text-ios-red font-semibold">Удалить</button>
+            </div>
           </div>
-          <button data-delete-task="${task.id}" class="ios-press text-ios-gray hover:text-ios-red p-1">
-            <i data-lucide="trash-2" class="w-4 h-4"></i>
-          </button>
-        </article>
-      `;
+        </div>
+      </article>
+    `;
     })
     .join("");
   refreshIcons();
 }
 
+// ============================================================================
+// 12. РЕНДЕРИНГ ОБЪЕДИНЕННОГО РАЗДЕЛА ЗАМЕТОК (ЛОКАЛЬНЫЕ + GOOGLE)
+// ============================================================================
 function renderNotes() {
   const container = document.getElementById("notes-list");
-  if (state.notes.length === 0) {
+  let list = [...state.notes];
+
+  if (state.noteFilter === "local") {
+    list = list.filter((n) => n.source !== "google");
+  } else if (state.noteFilter === "google") {
+    list = list.filter((n) => n.source === "google" || n.syncedWithGoogle);
+  }
+
+  if (list.length === 0) {
     container.innerHTML = `
-      <div class="bg-ios-card rounded-2xl p-8 text-center border border-white/5">
-        <p class="font-semibold text-base">Заметок пока нет</p>
-        <p class="text-xs text-ios-gray mt-1">Нажми «+», чтобы создать карточку заметки к нужному предмету.</p>
-      </div>
-    `;
+      <div class="ios26-card rounded-3xl p-8 text-center">
+        <p class="font-bold text-base">Заметок пока нет</p>
+        <p class="text-xs text-ios-gray mt-1">Добавляйте заметки прямо в карточках пар или синхронизируйте с Google</p>
+      </div>`;
     return;
   }
 
-  container.innerHTML = state.notes
-    .map(
-      (note) => `
-      <article class="bg-ios-card rounded-2xl p-4 border border-white/5 space-y-2.5">
-        <div class="flex items-center justify-between gap-2 ios-hairline-b pb-2">
-          <h3 class="font-bold text-sm text-white truncate">${escapeHtml(note.subject)}</h3>
-          <button data-delete-note="${note.id}" class="ios-press text-ios-gray hover:text-ios-red p-1">
-            <i data-lucide="trash-2" class="w-4 h-4"></i>
-          </button>
+  container.innerHTML = list
+    .map((note) => {
+      const isGoogle = note.source === "google" || note.syncedWithGoogle;
+      return `
+      <article class="ios26-card rounded-3xl p-4 space-y-2.5">
+        <div class="flex items-center justify-between gap-2 border-b border-white/10 pb-2.5">
+          <div class="min-w-0">
+            <div class="flex items-center gap-1.5 flex-wrap">
+              <span class="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full ${isGoogle ? "bg-ios-blue/20 text-ios-blue border border-ios-blue/40" : "bg-ios-orange/20 text-ios-orange"}">
+                ${isGoogle ? "Google + Локально" : "К паре"}
+              </span>
+              ${note.date ? `<span class="text-[11px] text-ios-gray font-medium">${escapeHtml(formatShortDate(note.date))}</span>` : ""}
+            </div>
+            <h3 class="font-extrabold text-sm text-white truncate mt-1">${escapeHtml(note.subject)}</h3>
+          </div>
+          <div class="flex items-center gap-1 shrink-0">
+            <button data-edit-note="${note.id}" class="ios-press text-ios-gray hover:text-white p-1.5"><i data-lucide="pencil" class="w-4 h-4"></i></button>
+            <button data-delete-note="${note.id}" class="ios-press text-ios-gray hover:text-ios-red p-1.5"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+          </div>
         </div>
-        <textarea data-note-input="${note.id}" rows="4" placeholder="Пиши заметку здесь..." class="w-full bg-ios-elevated/60 rounded-xl p-3 text-white placeholder-ios-gray outline-none focus:ring-1 focus:ring-ios-blue resize-y">${escapeHtml(note.content || "")}</textarea>
+        <textarea data-note-input="${note.id}" rows="3" class="w-full bg-black/35 rounded-2xl p-3 text-xs text-white placeholder-ios-gray outline-none focus:ring-1 focus:ring-ios-orange resize-y">${escapeHtml(note.content || "")}</textarea>
+        ${renderPhotosRow(note.photos)}
       </article>
-    `
-    )
+    `;
+    })
     .join("");
   refreshIcons();
+}
+
+// ============================================================================
+// 13. РЕНДЕРИНГ МОДАЛЬНОГО ОКНА СКРЫТЫХ ПАР
+// ============================================================================
+function renderHiddenClassesModal() {
+  const container = document.getElementById("hidden-classes-list");
+  if (state.hiddenRules.length === 0) {
+    container.innerHTML = `<div class="p-6 text-center text-xs text-ios-gray">Скрытых пар сейчас нет. Все предметы отображаются в расписании.</div>`;
+    return;
+  }
+
+  container.innerHTML = state.hiddenRules
+    .map(
+      (rule) => `
+    <div class="bg-ios-elevated rounded-2xl p-3.5 flex items-center justify-between gap-3">
+      <div class="min-w-0">
+        <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded-md ${rule.mode === "forever" ? "bg-ios-red/20 text-ios-red" : "bg-ios-orange/20 text-ios-orange"}">
+          ${rule.mode === "forever" ? "Скрыто насовсем" : `Только на неделе №${rule.weekNum}`}
+        </span>
+        <p class="text-sm font-bold text-white truncate mt-1">${escapeHtml(rule.subject)}</p>
+      </div>
+      <button data-restore-hidden="${rule.id}" class="ios-press px-3 py-1.5 rounded-xl bg-ios-green/20 border border-ios-green/40 text-ios-green text-xs font-bold shrink-0">
+        Вернуть
+      </button>
+    </div>
+  `
+    )
+    .join("");
 }
 
 function updateSubjectsDatalist() {
   const dl = document.getElementById("subjects-datalist");
   if (!dl) return;
   const subjects = [...new Set(state.schedule.map((s) => s.subject))];
-  dl.innerHTML = subjects
-    .map((s) => `<option value="${escapeHtml(s)}"></option>`)
+  dl.innerHTML = subjects.map((s) => `<option value="${escapeHtml(s)}"></option>`).join("");
+}
+
+// ============================================================================
+// 14. УМНОЕ РАСПРЕДЕЛЕНИЕ ДАТЫ ДЛЯ ДЗ И ЗАМЕТОК
+// ============================================================================
+function applyTaskTargetMode(mode) {
+  state.taskTargetMode = mode;
+  document.querySelectorAll(".task-target-btn").forEach((btn) => {
+    const active = btn.dataset.taskTarget === mode;
+    btn.className = `task-target-btn py-2 rounded-xl text-xs font-bold transition-all ${active ? "bg-ios-orange text-black" : "text-ios-gray"}`;
+  });
+
+  const subj = document.getElementById("task-subject").value.trim();
+  const baseDate = state.contextClassItem?.date || state.selectedDate;
+  const dateInput = document.getElementById("task-deadline");
+  const hint = document.getElementById("task-target-hint");
+
+  if (mode === "current") {
+    dateInput.value = baseDate;
+    hint.textContent = `Запишется на текущую пару (${formatShortDate(baseDate)})`;
+  } else if (mode === "next") {
+    const nextDate = findNextClassDateForSubject(subj, baseDate);
+    dateInput.value = nextDate;
+    hint.textContent = `Автоматически найдена следующая пара: ${formatShortDate(nextDate)}`;
+  } else {
+    hint.textContent = `Выберите любую удобную дату в поле ниже`;
+    dateInput.focus();
+  }
+}
+
+function applyNoteTargetMode(mode) {
+  state.noteTargetMode = mode;
+  document.querySelectorAll(".note-target-btn").forEach((btn) => {
+    const active = btn.dataset.noteTarget === mode;
+    btn.className = `note-target-btn py-2 rounded-xl text-xs font-bold transition-all ${active ? "bg-ios-orange text-black" : "text-ios-gray"}`;
+  });
+
+  const subj = document.getElementById("note-subject").value.trim();
+  const baseDate = state.contextClassItem?.date || state.selectedDate;
+  const dateInput = document.getElementById("note-date");
+  const hint = document.getElementById("note-target-hint");
+
+  if (mode === "current") {
+    dateInput.value = baseDate;
+    hint.textContent = `Заметка прикрепится к паре ${formatShortDate(baseDate)}`;
+  } else if (mode === "next") {
+    const nextDate = findNextClassDateForSubject(subj, baseDate);
+    dateInput.value = nextDate;
+    hint.textContent = `Заметка перенесена на следующую пару (${formatShortDate(nextDate)})`;
+  } else {
+    hint.textContent = `Выберите дату пары вручную`;
+    dateInput.focus();
+  }
+}
+
+function renderDraftPhotos(containerId, photosArray, type) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  if (photosArray.length === 0) {
+    el.innerHTML = "";
+    return;
+  }
+  el.innerHTML = photosArray
+    .map(
+      (src, idx) => `
+    <div class="relative shrink-0">
+      <img src="${src}" class="w-16 h-16 rounded-xl object-cover border border-white/20" />
+      <button type="button" data-remove-draft-photo="${type}:${idx}" class="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-ios-red text-white text-[10px] font-bold flex items-center justify-center">✕</button>
+    </div>
+  `
+    )
     .join("");
 }
 
-/* ==========================================================================
-   10. ОБРАБОТЧИКИ КНОПОК И ФОРМ
-   ========================================================================== */
+// ============================================================================
+// 15. ОБРАБОТЧИКИ СОБЫТИЙ ИНТЕРФЕЙСА
+// ============================================================================
 function setScopeMode(scope) {
   state.addScope = scope;
   document.querySelectorAll(".scope-btn").forEach((btn) => {
     const active = btn.dataset.scope === scope;
-    btn.className = `scope-btn py-1.5 rounded-lg text-xs font-semibold transition-all ${
-      active ? "bg-ios-blue text-white" : "text-ios-gray"
-    }`;
+    btn.className = `scope-btn py-1.5 rounded-xl text-[11px] font-bold transition-all ${active ? "bg-ios-orange text-black" : "text-ios-gray"}`;
   });
   document.getElementById("scope-box-date").classList.toggle("hidden", scope !== "date");
-  document.getElementById("scope-box-week").classList.toggle("hidden", scope !== "week");
+  document.getElementById("scope-box-week").classList.toggle("hidden", scope !== "week" && scope !== "next-week");
   document.getElementById("scope-box-semester").classList.toggle("hidden", scope !== "semester");
 }
 
 function initUIListeners() {
   // Навигация по неделям
   document.getElementById("btn-prev-week").addEventListener("click", () => {
-    const d = parseDateISO(state.selectedDate);
-    d.setDate(d.getDate() - 7);
-    state.selectedDate = formatDateISO(d);
+    state.selectedDate = addDaysISO(state.selectedDate, -7);
     renderScheduleSection();
   });
-
   document.getElementById("btn-next-week").addEventListener("click", () => {
-    const d = parseDateISO(state.selectedDate);
-    d.setDate(d.getDate() + 7);
-    state.selectedDate = formatDateISO(d);
+    state.selectedDate = addDaysISO(state.selectedDate, 7);
     renderScheduleSection();
   });
-
   document.getElementById("btn-today").addEventListener("click", () => {
     state.selectedDate = getInitialStudyDate();
     renderScheduleSection();
   });
-
+  document.getElementById("btn-jump-next-week").addEventListener("click", () => {
+    const nextWeekDate = addDaysISO(getInitialStudyDate(), 7);
+    state.selectedDate = nextWeekDate;
+    renderScheduleSection();
+  });
   document.getElementById("date-jump-picker").addEventListener("change", (e) => {
     if (e.target.value) {
       state.selectedDate = e.target.value;
       renderScheduleSection();
     }
   });
-
-  // Клик по дню недели (ПН - СБ)
   document.getElementById("day-selector").addEventListener("click", (e) => {
     const btn = e.target.closest("[data-select-date]");
     if (btn) {
@@ -802,12 +1211,10 @@ function initUIListeners() {
     }
   });
 
-  // Переключение режимов добавления (На дату / На неделю / На семестр)
+  // Переключатели в модальном окне добавления пары
   document.querySelectorAll(".scope-btn").forEach((btn) => {
     btn.addEventListener("click", () => setScopeMode(btn.dataset.scope));
   });
-
-  // Автоподстановка времени звонков при выборе номера пары
   document.getElementById("sched-number").addEventListener("change", (e) => {
     const bell = BELL_SCHEDULE[e.target.value];
     if (bell) {
@@ -816,7 +1223,54 @@ function initUIListeners() {
     }
   });
 
-  // Кнопка "+" в шапке
+  // Открытие модального окна Мероприятия
+  document.getElementById("btn-add-event").addEventListener("click", () => {
+    document.getElementById("form-event").reset();
+    document.getElementById("event-date-from").value = state.selectedDate;
+    document.getElementById("event-date-to").value = state.selectedDate;
+    openModal("modal-event");
+  });
+
+  // Сохранение произвольного Мероприятия (на дату или диапазон дат)
+  document.getElementById("form-event").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const title = document.getElementById("event-title").value.trim();
+    const fromStr = document.getElementById("event-date-from").value;
+    const toStr = document.getElementById("event-date-to").value || fromStr;
+    const startTime = document.getElementById("event-start").value;
+    const endTime = document.getElementById("event-end").value;
+    const location = document.getElementById("event-location").value.trim() || "Мероприятие";
+
+    const startD = parseDateISO(fromStr);
+    const endD = parseDateISO(toStr);
+    const items = [];
+    let idx = 0;
+
+    for (let d = new Date(startD); d <= endD; d.setDate(d.getDate() + 1)) {
+      const iso = formatDateISO(d);
+      items.push({
+        id: `event_${iso}_${Date.now()}_${idx++}`,
+        date: iso,
+        number: 0,
+        startTime,
+        endTime,
+        subject: title,
+        type: "Мероприятие",
+        room: location,
+        teacher: "",
+        isEvent: true
+      });
+    }
+
+    if (items.length > 0) {
+      await saveScheduleItems(items);
+      state.selectedDate = items[0].date;
+      renderScheduleSection();
+    }
+    closeModal("modal-event");
+  });
+
+  // Верхняя кнопка "+"
   document.getElementById("btn-header-add").addEventListener("click", () => {
     if (state.activeTab === "schedule") {
       document.getElementById("form-schedule").reset();
@@ -824,60 +1278,109 @@ function initUIListeners() {
       document.getElementById("modal-schedule-title").textContent = "Добавить пару";
       document.getElementById("scope-selector-wrapper").classList.remove("hidden");
       document.getElementById("sched-date").value = state.selectedDate;
-
       const dayOfWeek = parseDateISO(state.selectedDate).getDay() || 1;
       document.getElementById("sched-sem-day").value = String(dayOfWeek);
-      document.querySelectorAll(".week-day-cb").forEach((cb) => {
-        cb.checked = Number(cb.value) === dayOfWeek;
-      });
-
       setScopeMode("date");
       openModal("modal-schedule");
     } else if (state.activeTab === "tasks") {
-      const tomorrow = new Date(Date.now() + 86400000);
-      tomorrow.setHours(9, 0, 0, 0);
-      const tzOffset = tomorrow.getTimezoneOffset() * 60000;
-      document.getElementById("task-deadline").value = new Date(tomorrow - tzOffset)
-        .toISOString()
-        .slice(0, 16);
-      openModal("modal-task");
+      openTaskModalFor(null);
     } else {
-      openModal("modal-note");
+      openNoteModalFor(null);
     }
   });
 
-  // Кнопка настроек расписания (Импорт / Сброс)
-  document.getElementById("btn-tools").addEventListener("click", () => {
-    openModal("modal-tools");
-  });
+  document.getElementById("btn-new-task-top").addEventListener("click", () => openTaskModalFor(null));
+  document.getElementById("btn-new-note-top").addEventListener("click", () => openNoteModalFor(null));
 
-  document.getElementById("btn-restore-default").addEventListener("click", async () => {
-    const def = buildDefaultSchedule();
-    state.schedule = def;
-    saveLocalData();
-    if (state.user && db) {
-      await uploadBatchScheduleToCloud(def);
-    }
-    renderScheduleSection();
-    updateSubjectsDatalist();
+  // Кнопки управления скрытыми парами
+  const openHiddenModal = () => {
+    renderHiddenClassesModal();
+    openModal("modal-hidden-classes");
+  };
+  document.getElementById("btn-hidden-classes").addEventListener("click", openHiddenModal);
+  document.getElementById("btn-open-hidden-inline").addEventListener("click", openHiddenModal);
+  document.getElementById("btn-open-hidden-from-tools").addEventListener("click", () => {
     closeModal("modal-tools");
+    openHiddenModal();
   });
 
-  document.getElementById("ics-file-input").addEventListener("change", async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const text = await file.text();
-    const imported = parseICSFile(text);
-    if (imported.length === 0) {
-      alert("Не удалось найти пары в файле .ics");
-      return;
+  document.getElementById("btn-restore-all-hidden").addEventListener("click", async () => {
+    const ids = state.hiddenRules.map((r) => r.id);
+    for (const id of ids) await removeHiddenRule(id);
+    renderHiddenClassesModal();
+    closeModal("modal-hidden-classes");
+  });
+
+  // Кнопки внутри модалки скрытия/удаления пары
+  document.getElementById("btn-hide-this-week").addEventListener("click", async () => {
+    const item = state.pendingDeleteItem;
+    if (!item) return;
+    const weekNum = getStudyWeekNumber(item.date);
+    await saveHiddenRule({
+      id: `hide_week_${weekNum}_${item.subject}_${item.number}`,
+      mode: "week",
+      weekNum,
+      subject: item.subject,
+      number: item.number
+    });
+    closeModal("modal-delete-schedule");
+  });
+
+  document.getElementById("btn-hide-forever").addEventListener("click", async () => {
+    const item = state.pendingDeleteItem;
+    if (!item) return;
+    await saveHiddenRule({
+      id: `hide_forever_${item.subject}`,
+      mode: "forever",
+      subject: item.subject,
+      number: item.number
+    });
+    closeModal("modal-delete-schedule");
+  });
+
+  document.getElementById("btn-del-single").addEventListener("click", async () => {
+    if (!state.pendingDeleteItem) return;
+    await removeScheduleItemsByIds([state.pendingDeleteItem.id]);
+    closeModal("modal-delete-schedule");
+  });
+
+  // Умные переключатели в форме ДЗ и Заметок
+  document.querySelectorAll(".task-target-btn").forEach((btn) => {
+    btn.addEventListener("click", () => applyTaskTargetMode(btn.dataset.taskTarget));
+  });
+  document.getElementById("task-subject").addEventListener("change", () => {
+    if (state.taskTargetMode === "next") applyTaskTargetMode("next");
+  });
+
+  document.querySelectorAll(".note-target-btn").forEach((btn) => {
+    btn.addEventListener("click", () => applyNoteTargetMode(btn.dataset.noteTarget));
+  });
+  document.getElementById("note-subject").addEventListener("change", () => {
+    if (state.noteTargetMode === "next") applyNoteTargetMode("next");
+  });
+
+  // Прикрепление фото к ДЗ и Заметкам
+  document.getElementById("task-photo-input").addEventListener("change", async (e) => {
+    const files = [...(e.target.files || [])];
+    for (const f of files) {
+      const dataUrl = await compressImageFile(f);
+      state.draftTaskPhotos.push(dataUrl);
     }
-    await saveScheduleItems(imported);
+    renderDraftPhotos("task-photos-preview", state.draftTaskPhotos, "task");
     e.target.value = "";
-    closeModal("modal-tools");
   });
 
-  // Сохранение пары (На дату / На неделю / На весь семестр / Редактирование)
+  document.getElementById("note-photo-input").addEventListener("change", async (e) => {
+    const files = [...(e.target.files || [])];
+    for (const f of files) {
+      const dataUrl = await compressImageFile(f);
+      state.draftNotePhotos.push(dataUrl);
+    }
+    renderDraftPhotos("note-photos-preview", state.draftNotePhotos, "note");
+    e.target.value = "";
+  });
+
+  // Сохранение пары
   document.getElementById("form-schedule").addEventListener("submit", async (e) => {
     e.preventDefault();
     const editId = document.getElementById("sched-edit-id").value;
@@ -888,37 +1391,31 @@ function initUIListeners() {
     const type = document.getElementById("sched-type").value;
     const room = document.getElementById("sched-room").value.trim();
     const teacher = document.getElementById("sched-teacher").value.trim();
-
     const targetDates = [];
 
     if (editId) {
-      // Редактирование конкретной пары
       const singleDate = document.getElementById("sched-date").value;
-      await saveScheduleItems([
-        { id: editId, date: singleDate, number, startTime, endTime, subject, type, room, teacher }
-      ]);
+      await saveScheduleItems([{ id: editId, date: singleDate, number, startTime, endTime, subject, type, room, teacher }]);
       closeModal("modal-schedule");
       return;
     }
 
     if (state.addScope === "date") {
       targetDates.push(document.getElementById("sched-date").value);
-    } else if (state.addScope === "week") {
-      const monday = getMondayOfDate(state.selectedDate);
-      const checkedDays = [...document.querySelectorAll(".week-day-cb:checked")].map((cb) =>
-        Number(cb.value)
-      );
+    } else if (state.addScope === "week" || state.addScope === "next-week") {
+      const baseMonday = getMondayOfDate(state.selectedDate);
+      if (state.addScope === "next-week") baseMonday.setDate(baseMonday.getDate() + 7);
+      const checkedDays = [...document.querySelectorAll(".week-day-cb:checked")].map((cb) => Number(cb.value));
       for (const dayIdx of checkedDays) {
-        const d = new Date(monday);
-        d.setDate(monday.getDate() + (dayIdx - 1));
+        const d = new Date(baseMonday);
+        d.setDate(baseMonday.getDate() + (dayIdx - 1));
         targetDates.push(formatDateISO(d));
       }
     } else if (state.addScope === "semester") {
-      const targetDow = Number(document.getElementById("sched-sem-day").value); // 1..6
-      const parity = document.getElementById("sched-sem-parity").value; // 'all' | 'odd' | 'even'
+      const targetDow = Number(document.getElementById("sched-sem-day").value);
+      const parity = document.getElementById("sched-sem-parity").value;
       const fromDate = parseDateISO(document.getElementById("sched-sem-from").value);
       const toDate = parseDateISO(document.getElementById("sched-sem-to").value);
-
       for (let d = new Date(fromDate); d <= toDate; d.setDate(d.getDate() + 1)) {
         if (d.getDay() !== targetDow) continue;
         const iso = formatDateISO(d);
@@ -950,131 +1447,325 @@ function initUIListeners() {
     closeModal("modal-schedule");
   });
 
-  // Удаление пары (только в этот день ИЛИ во всем семестре)
-  document.getElementById("btn-del-single").addEventListener("click", async () => {
-    if (!state.pendingDeleteItem) return;
-    await removeScheduleItemsByIds([state.pendingDeleteItem.id]);
-    closeModal("modal-delete-schedule");
-  });
-
-  document.getElementById("btn-del-series").addEventListener("click", async () => {
-    const target = state.pendingDeleteItem;
-    if (!target) return;
-    const targetDow = parseDateISO(target.date).getDay();
-    const matchingIds = state.schedule
-      .filter(
-        (s) =>
-          s.subject === target.subject &&
-          Number(s.number) === Number(target.number) &&
-          parseDateISO(s.date).getDay() === targetDow
-      )
-      .map((s) => s.id);
-    await removeScheduleItemsByIds(matchingIds);
-    closeModal("modal-delete-schedule");
-  });
-
-  // Добавление ДЗ
+  // Сохранение ДЗ (упрощенная форма)
   document.getElementById("form-task").addEventListener("submit", async (e) => {
     e.preventDefault();
-    const newTask = {
-      id: `task_${Date.now()}`,
+    const editId = document.getElementById("task-edit-id").value;
+    const taskObj = {
+      id: editId || `task_${Date.now()}`,
       subject: document.getElementById("task-subject").value.trim(),
       text: document.getElementById("task-text").value.trim(),
       deadline: document.getElementById("task-deadline").value,
-      completed: false
+      completed: document.getElementById("task-completed").checked,
+      photos: [...state.draftTaskPhotos]
     };
-    if (state.user && db) {
-      await setDoc(doc(db, "users", state.user.uid, "tasks", newTask.id), newTask);
-    } else {
-      state.tasks.push(newTask);
-      saveLocalData();
-      renderTasks();
-    }
-    e.target.reset();
+    await saveTaskItem(taskObj);
     closeModal("modal-task");
   });
 
-  // Добавление заметки
+  // Сохранение заметки
   document.getElementById("form-note").addEventListener("submit", async (e) => {
     e.preventDefault();
-    const newNote = {
-      id: `note_${Date.now()}`,
+    const editId = document.getElementById("note-edit-id").value;
+    const syncGoogle = document.getElementById("note-sync-google").checked;
+    const noteObj = {
+      id: editId || `note_${Date.now()}`,
       subject: document.getElementById("note-subject").value.trim(),
-      content: document.getElementById("note-content").value
+      date: document.getElementById("note-date").value,
+      content: document.getElementById("note-content").value.trim(),
+      photos: [...state.draftNotePhotos],
+      syncedWithGoogle: syncGoogle,
+      source: syncGoogle ? "google" : "local"
     };
-    if (state.user && db) {
-      await setDoc(doc(db, "users", state.user.uid, "notes", newNote.id), newNote);
-    } else {
-      state.notes.unshift(newNote);
-      saveLocalData();
-      renderNotes();
-    }
-    e.target.reset();
+    await saveNoteItem(noteObj);
     closeModal("modal-note");
   });
 
-  // Вход / Выход Google
+  // Синхронизация и импорт заметок из Google
+  document.getElementById("btn-sync-google-notes").addEventListener("click", async () => {
+    const statusEl = document.getElementById("google-notes-status");
+    statusEl.textContent = "Синхронизация с Google...";
+    if (state.googleAccessToken) {
+      try {
+        const listsRes = await fetch("https://tasks.googleapis.com/tasks/v1/users/@me/lists", {
+          headers: { Authorization: `Bearer ${state.googleAccessToken}` }
+        });
+        if (listsRes.ok) {
+          const listsData = await listsRes.json();
+          const firstList = listsData.items?.[0];
+          if (firstList) {
+            const tasksRes = await fetch(`https://tasks.googleapis.com/tasks/v1/lists/${firstList.id}/tasks`, {
+              headers: { Authorization: `Bearer ${state.googleAccessToken}` }
+            });
+            if (tasksRes.ok) {
+              const tasksData = await tasksRes.json();
+              for (const gItem of tasksData.items || []) {
+                if (!gItem.title) continue;
+                await saveNoteItem({
+                  id: `gkeep_${gItem.id}`,
+                  subject: gItem.title,
+                  date: (gItem.due || getTodayISO()).slice(0, 10),
+                  content: gItem.notes || gItem.title,
+                  photos: [],
+                  source: "google",
+                  syncedWithGoogle: true
+                });
+              }
+            }
+          }
+        }
+      } catch {}
+    }
+    statusEl.textContent = state.user
+      ? `Синхронизировано с аккаунтом ${state.user.email}`
+      : "Локальные заметки готовы (войдите в Google для облачной синхронизации)";
+  });
+
+  document.getElementById("google-keep-import-input").addEventListener("change", async (e) => {
+    const files = [...(e.target.files || [])];
+    for (const file of files) {
+      const raw = await file.text();
+      let title = file.name.replace(/\.(json|txt|html)$/i, "");
+      let content = raw;
+      if (file.name.endsWith(".json")) {
+        try {
+          const parsed = JSON.parse(raw);
+          title = parsed.title || title;
+          content = parsed.textContent || parsed.content || raw;
+        } catch {}
+      }
+      await saveNoteItem({
+        id: `google_import_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        subject: title || "Заметка Google Keep",
+        date: getTodayISO(),
+        content,
+        photos: [],
+        source: "google",
+        syncedWithGoogle: true
+      });
+    }
+    e.target.value = "";
+  });
+
+  // Инструменты расписания
+  document.getElementById("btn-tools").addEventListener("click", () => openModal("modal-tools"));
+  document.getElementById("btn-restore-default").addEventListener("click", async () => {
+    const def = buildDefaultSchedule();
+    state.schedule = def;
+    state.hiddenRules = [];
+    saveLocalData();
+    if (state.user && db) await uploadBatchScheduleToCloud(def);
+    renderScheduleSection();
+    updateSubjectsDatalist();
+    updateLiveWidget();
+    closeModal("modal-tools");
+  });
+
+  document.getElementById("ics-file-input").addEventListener("change", async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const text = await file.text();
+    const imported = parseICSFile(text);
+    if (imported.length > 0) await saveScheduleItems(imported);
+    closeModal("modal-tools");
+  });
+
+  // Авторизация Google
   document.getElementById("btn-login").addEventListener("click", async () => {
     if (!isFirebaseConfigured) {
-      alert(
-        "Чтобы включить синхронизацию между устройствами через Google, вставь свои ключи firebaseConfig в начале файла app.js (см. Шаг 3 в инструкции)."
-      );
+      alert("Для входа через Google укажите ваш firebaseConfig в начале файла app.js");
       return;
     }
     try {
-      await signInWithPopup(auth, googleProvider);
-    } catch (err) {
+      const res = await signInWithPopup(auth, googleProvider);
+      const cred = GoogleAuthProvider.credentialFromResult(res);
+      if (cred?.accessToken) state.googleAccessToken = cred.accessToken;
+    } catch {
       await signInWithRedirect(auth, googleProvider);
     }
   });
-
   document.getElementById("btn-logout").addEventListener("click", () => {
     if (auth) signOut(auth);
   });
 
-  // Переключение вкладок внизу
+  // Нижняя навигация
   document.querySelectorAll(".nav-tab").forEach((btn) => {
     btn.addEventListener("click", () => {
       state.activeTab = btn.dataset.tab;
-      const titles = {
-        schedule: "Расписание",
-        tasks: "Домашние задания",
-        notes: "Заметки"
-      };
+      const titles = { schedule: "Расписание", tasks: "ДЗ и Задачи", notes: "Заметки" };
       document.getElementById("header-title").textContent = titles[state.activeTab];
       document.getElementById("view-schedule").classList.toggle("hidden", state.activeTab !== "schedule");
       document.getElementById("view-tasks").classList.toggle("hidden", state.activeTab !== "tasks");
       document.getElementById("view-notes").classList.toggle("hidden", state.activeTab !== "notes");
-
       document.querySelectorAll(".nav-tab").forEach((b) => {
         const active = b.dataset.tab === state.activeTab;
-        b.classList.toggle("text-ios-blue", active);
+        b.classList.toggle("text-ios-orange", active);
         b.classList.toggle("text-ios-gray", !active);
       });
     });
   });
 
-  // Переключение фильтра ДЗ
+  // Фильтры ДЗ и Заметок
   document.querySelectorAll(".task-filter-tab").forEach((btn) => {
     btn.addEventListener("click", () => {
       state.taskFilter = btn.dataset.status;
       document.querySelectorAll(".task-filter-tab").forEach((b) => {
         const active = b.dataset.status === state.taskFilter;
-        b.className = `task-filter-tab ios-press py-1.5 rounded-lg text-xs font-semibold transition-all ${
-          active ? "bg-ios-elevated text-white shadow" : "text-ios-gray"
-        }`;
+        b.className = `task-filter-tab ios-press py-2 rounded-xl text-xs font-bold transition-all ${active ? "bg-ios-elevated text-white shadow" : "text-ios-gray"}`;
       });
       renderTasks();
     });
   });
 
-  // Закрытие модалок
+  document.querySelectorAll(".note-filter-tab").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      state.noteFilter = btn.dataset.noteFilter;
+      document.querySelectorAll(".note-filter-tab").forEach((b) => {
+        const active = b.dataset.noteFilter === state.noteFilter;
+        b.className = `note-filter-tab ios-press py-1.5 rounded-xl text-xs font-bold transition-all ${active ? "bg-ios-elevated text-white shadow" : "text-ios-gray"}`;
+      });
+      renderNotes();
+    });
+  });
+
   document.querySelectorAll("[data-close-modal]").forEach((btn) => {
     btn.addEventListener("click", () => closeModal(btn.dataset.closeModal));
   });
 
-  // Глобальное делегирование кликов по карточкам
+  // Делегирование кликов по карточкам
   document.addEventListener("click", async (e) => {
+    // Просмотр фото
+    const photoEl = e.target.closest("[data-view-photo]");
+    if (photoEl) {
+      document.getElementById("photo-viewer-img").src = photoEl.dataset.viewPhoto;
+      openModal("modal-photo-viewer");
+      return;
+    }
+
+    // Удаление превью фото из формы
+    const rmPhotoBtn = e.target.closest("[data-remove-draft-photo]");
+    if (rmPhotoBtn) {
+      const [type, idxStr] = rmPhotoBtn.dataset.removeDraftPhoto.split(":");
+      const idx = Number(idxStr);
+      if (type === "task") {
+        state.draftTaskPhotos.splice(idx, 1);
+        renderDraftPhotos("task-photos-preview", state.draftTaskPhotos, "task");
+      } else {
+        state.draftNotePhotos.splice(idx, 1);
+        renderDraftPhotos("note-photos-preview", state.draftNotePhotos, "note");
+      }
+      return;
+    }
+
+    // Быстрое добавление ДЗ из карточки пары
+    const quickTaskBtn = e.target.closest("[data-quick-add-task]");
+    if (quickTaskBtn) {
+      const item = state.schedule.find((s) => s.id === quickTaskBtn.dataset.quickAddTask);
+      openTaskModalFor(item || null);
+      return;
+    }
+
+    // Редактирование ДЗ
+    const editTaskBtn = e.target.closest("[data-edit-task]");
+    if (editTaskBtn) {
+      const task = state.tasks.find((t) => t.id === editTaskBtn.dataset.editTask);
+      if (!task) return;
+      state.contextClassItem = null;
+      state.draftTaskPhotos = [...(task.photos || [])];
+      document.getElementById("task-edit-id").value = task.id;
+      document.getElementById("modal-task-title").textContent = "Редактировать ДЗ";
+      document.getElementById("task-subject").value = task.subject;
+      document.getElementById("task-text").value = task.text;
+      document.getElementById("task-deadline").value = String(task.deadline).slice(0, 10);
+      document.getElementById("task-completed").checked = Boolean(task.completed);
+      renderDraftPhotos("task-photos-preview", state.draftTaskPhotos, "task");
+      openModal("modal-task");
+      return;
+    }
+
+    // Перенос дедлайна ДЗ на следующую неделю (+7 дней)
+    const shiftTaskBtn = e.target.closest("[data-shift-task-week]");
+    if (shiftTaskBtn) {
+      const task = state.tasks.find((t) => t.id === shiftTaskBtn.dataset.shiftTaskWeek);
+      if (!task) return;
+      task.deadline = addDaysISO(String(task.deadline).slice(0, 10), 7);
+      await saveTaskItem(task);
+      return;
+    }
+
+    // Быстрое открытие окна заметки к паре
+    const quickNoteBtn = e.target.closest("[data-quick-add-note]");
+    if (quickNoteBtn) {
+      const item = state.schedule.find((s) => s.id === quickNoteBtn.dataset.quickAddNote);
+      openNoteModalFor(item || null);
+      return;
+    }
+
+    // Сохранение быстрой инлайн-заметки прямо в карточке пары
+    const inlineNoteSaveBtn = e.target.closest("[data-inline-note-save]");
+    if (inlineNoteSaveBtn) {
+      const classId = inlineNoteSaveBtn.dataset.inlineNoteSave;
+      const input = document.querySelector(`[data-inline-note-input="${classId}"]`);
+      const item = state.schedule.find((s) => s.id === classId);
+      if (item && input && input.value.trim()) {
+        await saveNoteItem({
+          id: `note_${Date.now()}`,
+          subject: item.subject,
+          date: item.date,
+          content: input.value.trim(),
+          photos: [],
+          source: "local",
+          syncedWithGoogle: false
+        });
+        input.value = "";
+      }
+      return;
+    }
+
+    // Редактирование заметки
+    const editNoteBtn = e.target.closest("[data-edit-note]");
+    if (editNoteBtn) {
+      const note = state.notes.find((n) => n.id === editNoteBtn.dataset.editNote);
+      if (!note) return;
+      state.contextClassItem = null;
+      state.draftNotePhotos = [...(note.photos || [])];
+      document.getElementById("note-edit-id").value = note.id;
+      document.getElementById("modal-note-title").textContent = "Изменить заметку";
+      document.getElementById("note-subject").value = note.subject;
+      document.getElementById("note-date").value = note.date || state.selectedDate;
+      document.getElementById("note-content").value = note.content;
+      document.getElementById("note-sync-google").checked = Boolean(note.syncedWithGoogle);
+      renderDraftPhotos("note-photos-preview", state.draftNotePhotos, "note");
+      openModal("modal-note");
+      return;
+    }
+
+    // Перенос / копирование пары на следующую неделю (+7 дней)
+    const copyNextWeekBtn = e.target.closest("[data-copy-next-week]");
+    if (copyNextWeekBtn) {
+      const item = state.schedule.find((s) => s.id === copyNextWeekBtn.dataset.copyNextWeek);
+      if (!item) return;
+      const nextDate = addDaysISO(item.date, 7);
+      const copyItem = {
+        ...item,
+        id: `copy_${nextDate}_${Date.now()}`,
+        date: nextDate
+      };
+      await saveScheduleItems([copyItem]);
+      state.selectedDate = nextDate;
+      renderScheduleSection();
+      return;
+    }
+
+    // Восстановление скрытой пары
+    const restoreBtn = e.target.closest("[data-restore-hidden]");
+    if (restoreBtn) {
+      await removeHiddenRule(restoreBtn.dataset.restoreHidden);
+      renderHiddenClassesModal();
+      return;
+    }
+
+    // Редактирование пары
     const editBtn = e.target.closest("[data-edit-schedule]");
     if (editBtn) {
       const item = state.schedule.find((s) => s.id === editBtn.dataset.editSchedule);
@@ -1084,7 +1775,7 @@ function initUIListeners() {
       document.getElementById("scope-selector-wrapper").classList.add("hidden");
       setScopeMode("date");
       document.getElementById("sched-date").value = item.date;
-      document.getElementById("sched-number").value = String(item.number);
+      document.getElementById("sched-number").value = String(item.number || 1);
       document.getElementById("sched-start").value = item.startTime;
       document.getElementById("sched-end").value = item.endTime;
       document.getElementById("sched-subject").value = item.subject;
@@ -1095,84 +1786,163 @@ function initUIListeners() {
       return;
     }
 
+    // Открытие окна скрытия / удаления пары
     const askDelBtn = e.target.closest("[data-ask-delete-schedule]");
     if (askDelBtn) {
       const item = state.schedule.find((s) => s.id === askDelBtn.dataset.askDeleteSchedule);
       if (!item) return;
       state.pendingDeleteItem = item;
-      document.getElementById("delete-sched-info").textContent = `${item.number} пара • ${item.subject} (${item.date})`;
+      document.getElementById("delete-sched-info").textContent = `${item.number ? `${item.number} пара • ` : ""}${item.subject} (${formatShortDate(item.date)})`;
       openModal("modal-delete-schedule");
       return;
     }
 
+    // Чекбокс выполнения ДЗ
     const toggleTaskBtn = e.target.closest("[data-toggle-task]");
     if (toggleTaskBtn) {
       const id = toggleTaskBtn.dataset.toggleTask;
       const task = state.tasks.find((t) => t.id === id);
       if (!task) return;
       task.completed = !task.completed;
-      if (state.user && db) {
-        await updateDoc(doc(db, "users", state.user.uid, "tasks", id), {
-          completed: task.completed
-        });
-      } else {
+      if (state.user && db) await updateDoc(doc(db, "users", state.user.uid, "tasks", id), { completed: task.completed });
+      else {
         saveLocalData();
         renderTasks();
+        renderScheduleSection();
       }
       return;
     }
 
+    // Удаление ДЗ
     const delTaskBtn = e.target.closest("[data-delete-task]");
     if (delTaskBtn) {
       const id = delTaskBtn.dataset.deleteTask;
-      if (state.user && db) {
-        await deleteDoc(doc(db, "users", state.user.uid, "tasks", id));
-      } else {
+      if (state.user && db) await deleteDoc(doc(db, "users", state.user.uid, "tasks", id));
+      else {
         state.tasks = state.tasks.filter((t) => t.id !== id);
         saveLocalData();
         renderTasks();
+        renderScheduleSection();
       }
       return;
     }
 
+    // Удаление заметки
     const delNoteBtn = e.target.closest("[data-delete-note]");
     if (delNoteBtn) {
       const id = delNoteBtn.dataset.deleteNote;
-      if (state.user && db) {
-        await deleteDoc(doc(db, "users", state.user.uid, "notes", id));
-      } else {
+      if (state.user && db) await deleteDoc(doc(db, "users", state.user.uid, "notes", id));
+      else {
         state.notes = state.notes.filter((n) => n.id !== id);
         saveLocalData();
         renderNotes();
+        renderScheduleSection();
       }
     }
   });
 
-  // Автосохранение заметок при печати
+  // Сохранение быстрой заметки по нажатию Enter
+  document.addEventListener("keydown", async (e) => {
+    if (e.key !== "Enter") return;
+    const input = e.target.closest("[data-inline-note-input]");
+    if (!input) return;
+    e.preventDefault();
+    const classId = input.dataset.inlineNoteInput;
+    const item = state.schedule.find((s) => s.id === classId);
+    if (item && input.value.trim()) {
+      await saveNoteItem({
+        id: `note_${Date.now()}`,
+        subject: item.subject,
+        date: item.date,
+        content: input.value.trim(),
+        photos: [],
+        source: "local",
+        syncedWithGoogle: false
+      });
+      input.value = "";
+    }
+  });
+
+  // Автосохранение текста заметок в разделе "Заметки"
   document.addEventListener("input", (e) => {
     const area = e.target.closest("[data-note-input]");
     if (!area) return;
     const noteId = area.dataset.noteInput;
     const statusEl = document.getElementById("note-save-status");
     statusEl.textContent = "Печатает...";
-    statusEl.className = "text-xs font-medium text-ios-orange";
-
+    statusEl.className = "text-[11px] font-semibold text-ios-orange bg-ios-orange/15 px-2.5 py-1 rounded-full";
     clearTimeout(state.noteDebounceTimers[noteId]);
     state.noteDebounceTimers[noteId] = setTimeout(async () => {
       const note = state.notes.find((n) => n.id === noteId);
       if (note) note.content = area.value;
       saveLocalData();
-      if (state.user && db) {
-        await setDoc(
-          doc(db, "users", state.user.uid, "notes", noteId),
-          { content: area.value },
-          { merge: true }
-        );
-      }
+      if (state.user && db) await setDoc(doc(db, "users", state.user.uid, "notes", noteId), { content: area.value }, { merge: true });
       statusEl.textContent = "Сохранено";
-      statusEl.className = "text-xs font-medium text-ios-green";
-    }, 500);
+      statusEl.className = "text-[11px] font-semibold text-ios-green bg-ios-green/15 px-2.5 py-1 rounded-full";
+    }, 450);
   });
+}
+
+function openTaskModalFor(classItem) {
+  state.contextClassItem = classItem;
+  state.draftTaskPhotos = [];
+  document.getElementById("form-task").reset();
+  document.getElementById("task-edit-id").value = "";
+  document.getElementById("modal-task-title").textContent = "Домашнее задание";
+  document.getElementById("task-subject").value = classItem ? classItem.subject : "";
+  document.getElementById("task-completed").checked = false;
+  renderDraftPhotos("task-photos-preview", state.draftTaskPhotos, "task");
+  applyTaskTargetMode(classItem ? "next" : "current");
+  openModal("modal-task");
+}
+
+function openNoteModalFor(classItem) {
+  state.contextClassItem = classItem;
+  state.draftNotePhotos = [];
+  document.getElementById("form-note").reset();
+  document.getElementById("note-edit-id").value = "";
+  document.getElementById("modal-note-title").textContent = classItem ? "Заметка к паре" : "Новая заметка";
+  document.getElementById("note-subject").value = classItem ? classItem.subject : "";
+  renderDraftPhotos("note-photos-preview", state.draftNotePhotos, "note");
+  applyNoteTargetMode("current");
+  openModal("modal-note");
+}
+
+function parseICSFile(icsText) {
+  const events = [];
+  const blocks = icsText.split("BEGIN:VEVENT").slice(1);
+  let idx = 1;
+  for (const block of blocks) {
+    const dtStartMatch = block.match(/DTSTART:(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})/);
+    const summaryMatch = block.match(/SUMMARY:(.*)/);
+    const locationMatch = block.match(/LOCATION:(.*)/);
+    if (!dtStartMatch || !summaryMatch) continue;
+    const [, y, m, d] = dtStartMatch;
+    const dateStr = `${y}-${m}-${d}`;
+    const rawSummary = summaryMatch[1].replace(/\\,/g, ",").trim();
+    const room = locationMatch ? locationMatch[1].replace(/\\,/g, ",").trim() : "Ауд.";
+    const metaMatch = rawSummary.match(/\[Пара\s*(\d+),\s*(\d{2}:\d{2})-(\d{2}:\d{2})\]\s*(.*)/i);
+    let number = 1, startTime = "08:00", endTime = "09:30", rest = rawSummary;
+    if (metaMatch) {
+      number = Number(metaMatch[1]);
+      startTime = metaMatch[2];
+      endTime = metaMatch[3];
+      rest = metaMatch[4];
+    }
+    const [subjAndType, teacherPart] = rest.split(/\s+—\s+/);
+    const teacher = teacherPart ? teacherPart.trim() : "";
+    let subject = subjAndType ? subjAndType.trim() : "Предмет";
+    let type = "Лекция";
+    const typeMatch = subject.match(/^(.*)\(([^)]+)\)\s*$/);
+    if (typeMatch) {
+      subject = typeMatch[1].trim();
+      const rawType = typeMatch[2].toLowerCase();
+      if (rawType.includes("лаб")) type = "Лабораторная";
+      else if (rawType.includes("практ")) type = "Практика";
+    }
+    events.push({ id: `ics_${dateStr}_${idx++}`, date: dateStr, number, startTime, endTime, subject, type, room, teacher });
+  }
+  return events;
 }
 
 function openModal(id) {
