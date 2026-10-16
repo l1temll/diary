@@ -25,12 +25,13 @@ import {
 // 1. КОНФИГУРАЦИЯ FIREBASE (вставьте ваши ключи из консоли Firebase)
 // ============================================================================
 const firebaseConfig = {
-  apiKey: "ВСТАВЬТЕ_ВАШ_API_KEY",
-  authDomain: "ВАШ_ПРОЕКТ.firebaseapp.com",
-  projectId: "ВАШ_ПРОЕКТ",
-  storageBucket: "ВАШ_ПРОЕКТ.appspot.com",
-  messagingSenderId: "ВАШ_SENDER_ID",
-  appId: "ВАШ_APP_ID"
+  apiKey: "AIzaSyDwVDsV2-mbp0mHxZhyTCIP3-ym9UAjrWc",
+  authDomain: "my-student-diary.firebaseapp.com",
+  projectId: "my-student-diary",
+  storageBucket: "my-student-diary.firebasestorage.app",
+  messagingSenderId: "801393969196",
+  appId: "1:801393969196:web:66bb0b1411f55249756989",
+  measurementId: "G-B0BZEGM91N"
 };
 
 const isFirebaseConfigured =
