@@ -172,7 +172,9 @@ const SEMESTER_START_MONDAY = "2026-08-31";
 // ============================================================================
 const state = {
   user: null,
-  theme: localStorage.getItem("diary_theme_v4") || "liquid", // 'liquid' | 'classic'
+  theme: localStorage.getItem("diary_theme_v5") || "tg-glass", // 'tg-glass' | 'liquid' | 'classic'
+  navStyle: localStorage.getItem("diary_nav_style_v5") || "floating", // 'floating' | 'docked'
+  rimStyle: localStorage.getItem("diary_rim_style_v5") || "normal", // 'soft' | 'normal' | 'bright'
   activeTab: "schedule",
   selectedDate: getInitialStudyDate(),
   addScope: "date",
@@ -183,14 +185,12 @@ const state = {
   contextClassItem: null,
   showEvents: localStorage.getItem("diary_show_events_v4") !== "false",
 
-  // Данные
-  schedule: [],     // Только учебные пары
-  events: [],       // Отдельные мероприятия (не смешиваются с парами)
-  tasks: [],        // Домашние задания
-  notes: [],        // Заметки (с оглавлением, текстом и опциональной привязкой)
-  hiddenRules: [],  // Правила скрытия пар
+  schedule: [],
+  events: [],
+  tasks: [],
+  notes: [],
+  hiddenRules: [],
 
-  // Конструктор заметки в стиле Google Keep
   keepDraft: {
     pinned: false,
     photos: []
@@ -198,7 +198,6 @@ const state = {
   draftTaskPhotos: [],
   draftNotePhotos: [],
 
-  // Настройки уведомлений
   notifSettings: JSON.parse(
     localStorage.getItem("diary_notif_settings_v4") ||
       '{"classes":true,"tasks":true,"notes":true}'
@@ -269,7 +268,6 @@ function formatShortDate(dateStr) {
   return d.toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
 }
 
-// Находит следующую дату проведения учебной пары по этому предмету
 function findNextClassDateForSubject(subjectName, afterDateStr) {
   const cleanSubj = String(subjectName || "").trim().toLowerCase();
   if (!cleanSubj) return addDaysISO(afterDateStr, 7);
@@ -281,7 +279,7 @@ function findNextClassDateForSubject(subjectName, afterDateStr) {
 }
 
 // ============================================================================
-// 5. ФИЛЬТРАЦИЯ СКРЫТЫХ ПАР И ОТДЕЛЕНИЕ МЕРОПРИЯТИЙ
+// 5. ФИЛЬТРАЦИЯ СКРЫТЫХ ПАР И МЕРОПРИЯТИЙ
 // ============================================================================
 function isClassHidden(item) {
   if (!item) return false;
@@ -303,11 +301,13 @@ function getVisibleSchedule() {
 }
 
 // ============================================================================
-// 6. ИНИЦИАЛИЗАЦИЯ ПРИЛОЖЕНИЯ И ТЕМЫ (LIQUID GLASS / CLASSIC)
+// 6. ИНИЦИАЛИЗАЦИЯ И РАСШИРЕННЫЕ НАСТРОЙКИ ДИЗАЙНА
 // ============================================================================
 document.addEventListener("DOMContentLoaded", () => {
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
   applyTheme(state.theme);
+  applyNavStyle(state.navStyle);
+  applyRimStyle(state.rimStyle);
   initNetworkListeners();
   initUIListeners();
   loadLocalDataOrSeed();
@@ -325,22 +325,53 @@ function refreshIcons() {
 }
 
 function applyTheme(themeName) {
-  state.theme = themeName === "classic" ? "classic" : "liquid";
-  localStorage.setItem("diary_theme_v4", state.theme);
+  if (["tg-glass", "liquid", "classic"].includes(themeName)) {
+    state.theme = themeName;
+  } else {
+    state.theme = "tg-glass";
+  }
+  localStorage.setItem("diary_theme_v5", state.theme);
+
+  document.body.classList.toggle("theme-tg-glass", state.theme === "tg-glass");
   document.body.classList.toggle("theme-liquid", state.theme === "liquid");
   document.body.classList.toggle("theme-classic", state.theme === "classic");
 
-  const toggleBtn = document.getElementById("btn-theme-toggle");
-  if (toggleBtn) {
-    toggleBtn.className = `ios-press w-9 h-9 rounded-full ios26-pill flex items-center justify-center ${
-      state.theme === "liquid" ? "text-ios-orange border-ios-orange/50" : "text-gray-300"
-    }`;
-  }
-
   document.querySelectorAll(".theme-choice-btn").forEach((btn) => {
     const active = btn.dataset.setTheme === state.theme;
-    btn.className = `theme-choice-btn ios-press py-2.5 px-3 rounded-xl font-bold text-xs transition-all ${
+    btn.className = `theme-choice-btn ios-press py-2.5 px-3.5 rounded-xl font-bold text-xs flex items-center justify-between transition-all ${
       active ? "ios-active-orange text-black" : "bg-black/40 text-gray-300 border border-white/10"
+    }`;
+  });
+}
+
+function applyNavStyle(styleName) {
+  state.navStyle = styleName === "docked" ? "docked" : "floating";
+  localStorage.setItem("diary_nav_style_v5", state.navStyle);
+  document.body.classList.toggle("nav-docked", state.navStyle === "docked");
+
+  document.querySelectorAll(".nav-style-btn").forEach((btn) => {
+    const active = btn.dataset.setNav === state.navStyle;
+    btn.className = `nav-style-btn ios-press py-2 rounded-xl font-bold text-xs transition-all ${
+      active ? "bg-white/15 text-white border border-white/20 shadow" : "bg-black/40 text-gray-400 border border-white/10"
+    }`;
+  });
+}
+
+function applyRimStyle(rimName) {
+  if (["soft", "normal", "bright"].includes(rimName)) {
+    state.rimStyle = rimName;
+  } else {
+    state.rimStyle = "normal";
+  }
+  localStorage.setItem("diary_rim_style_v5", state.rimStyle);
+
+  document.body.classList.remove("rim-soft", "rim-normal", "rim-bright");
+  document.body.classList.add(`rim-${state.rimStyle}`);
+
+  document.querySelectorAll(".rim-style-btn").forEach((btn) => {
+    const active = btn.dataset.setRim === state.rimStyle;
+    btn.className = `rim-style-btn ios-press py-1.5 rounded-xl font-bold text-xs transition-all ${
+      active ? "bg-white/15 text-white border border-white/20 shadow" : "bg-black/40 text-gray-400 border border-white/10"
     }`;
   });
 }
@@ -374,7 +405,6 @@ function loadLocalDataOrSeed() {
   const savedSched = localStorage.getItem("diary_schedule_v2");
   let rawSched = savedSched ? JSON.parse(savedSched) : buildDefaultSchedule();
 
-  // Если в старом расписании были записи с флагом isEvent, переносим их в отдельный массив events
   const legacyEvents = rawSched.filter((x) => x.isEvent);
   state.schedule = rawSched.filter((x) => !x.isEvent);
 
@@ -636,7 +666,7 @@ function compressImageFile(file, maxWidth = 900, quality = 0.72) {
 }
 
 // ============================================================================
-// 9. СИСТЕМА УВЕДОМЛЕНИЙ (О ПАРАХ, О ДЕДЛАЙНАХ ДЗ, О ЗАМЕТКАХ)
+// 9. СИСТЕМА УВЕДОМЛЕНИЙ
 // ============================================================================
 function initNotificationUI() {
   const cToggle = document.getElementById("notif-toggle-classes");
@@ -656,7 +686,7 @@ function updateNotifPermissionStatusUI() {
   const anyEnabled = state.notifSettings.classes || state.notifSettings.tasks || state.notifSettings.notes;
 
   if (!("Notification" in window)) {
-    if (statusEl) statusEl.textContent = "Встроены внутриэкранные уведомления (браузер не поддерживает системный Push)";
+    if (statusEl) statusEl.textContent = "Встроены внутриэкранные уведомления (браузер не поддерживает пуши)";
     if (badgeDot) badgeDot.classList.toggle("hidden", !anyEnabled);
     return;
   }
@@ -668,7 +698,7 @@ function updateNotifPermissionStatusUI() {
     if (statusEl) statusEl.textContent = "Заблокировано в браузере (работают внутриэкранные баннеры)";
     if (badgeDot) badgeDot.classList.add("hidden");
   } else {
-    if (statusEl) statusEl.textContent = "Нажмите «Разрешить», чтобы включить системные пуш-уведомления";
+    if (statusEl) statusEl.textContent = "Нажмите «Разрешить» для активации системных пушей";
     if (badgeDot) badgeDot.classList.toggle("hidden", !anyEnabled);
   }
 }
@@ -723,7 +753,6 @@ function checkScheduledNotifications() {
   const todayISO = formatDateISO(now);
   const nowMin = now.getHours() * 60 + now.getMinutes();
 
-  // 1. Уведомления о парах (за 10 минут до начала и в минуту начала)
   if (state.notifSettings.classes) {
     const todayClasses = getVisibleSchedule().filter((s) => s.date === todayISO);
     for (const cls of todayClasses) {
@@ -745,7 +774,6 @@ function checkScheduledNotifications() {
     }
   }
 
-  // 2. Уведомления о дедлайнах ДЗ (напоминание о невыполненных ДЗ на сегодня и завтра)
   if (state.notifSettings.tasks) {
     const tomorrowISO = addDaysISO(todayISO, 1);
     const urgentTasks = state.tasks.filter(
@@ -763,7 +791,6 @@ function checkScheduledNotifications() {
     }
   }
 
-  // 3. Уведомления о заметках (по заданному времени notifyTime)
   if (state.notifSettings.notes) {
     const nowTs = now.getTime();
     for (const note of state.notes) {
@@ -781,7 +808,7 @@ function checkScheduledNotifications() {
 }
 
 // ============================================================================
-// 10. ДИНАМИЧЕСКАЯ ПЛАШКА РЕАЛЬНОГО ВРЕМЕНИ (ТОЛЬКО УЧЕБНЫЕ ПАРЫ)
+// 10. ДИНАМИЧЕСКИЙ ВИДЖЕТ РЕАЛЬНОГО ВРЕМЕНИ
 // ============================================================================
 function updateLiveWidget() {
   const now = new Date();
@@ -839,7 +866,7 @@ function updateLiveWidget() {
     curProgWrap.classList.remove("hidden");
     curProg.style.width = `${pct}%`;
   } else {
-    curBox.className = "rounded-2xl p-2.5 bg-white/[0.05] border border-white/15 flex flex-col justify-between";
+    curBox.className = "rounded-2xl p-2.5 bg-white/[0.04] border border-white/10 flex flex-col justify-between";
     curTitle.textContent = "Сейчас окна / пар нет";
     curTimer.textContent = "Свободно";
     curMeta.innerHTML = `<span>Отдыхайте</span><span></span>`;
@@ -875,7 +902,7 @@ function updateLiveWidget() {
 }
 
 // ============================================================================
-// 11. РЕНДЕРИНГ РАСПИСАНИЯ, ОТДЕЛЬНОГО БЛОКА МЕРОПРИЯТИЙ, ТЕМЫ ПАРЫ И ЗАМЕТОК
+// 11. РЕНДЕРИНГ РАСПИСАНИЯ, МЕРОПРИЯТИЙ И ЗАМЕТОК К ПАРЕ
 // ============================================================================
 function renderAll() {
   renderScheduleSection();
@@ -911,17 +938,15 @@ function renderScheduleSection() {
   document.getElementById("week-subtitle").textContent = `${parityText} • ${fmtShort(monday)} – ${fmtShort(saturday)}`;
   document.getElementById("date-jump-picker").value = state.selectedDate;
 
-  // Кнопка показа / скрытия мероприятий
   const btnToggleEvents = document.getElementById("btn-toggle-events");
   const textToggleEvents = document.getElementById("text-toggle-events");
   if (btnToggleEvents && textToggleEvents) {
     textToggleEvents.textContent = state.showEvents ? "События: Вкл" : "События: Скрыты";
-    btnToggleEvents.className = `ios-press px-2.5 py-1.5 rounded-xl text-xs font-semibold shrink-0 flex items-center gap-1 ${
-      state.showEvents ? "bg-ios-purple/20 border border-ios-purple/40 text-purple-200" : "ios26-pill text-ios-gray"
+    btnToggleEvents.className = `ios-press px-3 py-1.5 rounded-full text-xs font-semibold shrink-0 flex items-center gap-1 ${
+      state.showEvents ? "ios26-pill text-purple-200 border-ios-purple/40" : "ios26-pill text-ios-gray"
     }`;
   }
 
-  // Счетчик скрытых пар
   const hiddenCount = state.hiddenRules.length;
   const badgeHidden = document.getElementById("badge-hidden-count");
   const bannerHidden = document.getElementById("hidden-classes-banner");
@@ -935,7 +960,6 @@ function renderScheduleSection() {
     bannerHidden.classList.toggle("hidden", hiddenCount === 0);
   }
 
-  // Переключатель дней недели (ПН - СБ)
   const visibleSchedule = getVisibleSchedule();
   const dayNames = ["ПН", "ВТ", "СР", "ЧТ", "ПТ", "СБ"];
   const daySelector = document.getElementById("day-selector");
@@ -972,7 +996,6 @@ function renderScheduleSection() {
   }
   daySelector.innerHTML = buttonsHtml.join("");
 
-  // ОТДЕЛЬНЫЙ БЛОК МЕРОПРИЯТИЙ (не является парами, с кнопкой удаления и скрытия)
   const eventsWrapper = document.getElementById("events-section-wrapper");
   const eventsListEl = document.getElementById("events-list");
   const eventsCountEl = document.getElementById("events-day-count");
@@ -1001,10 +1024,10 @@ function renderScheduleSection() {
           </div>
         </div>
         <div class="flex items-center gap-1.5 shrink-0">
-          <button data-edit-event="${ev.id}" class="ios-press w-8 h-8 rounded-xl ios26-pill text-gray-300 hover:text-white flex items-center justify-center" title="Изменить мероприятие">
+          <button data-edit-event="${ev.id}" class="ios-press w-8 h-8 rounded-full ios26-pill text-gray-300 hover:text-white flex items-center justify-center" title="Изменить">
             <i data-lucide="pencil" class="w-4 h-4"></i>
           </button>
-          <button data-delete-event="${ev.id}" class="ios-press px-2.5 h-8 rounded-xl bg-ios-red/20 border border-ios-red/40 text-ios-red hover:bg-ios-red hover:text-white text-xs font-bold flex items-center gap-1" title="Удалить мероприятие">
+          <button data-delete-event="${ev.id}" class="ios-press px-2.5 h-8 rounded-full bg-ios-red/20 border border-ios-red/40 text-ios-red hover:bg-ios-red hover:text-white text-xs font-bold flex items-center gap-1" title="Удалить">
             <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
             <span>Удалить</span>
           </button>
@@ -1018,7 +1041,6 @@ function renderScheduleSection() {
     eventsListEl.innerHTML = "";
   }
 
-  // СПИСОК УЧЕБНЫХ ПАР НА ВЫБРАННЫЙ ДЕНЬ
   const listEl = document.getElementById("schedule-list");
   const dayClasses = visibleSchedule
     .filter((item) => item.date === state.selectedDate)
@@ -1064,7 +1086,6 @@ function renderScheduleSection() {
 
       return `
       <article class="${isLiveNow ? "ios26-card-orange" : "ios26-card"} rounded-3xl p-4 space-y-3.5 transition-all">
-        <!-- Верхняя шапка карточки пары -->
         <div class="flex gap-3.5 items-start">
           <div class="flex flex-col items-center justify-center ${isLiveNow ? "ios-active-orange" : "bg-white/[0.07] border border-white/15"} rounded-2xl px-2.5 py-2.5 min-w-[74px] text-center shrink-0">
             <span class="text-[11px] font-extrabold ${isLiveNow ? "text-black" : "text-ios-orange"}">${escapeHtml(item.number)} пара</span>
@@ -1085,19 +1106,18 @@ function renderScheduleSection() {
           </div>
 
           <div class="flex items-center gap-1 shrink-0">
-            <button data-copy-next-week="${item.id}" class="ios-press w-8 h-8 rounded-xl ios26-pill text-gray-300 hover:text-ios-orange flex items-center justify-center" title="Перенести / скопировать на следующую неделю">
+            <button data-copy-next-week="${item.id}" class="ios-press w-8 h-8 rounded-full ios26-pill text-gray-300 hover:text-ios-orange flex items-center justify-center" title="Перенести на следующую неделю">
               <i data-lucide="calendar-plus" class="w-4 h-4"></i>
             </button>
-            <button data-edit-schedule="${item.id}" class="ios-press w-8 h-8 rounded-xl ios26-pill text-gray-300 hover:text-white flex items-center justify-center" title="Изменить пару">
+            <button data-edit-schedule="${item.id}" class="ios-press w-8 h-8 rounded-full ios26-pill text-gray-300 hover:text-white flex items-center justify-center" title="Изменить">
               <i data-lucide="pencil" class="w-4 h-4"></i>
             </button>
-            <button data-ask-delete-schedule="${item.id}" class="ios-press w-8 h-8 rounded-xl ios26-pill text-gray-300 hover:text-ios-red flex items-center justify-center" title="Скрыть или убрать пару">
+            <button data-ask-delete-schedule="${item.id}" class="ios-press w-8 h-8 rounded-full ios26-pill text-gray-300 hover:text-ios-red flex items-center justify-center" title="Скрыть пару">
               <i data-lucide="eye-off" class="w-4 h-4"></i>
             </button>
           </div>
         </div>
 
-        <!-- Блок Домашнего задания -->
         <div class="pt-2.5 border-t border-white/10 space-y-2">
           <div class="flex items-center justify-between">
             <span class="text-[11px] font-bold uppercase tracking-wider text-gray-300 flex items-center gap-1.5">
@@ -1138,7 +1158,7 @@ function renderScheduleSection() {
           }
         </div>
 
-        <!-- ПОДПИСЬ ТЕМЫ САМОЙ ПАРЫ (ЧУТЬ ВЫШЕ ЗАМЕТОК) -->
+        <!-- ПОДПИСЬ ТЕМЫ САМОЙ ПАРЫ -->
         <div class="pt-2.5 border-t border-white/10">
           <div class="flex items-center justify-between gap-2 bg-white/[0.04] border border-white/10 rounded-2xl px-3 py-2">
             <div class="flex items-center gap-2 min-w-0 flex-1">
@@ -1153,7 +1173,7 @@ function renderScheduleSection() {
           </div>
         </div>
 
-        <!-- Блок Личной заметки к паре (Многострочный ввод: Shift+Enter новая строка, Enter отправить на ПК) -->
+        <!-- БЛОК ЗАМЕТОК К ПАРЕ (Shift+Enter / Телефон многострочный) -->
         <div class="pt-2 border-t border-white/10 space-y-2">
           <div class="flex items-center justify-between">
             <span class="text-[11px] font-bold uppercase tracking-wider text-gray-300 flex items-center gap-1.5">
@@ -1194,7 +1214,7 @@ function renderScheduleSection() {
             <textarea
               rows="2"
               data-inline-note-input="${item.id}"
-              placeholder="Быстрая заметка (ПК: Enter — сохранить, Shift+Enter — новая строка; Телефон — многострочный ввод)..."
+              placeholder="Быстрая заметка (ПК: Enter — сохранить, Shift+Enter — нов. строка; Телефон — нов. строка)..."
               class="flex-1 bg-black/40 border border-white/15 rounded-2xl px-3 py-2 text-xs text-white placeholder-gray-400 outline-none focus:border-ios-orange resize-y leading-relaxed"
             ></textarea>
             <button data-inline-note-save="${item.id}" class="ios-press px-3 py-2 rounded-2xl ios-active-orange text-black text-xs font-extrabold shrink-0">
@@ -1263,7 +1283,7 @@ function renderTasks() {
     container.innerHTML = `
       <div class="ios26-card rounded-3xl p-8 text-center">
         <p class="font-bold text-base">Заданий в этой категории нет</p>
-        <p class="text-xs text-gray-300 mt-1">Нажмите «Добавить ДЗ» выше или прямо в карточке нужной пары</p>
+        <p class="text-xs text-gray-300 mt-1">Нажмите «Добавить ДЗ» выше или в карточке нужной пары</p>
       </div>`;
     return;
   }
@@ -1321,14 +1341,13 @@ function renderNotes() {
     list = list.filter((n) => !n.subject);
   }
 
-  // Закрепленные заметки всегда сверху
   list.sort((a, b) => Number(Boolean(b.pinned)) - Number(Boolean(a.pinned)));
 
   if (list.length === 0) {
     container.innerHTML = `
       <div class="ios26-card rounded-3xl p-8 text-center">
         <p class="font-bold text-base">Заметок пока нет</p>
-        <p class="text-xs text-gray-300 mt-1">Создайте заметку в карточке выше — привязка к паре и дате необязательна</p>
+        <p class="text-xs text-gray-300 mt-1">Создайте заметку в конструкторе выше</p>
       </div>`;
     return;
   }
@@ -1353,7 +1372,7 @@ function renderNotes() {
             <button data-toggle-pin-note="${note.id}" class="ios-press p-1.5 rounded-full ${note.pinned ? "text-ios-orange bg-ios-orange/15" : "text-gray-400 hover:text-white"}" title="Закрепить">
               <i data-lucide="pin" class="w-4 h-4"></i>
             </button>
-            <button data-edit-note="${note.id}" class="ios-press text-gray-300 hover:text-white p-1.5" title="Настроить привязку / уведомление">
+            <button data-edit-note="${note.id}" class="ios-press text-gray-300 hover:text-white p-1.5" title="Настроить привязку">
               <i data-lucide="sliders-horizontal" class="w-4 h-4"></i>
             </button>
             <button data-delete-note="${note.id}" class="ios-press text-gray-300 hover:text-ios-red p-1.5" title="Удалить">
@@ -1371,7 +1390,6 @@ function renderNotes() {
 
         ${renderPhotosRow(note.photos)}
 
-        <!-- Опциональные бейджи внизу карточки заметки (Пара, Дата, Уведомление) -->
         ${
           hasSubject || hasDate || hasNotify
             ? `<div class="flex items-center gap-1.5 flex-wrap pt-1">
@@ -1407,7 +1425,7 @@ function renderNotes() {
 }
 
 // ============================================================================
-// 14. РЕНДЕРИНГ СКРЫТЫХ ПАР И DATALIST ПРЕДМЕТОВ (БЕЗ МЕРОПРИЯТИЙ)
+// 14. СКРЫТЫЕ ПАРЫ И DATALIST
 // ============================================================================
 function renderHiddenClassesModal() {
   const container = document.getElementById("hidden-classes-list");
@@ -1438,13 +1456,12 @@ function renderHiddenClassesModal() {
 function updateSubjectsDatalist() {
   const dl = document.getElementById("subjects-datalist");
   if (!dl) return;
-  // В список дисциплин попадают ТОЛЬКО учебные пары (мероприятия исключены)
   const subjects = [...new Set(state.schedule.filter((s) => !s.isEvent).map((s) => s.subject))];
   dl.innerHTML = subjects.map((s) => `<option value="${escapeHtml(s)}"></option>`).join("");
 }
 
 // ============================================================================
-// 15. УМНОЕ РАСПРЕДЕЛЕНИЕ ДАТЫ ДЛЯ ДЗ И ЗАМЕТОК
+// 15. УМНОЕ РАСПРЕДЕЛЕНИЕ ДАТЫ
 // ============================================================================
 function applyTaskTargetMode(mode) {
   state.taskTargetMode = mode;
@@ -1464,9 +1481,9 @@ function applyTaskTargetMode(mode) {
   } else if (mode === "next") {
     const nextDate = findNextClassDateForSubject(subj, baseDate);
     dateInput.value = nextDate;
-    hint.textContent = `Автоматически найдена следующая пара: ${formatShortDate(nextDate)}`;
+    hint.textContent = `Следующая пара: ${formatShortDate(nextDate)}`;
   } else {
-    hint.textContent = `Выберите любую дату дедлайна ниже`;
+    hint.textContent = `Выберите дату дедлайна ниже`;
     dateInput.focus();
   }
 }
@@ -1485,7 +1502,7 @@ function applyNoteTargetMode(mode) {
 
   if (mode === "none") {
     dateInput.value = "";
-    hint.textContent = "Заметка без привязки к конкретной дате";
+    hint.textContent = "Без привязки к конкретной дате";
   } else if (mode === "current") {
     dateInput.value = baseDate;
     hint.textContent = `К текущей паре (${formatShortDate(baseDate)})`;
@@ -1495,7 +1512,7 @@ function applyNoteTargetMode(mode) {
     hint.textContent = `К следующей паре (${formatShortDate(nextDate)})`;
   } else {
     if (!dateInput.value) dateInput.value = baseDate;
-    hint.textContent = "Выберите любую дату ниже";
+    hint.textContent = "Выберите дату ниже";
   }
 }
 
@@ -1545,15 +1562,22 @@ function resetKeepComposer() {
 }
 
 // ============================================================================
-// 16. ОБРАБОТЧИКИ СОБЫТИЙ ИНТЕРФЕЙСА
+// 16. ОБРАБОТЧИКИ СОБЫТИЙ
 // ============================================================================
 function initUIListeners() {
-  // Переключение дизайна: Liquid Glass / Классический
-  document.getElementById("btn-theme-toggle").addEventListener("click", () => {
-    applyTheme(state.theme === "liquid" ? "classic" : "liquid");
-  });
+  // Выбор темы из 3 вариантов в меню настроек
   document.querySelectorAll(".theme-choice-btn").forEach((btn) => {
     btn.addEventListener("click", () => applyTheme(btn.dataset.setTheme));
+  });
+
+  // Переключатель вида навигации
+  document.querySelectorAll(".nav-style-btn").forEach((btn) => {
+    btn.addEventListener("click", () => applyNavStyle(btn.dataset.setNav));
+  });
+
+  // Переключатель яркости стекол (бликов)
+  document.querySelectorAll(".rim-style-btn").forEach((btn) => {
+    btn.addEventListener("click", () => applyRimStyle(btn.dataset.setRim));
   });
 
   // Модальное окно уведомлений
@@ -1593,7 +1617,7 @@ function initUIListeners() {
   document.getElementById("notif-toggle-notes").addEventListener("change", saveNotifToggles);
 
   document.getElementById("btn-test-notification").addEventListener("click", () => {
-    sendAppNotification("Тестовое уведомление", "Уведомления о парах, дедлайнах и заметках работают отлично!");
+    sendAppNotification("Тестовое уведомление", "Уведомления работают отлично!");
   });
 
   // Навигация по неделям
@@ -1627,7 +1651,7 @@ function initUIListeners() {
     }
   });
 
-  // Скрытие / показ блока Мероприятий
+  // Скрытие / показ мероприятий
   const toggleEventsVisibility = () => {
     state.showEvents = !state.showEvents;
     localStorage.setItem("diary_show_events_v4", String(state.showEvents));
@@ -1636,7 +1660,6 @@ function initUIListeners() {
   document.getElementById("btn-toggle-events").addEventListener("click", toggleEventsVisibility);
   document.getElementById("btn-hide-events-inline").addEventListener("click", toggleEventsVisibility);
 
-  // Открытие окна создания Мероприятия
   document.getElementById("btn-add-event").addEventListener("click", () => {
     document.getElementById("form-event").reset();
     document.getElementById("event-edit-id").value = "";
@@ -1646,7 +1669,6 @@ function initUIListeners() {
     openModal("modal-event");
   });
 
-  // Сохранение Мероприятия (в отдельную коллекцию events)
   document.getElementById("form-event").addEventListener("submit", async (e) => {
     e.preventDefault();
     const editId = document.getElementById("event-edit-id").value;
@@ -1690,7 +1712,7 @@ function initUIListeners() {
     closeModal("modal-event");
   });
 
-  // Конструктор заметок в стиле Google Keep
+  // Конструктор заметок
   document.getElementById("keep-pin-btn").addEventListener("click", () => {
     state.keepDraft.pinned = !state.keepDraft.pinned;
     document.getElementById("keep-pin-btn").className = `ios-press w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
@@ -1763,7 +1785,6 @@ function initUIListeners() {
     resetKeepComposer();
   });
 
-  // Переключатели в модальном окне добавления пары
   document.querySelectorAll(".scope-btn").forEach((btn) => {
     btn.addEventListener("click", () => setScopeMode(btn.dataset.scope));
   });
@@ -1775,7 +1796,6 @@ function initUIListeners() {
     }
   });
 
-  // Верхняя кнопка "+"
   document.getElementById("btn-header-add").addEventListener("click", () => {
     if (state.activeTab === "schedule") {
       document.getElementById("form-schedule").reset();
@@ -1797,7 +1817,6 @@ function initUIListeners() {
 
   document.getElementById("btn-new-task-top").addEventListener("click", () => openTaskModalFor(null));
 
-  // Скрытые пары
   const openHiddenModal = () => {
     renderHiddenClassesModal();
     openModal("modal-hidden-classes");
@@ -1848,7 +1867,6 @@ function initUIListeners() {
     closeModal("modal-delete-schedule");
   });
 
-  // Умные переключатели в модалке ДЗ и Заметок
   document.querySelectorAll(".task-target-btn").forEach((btn) => {
     btn.addEventListener("click", () => applyTaskTargetMode(btn.dataset.taskTarget));
   });
@@ -1863,7 +1881,6 @@ function initUIListeners() {
     if (state.noteTargetMode === "next") applyNoteTargetMode("next");
   });
 
-  // Прикрепление фото в модальных окнах
   document.getElementById("task-photo-input").addEventListener("change", async (e) => {
     const files = [...(e.target.files || [])];
     for (const f of files) {
@@ -1884,7 +1901,6 @@ function initUIListeners() {
     e.target.value = "";
   });
 
-  // Сохранение учебной пары (+ поле темы пары)
   document.getElementById("form-schedule").addEventListener("submit", async (e) => {
     e.preventDefault();
     const editId = document.getElementById("sched-edit-id").value;
@@ -1953,7 +1969,6 @@ function initUIListeners() {
     closeModal("modal-schedule");
   });
 
-  // Сохранение ДЗ
   document.getElementById("form-task").addEventListener("submit", async (e) => {
     e.preventDefault();
     const editId = document.getElementById("task-edit-id").value;
@@ -1969,7 +1984,6 @@ function initUIListeners() {
     closeModal("modal-task");
   });
 
-  // Сохранение заметки из модального окна
   document.getElementById("form-note").addEventListener("submit", async (e) => {
     e.preventDefault();
     const editId = document.getElementById("note-edit-id").value;
@@ -1991,7 +2005,6 @@ function initUIListeners() {
     closeModal("modal-note");
   });
 
-  // Маленькая кнопка импорта заметок
   document.getElementById("google-keep-import-input").addEventListener("change", async (e) => {
     const files = [...(e.target.files || [])];
     for (const file of files) {
@@ -2020,7 +2033,6 @@ function initUIListeners() {
     e.target.value = "";
   });
 
-  // Инструменты расписания
   document.getElementById("btn-tools").addEventListener("click", () => openModal("modal-tools"));
   document.getElementById("btn-restore-default").addEventListener("click", async () => {
     const def = buildDefaultSchedule();
@@ -2043,7 +2055,6 @@ function initUIListeners() {
     closeModal("modal-tools");
   });
 
-  // Вход через Google
   document.getElementById("btn-login").addEventListener("click", async () => {
     if (!isFirebaseConfigured) {
       alert("Для входа через Google укажите ваш firebaseConfig в начале файла app.js");
@@ -2059,7 +2070,6 @@ function initUIListeners() {
     if (auth) signOut(auth);
   });
 
-  // Нижняя навигация
   document.querySelectorAll(".nav-tab").forEach((btn) => {
     btn.addEventListener("click", () => {
       state.activeTab = btn.dataset.tab;
@@ -2068,21 +2078,22 @@ function initUIListeners() {
       document.getElementById("view-schedule").classList.toggle("hidden", state.activeTab !== "schedule");
       document.getElementById("view-tasks").classList.toggle("hidden", state.activeTab !== "tasks");
       document.getElementById("view-notes").classList.toggle("hidden", state.activeTab !== "notes");
+
       document.querySelectorAll(".nav-tab").forEach((b) => {
         const active = b.dataset.tab === state.activeTab;
+        b.classList.toggle("active-tg-pill", active);
         b.classList.toggle("text-ios-orange", active);
         b.classList.toggle("text-ios-gray", !active);
       });
     });
   });
 
-  // Фильтры ДЗ и Заметок
   document.querySelectorAll(".task-filter-tab").forEach((btn) => {
     btn.addEventListener("click", () => {
       state.taskFilter = btn.dataset.status;
       document.querySelectorAll(".task-filter-tab").forEach((b) => {
         const active = b.dataset.status === state.taskFilter;
-        b.className = `task-filter-tab ios-press py-2 rounded-xl text-xs font-bold transition-all ${active ? "bg-white/15 text-white shadow" : "text-ios-gray"}`;
+        b.className = `task-filter-tab ios-press py-2 rounded-full text-xs font-bold transition-all ${active ? "bg-white/15 text-white shadow" : "text-ios-gray"}`;
       });
       renderTasks();
     });
@@ -2093,7 +2104,7 @@ function initUIListeners() {
       state.noteFilter = btn.dataset.noteFilter;
       document.querySelectorAll(".note-filter-tab").forEach((b) => {
         const active = b.dataset.noteFilter === state.noteFilter;
-        b.className = `note-filter-tab ios-press py-1.5 rounded-xl text-xs font-bold transition-all ${active ? "bg-white/15 text-white shadow" : "text-ios-gray"}`;
+        b.className = `note-filter-tab ios-press py-1.5 rounded-full text-xs font-bold transition-all ${active ? "bg-white/15 text-white shadow" : "text-ios-gray"}`;
       });
       renderNotes();
     });
@@ -2103,9 +2114,7 @@ function initUIListeners() {
     btn.addEventListener("click", () => closeModal(btn.dataset.closeModal));
   });
 
-  // Делегирование всех кликов по карточкам
   document.addEventListener("click", async (e) => {
-    // Полноэкранное фото
     const photoEl = e.target.closest("[data-view-photo]");
     if (photoEl) {
       document.getElementById("photo-viewer-img").src = photoEl.dataset.viewPhoto;
@@ -2113,7 +2122,6 @@ function initUIListeners() {
       return;
     }
 
-    // Удаление превью фото
     const rmPhotoBtn = e.target.closest("[data-remove-draft-photo]");
     if (rmPhotoBtn) {
       const [type, idxStr] = rmPhotoBtn.dataset.removeDraftPhoto.split(":");
@@ -2131,14 +2139,12 @@ function initUIListeners() {
       return;
     }
 
-    // Удаление Мероприятия в 1 клик
     const delEventBtn = e.target.closest("[data-delete-event]");
     if (delEventBtn) {
       await deleteEventById(delEventBtn.dataset.deleteEvent);
       return;
     }
 
-    // Редактирование Мероприятия
     const editEventBtn = e.target.closest("[data-edit-event]");
     if (editEventBtn) {
       const ev = state.events.find((x) => x.id === editEventBtn.dataset.editEvent);
@@ -2155,7 +2161,6 @@ function initUIListeners() {
       return;
     }
 
-    // Быстрое редактирование Темы пары прямо из карточки
     const quickTopicBtn = e.target.closest("[data-quick-topic]");
     if (quickTopicBtn) {
       const item = state.schedule.find((s) => s.id === quickTopicBtn.dataset.quickTopic);
@@ -2168,7 +2173,6 @@ function initUIListeners() {
       return;
     }
 
-    // Быстрое добавление ДЗ из карточки пары
     const quickTaskBtn = e.target.closest("[data-quick-add-task]");
     if (quickTaskBtn) {
       const item = state.schedule.find((s) => s.id === quickTaskBtn.dataset.quickAddTask);
@@ -2176,7 +2180,6 @@ function initUIListeners() {
       return;
     }
 
-    // Редактирование ДЗ
     const editTaskBtn = e.target.closest("[data-edit-task]");
     if (editTaskBtn) {
       const task = state.tasks.find((t) => t.id === editTaskBtn.dataset.editTask);
@@ -2194,7 +2197,6 @@ function initUIListeners() {
       return;
     }
 
-    // Перенос дедлайна ДЗ на следующую неделю (+7 дней)
     const shiftTaskBtn = e.target.closest("[data-shift-task-week]");
     if (shiftTaskBtn) {
       const task = state.tasks.find((t) => t.id === shiftTaskBtn.dataset.shiftTaskWeek);
@@ -2204,7 +2206,6 @@ function initUIListeners() {
       return;
     }
 
-    // Открытие окна заметки к паре
     const quickNoteBtn = e.target.closest("[data-quick-add-note]");
     if (quickNoteBtn) {
       const item = state.schedule.find((s) => s.id === quickNoteBtn.dataset.quickAddNote);
@@ -2212,7 +2213,6 @@ function initUIListeners() {
       return;
     }
 
-    // Сохранение быстрой многострочной заметки в карточке пары по кнопке "Добавить"
     const inlineNoteSaveBtn = e.target.closest("[data-inline-note-save]");
     if (inlineNoteSaveBtn) {
       const classId = inlineNoteSaveBtn.dataset.inlineNoteSave;
@@ -2235,7 +2235,6 @@ function initUIListeners() {
       return;
     }
 
-    // Закрепление заметки в списке
     const pinNoteBtn = e.target.closest("[data-toggle-pin-note]");
     if (pinNoteBtn) {
       const note = state.notes.find((n) => n.id === pinNoteBtn.dataset.togglePinNote);
@@ -2245,7 +2244,6 @@ function initUIListeners() {
       return;
     }
 
-    // Редактирование заметки
     const editNoteBtn = e.target.closest("[data-edit-note]");
     if (editNoteBtn) {
       const note = state.notes.find((n) => n.id === editNoteBtn.dataset.editNote);
@@ -2266,7 +2264,6 @@ function initUIListeners() {
       return;
     }
 
-    // Копирование пары на следующую неделю (+7 дней)
     const copyNextWeekBtn = e.target.closest("[data-copy-next-week]");
     if (copyNextWeekBtn) {
       const item = state.schedule.find((s) => s.id === copyNextWeekBtn.dataset.copyNextWeek);
@@ -2283,7 +2280,6 @@ function initUIListeners() {
       return;
     }
 
-    // Восстановление скрытой пары
     const restoreBtn = e.target.closest("[data-restore-hidden]");
     if (restoreBtn) {
       await removeHiddenRule(restoreBtn.dataset.restoreHidden);
@@ -2291,7 +2287,6 @@ function initUIListeners() {
       return;
     }
 
-    // Редактирование пары
     const editBtn = e.target.closest("[data-edit-schedule]");
     if (editBtn) {
       const item = state.schedule.find((s) => s.id === editBtn.dataset.editSchedule);
@@ -2313,7 +2308,6 @@ function initUIListeners() {
       return;
     }
 
-    // Скрытие / удаление пары
     const askDelBtn = e.target.closest("[data-ask-delete-schedule]");
     if (askDelBtn) {
       const item = state.schedule.find((s) => s.id === askDelBtn.dataset.askDeleteSchedule);
@@ -2324,7 +2318,6 @@ function initUIListeners() {
       return;
     }
 
-    // Чекбокс выполнения ДЗ
     const toggleTaskBtn = e.target.closest("[data-toggle-task]");
     if (toggleTaskBtn) {
       const id = toggleTaskBtn.dataset.toggleTask;
@@ -2340,7 +2333,6 @@ function initUIListeners() {
       return;
     }
 
-    // Удаление ДЗ
     const delTaskBtn = e.target.closest("[data-delete-task]");
     if (delTaskBtn) {
       const id = delTaskBtn.dataset.deleteTask;
@@ -2354,7 +2346,6 @@ function initUIListeners() {
       return;
     }
 
-    // Удаление заметки
     const delNoteBtn = e.target.closest("[data-delete-note]");
     if (delNoteBtn) {
       const id = delNoteBtn.dataset.deleteNote;
@@ -2368,21 +2359,14 @@ function initUIListeners() {
     }
   });
 
-  // Обработка Enter и Shift+Enter в быстрой заметке к паре:
-  // На ПК: Shift+Enter -> новая строка, Enter -> отправка.
-  // На телефоне (touch-устройства): Enter -> всегда новая строка, отправка кнопкой "Добавить".
   document.addEventListener("keydown", async (e) => {
     if (e.key !== "Enter") return;
     const area = e.target.closest("[data-inline-note-input]");
     if (!area) return;
 
     const isMobileTouch = window.matchMedia("(pointer: coarse)").matches || "ontouchstart" in window;
-    if (e.shiftKey || isMobileTouch) {
-      // Разрешаем стандартный перенос на новую строку
-      return;
-    }
+    if (e.shiftKey || isMobileTouch) return;
 
-    // На ПК нажатие Enter без Shift сохраняет заметку
     e.preventDefault();
     const classId = area.dataset.inlineNoteInput;
     const item = state.schedule.find((s) => s.id === classId);
@@ -2402,7 +2386,6 @@ function initUIListeners() {
     }
   });
 
-  // Автосохранение оглавления и текста заметок в разделе "Заметки"
   document.addEventListener("input", (e) => {
     const contentArea = e.target.closest("[data-note-input]");
     const titleInput = e.target.closest("[data-note-title-input]");
