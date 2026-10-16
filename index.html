@@ -7,10 +7,10 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Дневник" />
-  <meta name="theme-color" content="#000000" />
+  <meta name="theme-color" content="#000000" id="meta-theme-color" />
   <meta name="format-detection" content="telephone=no" />
 
-  <title>Студенческий Дневник • iOS 26</title>
+  <title>Студенческий Дневник</title>
   <link rel="manifest" href="./manifest.webmanifest" />
   
   <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><defs><linearGradient id='g' x1='0%' y1='0%' x2='100%' y2='100%'><stop offset='0%' stop-color='%23FF9F0A'/><stop offset='100%' stop-color='%23FF375F'/></linearGradient></defs><rect width='180' height='180' rx='42' fill='url(%23g)'/><path d='M50 48h80a12 12 0 0 1 12 12v68a12 12 0 0 1-12 12H50a12 12 0 0 1-12-12V60a12 12 0 0 1 12-12zm0 26h232M68 48V36M112 48V36' stroke='white' stroke-width='10' stroke-linecap='round' fill='none'/></svg>" />
@@ -24,8 +24,8 @@
           colors: {
             ios: {
               bg: '#000000',
-              card: '#161618',
-              elevated: '#242428',
+              card: '#1C1C1E',
+              elevated: '#2C2C2E',
               glass: 'rgba(28, 28, 32, 0.72)',
               blue: '#0A84FF',
               green: '#30D158',
@@ -53,100 +53,105 @@
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
       --glass-border-alpha: 0.18;
-      --glass-specular-alpha: 0.36;
+      --glass-specular-alpha: 0.38;
       --glass-blur: 32px;
+      --custom-bg-dim: 0.45;
+      --custom-bg-blur: 0px;
     }
+
     * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
+
     html, body {
-      background-color: #000000;
-      color: #FFFFFF;
       font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", sans-serif;
       overscroll-behavior-y: none;
       user-select: none;
       -webkit-user-select: none;
       touch-action: manipulation;
+      transition: background-color 0.25s ease, color 0.2s ease;
     }
-    input, select, textarea { font-size: 16px !important; user-select: text; -webkit-user-select: text; }
+
+    input, select, textarea {
+      font-size: 16px !important;
+      user-select: text;
+      -webkit-user-select: text;
+    }
+
     .pt-safe { padding-top: max(calc(var(--sat) + 0.5rem), 0.85rem); }
     .pb-safe-nav { padding-bottom: max(var(--sab), 0.75rem); }
     .main-scroll-area { padding-bottom: calc(7.25rem + var(--sab)); }
 
-    /* Настройка яркости стеклянных бликов */
+    /* Настройка интенсивности бликов */
     body.rim-soft { --glass-border-alpha: 0.10; --glass-specular-alpha: 0.18; }
-    body.rim-normal { --glass-border-alpha: 0.18; --glass-specular-alpha: 0.36; }
-    body.rim-bright { --glass-border-alpha: 0.28; --glass-specular-alpha: 0.58; }
+    body.rim-normal { --glass-border-alpha: 0.18; --glass-specular-alpha: 0.38; }
+    body.rim-bright { --glass-border-alpha: 0.30; --glass-specular-alpha: 0.62; }
 
     /* ==========================================================================
-       ВАРИАНТ 1: iOS 26 TELEGRAM GLASS — БЕЗ КРУГОВ НА ФОНЕ (body.theme-tg-glass)
-       Чистый черный фон, дымчатые стеклянные капсулы и тонкий серебристый блик
+       1. ФОНЫ ПРИЛОЖЕНИЯ: ЧЕРНЫЙ, БЕЛЫЙ, АБСТРАКЦИЯ, СВОЕ ФОТО ИЗ ГАЛЕРЕИ
        ========================================================================== */
-    body.theme-tg-glass {
-      background-color: #000000;
-      background-image: none;
+    #custom-bg-layer {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      display: none;
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      filter: blur(var(--custom-bg-blur));
+      transform: scale(1.03);
     }
-    body.theme-tg-glass #liquid-ambient-bg {
-      display: none !important;
-    }
-    body.theme-tg-glass .ios26-card {
-      background: linear-gradient(
-        180deg,
-        rgba(42, 42, 46, 0.62) 0%,
-        rgba(24, 24, 27, 0.74) 100%
-      );
-      backdrop-filter: blur(var(--glass-blur)) saturate(180%);
-      -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
-      border: 1px solid rgba(255, 255, 255, var(--glass-border-alpha));
-      box-shadow:
-        0 12px 32px -8px rgba(0, 0, 0, 0.8),
-        inset 0 1px 0.5px 0 rgba(255, 255, 255, var(--glass-specular-alpha)),
-        inset 0 -0.5px 0.5px 0 rgba(255, 255, 255, 0.08);
-    }
-    body.theme-tg-glass .ios26-card-orange {
-      background: linear-gradient(
-        180deg,
-        rgba(64, 46, 24, 0.68) 0%,
-        rgba(28, 22, 16, 0.78) 100%
-      );
-      backdrop-filter: blur(var(--glass-blur)) saturate(190%);
-      -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(190%);
-      border: 1px solid rgba(255, 159, 10, 0.48);
-      box-shadow:
-        0 12px 32px -8px rgba(0, 0, 0, 0.85),
-        inset 0 1px 0.5px 0 rgba(255, 210, 150, 0.45);
-    }
-    body.theme-tg-glass .ios26-pill {
-      background: linear-gradient(
-        180deg,
-        rgba(58, 58, 64, 0.56) 0%,
-        rgba(32, 32, 36, 0.68) 100%
-      );
-      backdrop-filter: blur(28px) saturate(180%);
-      -webkit-backdrop-filter: blur(28px) saturate(180%);
-      border: 1px solid rgba(255, 255, 255, var(--glass-border-alpha));
-      box-shadow:
-        0 4px 14px rgba(0, 0, 0, 0.55),
-        inset 0 1px 0.5px 0 rgba(255, 255, 255, var(--glass-specular-alpha));
+    #custom-bg-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      display: none;
+      background: rgba(0, 0, 0, var(--custom-bg-dim));
     }
 
-    /* ==========================================================================
-       ВАРИАНТ 2: LIQUID GLASS С КРУГАМИ НА ФОНЕ (body.theme-liquid)
-       ========================================================================== */
-    body.theme-liquid {
-      background-color: #040408;
-    }
     #liquid-ambient-bg {
       position: fixed;
       inset: 0;
       z-index: 0;
       pointer-events: none;
       overflow: hidden;
-      background: radial-gradient(circle at 50% 0%, #101324 0%, #030306 75%);
+      display: none;
     }
+
+    /* Фон: Чисто черный */
+    body.bg-mode-black {
+      background-color: #000000 !important;
+    }
+
+    /* Фон: Чисто белый */
+    body.bg-mode-white {
+      background-color: #F4F4F8 !important;
+    }
+
+    /* Фон: Абстракция */
+    body.bg-mode-abstract #liquid-ambient-bg {
+      display: block !important;
+    }
+    body.mode-dark.bg-mode-abstract #liquid-ambient-bg {
+      background:
+        radial-gradient(circle at 15% 15%, rgba(255, 159, 10, 0.28) 0%, transparent 45%),
+        radial-gradient(circle at 85% 25%, rgba(10, 132, 255, 0.30) 0%, transparent 50%),
+        radial-gradient(circle at 50% 85%, rgba(191, 90, 242, 0.25) 0%, transparent 50%),
+        linear-gradient(160deg, #090A12 0%, #121526 50%, #07070C 100%);
+    }
+    body.mode-light.bg-mode-abstract #liquid-ambient-bg {
+      background:
+        radial-gradient(circle at 15% 15%, rgba(255, 159, 10, 0.30) 0%, transparent 45%),
+        radial-gradient(circle at 85% 25%, rgba(10, 132, 255, 0.26) 0%, transparent 50%),
+        radial-gradient(circle at 50% 85%, rgba(191, 90, 242, 0.24) 0%, transparent 50%),
+        linear-gradient(160deg, #EEF2FF 0%, #FCE7F3 50%, #FFF7ED 100%);
+    }
+
     .liquid-orb {
       position: absolute;
       border-radius: 9999px;
-      filter: blur(70px);
-      opacity: 0.50;
+      filter: blur(65px);
+      opacity: 0.55;
       animation: floatOrb 18s ease-in-out infinite alternate;
       will-change: transform;
     }
@@ -157,97 +162,221 @@
     }
     .liquid-orb-2 {
       width: 380px; height: 380px;
-      top: 22%; right: -110px;
+      top: 25%; right: -100px;
       background: radial-gradient(circle, #0A84FF 0%, #5E5CE6 70%, transparent 100%);
       animation-delay: -6s;
     }
     .liquid-orb-3 {
       width: 320px; height: 320px;
-      bottom: 8%; left: 10%;
+      bottom: 6%; left: 12%;
       background: radial-gradient(circle, #BF5AF2 0%, #30D158 75%, transparent 100%);
       animation-delay: -11s;
     }
     @keyframes floatOrb {
       0% { transform: translate3d(0, 0, 0) scale(1); }
-      50% { transform: translate3d(25px, -30px, 0) scale(1.08); }
-      100% { transform: translate3d(-20px, 25px, 0) scale(0.95); }
+      50% { transform: translate3d(25px, -25px, 0) scale(1.07); }
+      100% { transform: translate3d(-20px, 20px, 0) scale(0.95); }
     }
-    body.theme-liquid .ios26-card {
+
+    /* Фон: Свой из галереи */
+    body.bg-mode-custom #custom-bg-layer,
+    body.bg-mode-custom #custom-bg-overlay {
+      display: block !important;
+    }
+
+    /* ==========================================================================
+       2. СТИЛИ КАРТОЧЕК (КЛАССИЧЕСКАЯ МАТОВАЯ / LIQUID GLASS / TELEGRAM GLASS)
+       ========================================================================== */
+
+    /* --- А) КЛАССИЧЕСКАЯ МАТОВАЯ ТЕМА (ТА, КОТОРАЯ БЫЛА) --- */
+    body.mode-dark.theme-classic .ios26-card {
+      background: #1C1C1E;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.55);
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+    }
+    body.mode-dark.theme-classic .ios26-card-orange {
+      background: linear-gradient(145deg, rgba(255, 159, 10, 0.16) 0%, #1C1C1E 100%);
+      border: 1px solid rgba(255, 159, 10, 0.45);
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6);
+    }
+
+    body.mode-light.theme-classic .ios26-card {
+      background: #FFFFFF;
+      border: 1px solid rgba(0, 0, 0, 0.08);
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+    }
+    body.mode-light.theme-classic .ios26-card-orange {
+      background: linear-gradient(145deg, rgba(255, 159, 10, 0.18) 0%, #FFFFFF 100%);
+      border: 1px solid rgba(255, 159, 10, 0.55);
+      box-shadow: 0 6px 20px rgba(255, 159, 10, 0.12);
+    }
+
+    /* --- Б) TELEGRAM GLASS (МЯГКОЕ МАТОВОЕ СТЕКЛО) --- */
+    body.mode-dark.theme-tg-glass .ios26-card {
+      background: linear-gradient(180deg, rgba(38, 38, 42, 0.72) 0%, rgba(22, 22, 25, 0.82) 100%);
+      backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+      -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+      border: 1px solid rgba(255, 255, 255, var(--glass-border-alpha));
+      box-shadow:
+        0 12px 30px -8px rgba(0, 0, 0, 0.7),
+        inset 0 1px 0.5px 0 rgba(255, 255, 255, var(--glass-specular-alpha));
+    }
+    body.mode-dark.theme-tg-glass .ios26-card-orange {
+      background: linear-gradient(180deg, rgba(64, 46, 24, 0.72) 0%, rgba(28, 22, 16, 0.84) 100%);
+      backdrop-filter: blur(var(--glass-blur)) saturate(190%);
+      -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(190%);
+      border: 1px solid rgba(255, 159, 10, 0.50);
+      box-shadow:
+        0 12px 30px -8px rgba(0, 0, 0, 0.75),
+        inset 0 1px 0.5px 0 rgba(255, 210, 150, 0.42);
+    }
+
+    body.mode-light.theme-tg-glass .ios26-card {
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.84) 0%, rgba(246, 246, 250, 0.90) 100%);
+      backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+      -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+      border: 1px solid rgba(0, 0, 0, 0.08);
+      box-shadow:
+        0 10px 26px -8px rgba(0, 0, 0, 0.08),
+        inset 0 1px 1px 0 rgba(255, 255, 255, 0.9);
+    }
+    body.mode-light.theme-tg-glass .ios26-card-orange {
+      background: linear-gradient(180deg, rgba(255, 243, 224, 0.88) 0%, rgba(255, 250, 242, 0.92) 100%);
+      backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+      -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+      border: 1px solid rgba(255, 159, 10, 0.55);
+      box-shadow: 0 10px 26px -8px rgba(255, 159, 10, 0.15);
+    }
+
+    /* --- В) LIQUID GLASS (ОБЪЕМНОЕ ЖИДКОЕ СТЕКЛО iOS 26) --- */
+    body.mode-dark.theme-liquid .ios26-card {
       background: linear-gradient(
         135deg,
-        rgba(255, 255, 255, 0.14) 0%,
-        rgba(255, 255, 255, 0.05) 45%,
-        rgba(20, 20, 28, 0.42) 100%
+        rgba(255, 255, 255, 0.16) 0%,
+        rgba(255, 255, 255, 0.06) 45%,
+        rgba(20, 20, 28, 0.48) 100%
       );
-      backdrop-filter: blur(var(--glass-blur)) saturate(210%);
-      -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(210%);
+      backdrop-filter: blur(36px) saturate(210%);
+      -webkit-backdrop-filter: blur(36px) saturate(210%);
       border: 1px solid rgba(255, 255, 255, var(--glass-border-alpha));
       box-shadow:
         0 18px 40px -12px rgba(0, 0, 0, 0.65),
         inset 0 1.5px 1px 0 rgba(255, 255, 255, var(--glass-specular-alpha)),
-        inset 0 -1px 1px 0 rgba(255, 255, 255, 0.10);
+        inset 0 -1px 1px 0 rgba(255, 255, 255, 0.12);
     }
-    body.theme-liquid .ios26-card-orange {
+    body.mode-dark.theme-liquid .ios26-card-orange {
       background: linear-gradient(
         135deg,
-        rgba(255, 159, 10, 0.28) 0%,
-        rgba(255, 107, 0, 0.10) 50%,
-        rgba(30, 20, 12, 0.48) 100%
+        rgba(255, 159, 10, 0.30) 0%,
+        rgba(255, 107, 0, 0.12) 50%,
+        rgba(30, 20, 12, 0.52) 100%
       );
-      backdrop-filter: blur(var(--glass-blur)) saturate(220%);
-      -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(220%);
-      border: 1px solid rgba(255, 179, 64, 0.55);
+      backdrop-filter: blur(36px) saturate(220%);
+      -webkit-backdrop-filter: blur(36px) saturate(220%);
+      border: 1px solid rgba(255, 179, 64, 0.58);
       box-shadow:
-        0 18px 40px -10px rgba(255, 159, 10, 0.28),
-        inset 0 1.5px 1.5px 0 rgba(255, 225, 180, 0.55);
+        0 18px 40px -10px rgba(255, 159, 10, 0.25),
+        inset 0 1.5px 1.5px 0 rgba(255, 225, 180, 0.60);
     }
-    body.theme-liquid .ios26-pill {
+
+    body.mode-light.theme-liquid .ios26-card {
       background: linear-gradient(
         135deg,
-        rgba(255, 255, 255, 0.16) 0%,
-        rgba(255, 255, 255, 0.06) 100%
+        rgba(255, 255, 255, 0.72) 0%,
+        rgba(255, 255, 255, 0.48) 50%,
+        rgba(240, 244, 255, 0.65) 100%
+      );
+      backdrop-filter: blur(36px) saturate(200%);
+      -webkit-backdrop-filter: blur(36px) saturate(200%);
+      border: 1px solid rgba(255, 255, 255, 0.85);
+      box-shadow:
+        0 14px 34px -10px rgba(0, 0, 0, 0.10),
+        inset 0 2px 2px 0 rgba(255, 255, 255, 0.95),
+        inset 0 -1px 1px 0 rgba(0, 0, 0, 0.05);
+    }
+    body.mode-light.theme-liquid .ios26-card-orange {
+      background: linear-gradient(
+        135deg,
+        rgba(255, 232, 196, 0.82) 0%,
+        rgba(255, 245, 230, 0.68) 100%
+      );
+      backdrop-filter: blur(36px) saturate(200%);
+      -webkit-backdrop-filter: blur(36px) saturate(200%);
+      border: 1px solid rgba(255, 159, 10, 0.55);
+      box-shadow:
+        0 14px 34px -10px rgba(255, 159, 10, 0.18),
+        inset 0 2px 2px 0 rgba(255, 255, 255, 0.95);
+    }
+
+    /* ==========================================================================
+       3. СТИЛЬ КНОПОК: МАТОВЫЕ НОРМАЛЬНЫЕ (btn-matte) ИЛИ LIQUID GLASS (btn-glass)
+       ========================================================================== */
+
+    /* Вариант А: Матовые нормальные кнопки (спокойные, без бликов) */
+    body.mode-dark.btn-matte .ios26-pill {
+      background: #2C2C2E;
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      box-shadow: none;
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+    }
+    body.mode-light.btn-matte .ios26-pill {
+      background: #E5E5EA;
+      border: 1px solid rgba(0, 0, 0, 0.06);
+      color: #1C1C1E;
+      box-shadow: none;
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+    }
+
+    body.mode-dark.btn-matte .tg-glass-capsule {
+      background: #1C1C1E;
+      border: 1px solid rgba(255, 255, 255, 0.09);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.65);
+    }
+    body.mode-light.btn-matte .tg-glass-capsule {
+      background: #FFFFFF;
+      border: 1px solid rgba(0, 0, 0, 0.09);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+    }
+
+    /* Вариант Б: Кнопки Liquid Glass (объемная стеклянная капсула с бликом) */
+    body.mode-dark.btn-glass .ios26-pill {
+      background: linear-gradient(
+        145deg,
+        rgba(255, 255, 255, 0.20) 0%,
+        rgba(255, 255, 255, 0.06) 55%,
+        rgba(30, 30, 38, 0.55) 100%
       );
       backdrop-filter: blur(24px) saturate(190%);
       -webkit-backdrop-filter: blur(24px) saturate(190%);
       border: 1px solid rgba(255, 255, 255, var(--glass-border-alpha));
       box-shadow:
-        0 4px 14px rgba(0, 0, 0, 0.35),
-        inset 0 1px 0.5px rgba(255, 255, 255, var(--glass-specular-alpha));
+        0 6px 16px rgba(0, 0, 0, 0.4),
+        inset 0 1.5px 1px 0 rgba(255, 255, 255, var(--glass-specular-alpha)),
+        inset 0 -0.5px 0.5px 0 rgba(255, 255, 255, 0.12);
     }
-
-    /* ==========================================================================
-       ВАРИАНТ 3: КЛАССИЧЕСКИЙ ТЕМНЫЙ (body.theme-classic)
-       ========================================================================== */
-    body.theme-classic {
-      background-color: #000000;
-      background-image: none;
-    }
-    body.theme-classic #liquid-ambient-bg {
-      display: none !important;
-    }
-    body.theme-classic .ios26-card {
-      background: #161618;
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.7);
-    }
-    body.theme-classic .ios26-card-orange {
-      background: linear-gradient(145deg, rgba(255, 159, 10, 0.16) 0%, #181410 100%);
-      border: 1px solid rgba(255, 159, 10, 0.45);
-    }
-    body.theme-classic .ios26-pill {
-      background: #242428;
-      border: 1px solid rgba(255, 255, 255, 0.08);
-    }
-
-    /* ==========================================================================
-       НИЖНЯЯ ПАНЕЛЬ И ВЕРХНЯЯ КАПСУЛА В СТИЛЕ TELEGRAM iOS 26
-       ========================================================================== */
-    .tg-glass-capsule {
+    body.mode-light.btn-glass .ios26-pill {
       background: linear-gradient(
-        180deg,
-        rgba(52, 52, 58, 0.68) 0%,
-        rgba(24, 24, 28, 0.78) 100%
+        145deg,
+        rgba(255, 255, 255, 0.88) 0%,
+        rgba(240, 242, 248, 0.65) 100%
       );
+      backdrop-filter: blur(24px) saturate(190%);
+      -webkit-backdrop-filter: blur(24px) saturate(190%);
+      border: 1px solid rgba(0, 0, 0, 0.10);
+      color: #111114;
+      box-shadow:
+        0 4px 12px rgba(0, 0, 0, 0.06),
+        inset 0 1.5px 1px 0 rgba(255, 255, 255, 0.95);
+    }
+
+    body.mode-dark.btn-glass .tg-glass-capsule {
+      background: linear-gradient(180deg, rgba(52, 52, 58, 0.68) 0%, rgba(24, 24, 28, 0.78) 100%);
       backdrop-filter: blur(36px) saturate(190%);
       -webkit-backdrop-filter: blur(36px) saturate(190%);
       border: 1px solid rgba(255, 255, 255, var(--glass-border-alpha));
@@ -255,20 +384,73 @@
         0 14px 34px rgba(0, 0, 0, 0.75),
         inset 0 1px 0.5px 0 rgba(255, 255, 255, var(--glass-specular-alpha));
     }
-
-    /* Внутренняя активная таблетка вкладки (как у активного таба Chats в ТГ) */
-    .nav-tab.active-tg-pill {
-      background: linear-gradient(
-        180deg,
-        rgba(96, 96, 106, 0.55) 0%,
-        rgba(62, 62, 70, 0.65) 100%
-      );
+    body.mode-light.btn-glass .tg-glass-capsule {
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.85) 0%, rgba(242, 242, 247, 0.90) 100%);
+      backdrop-filter: blur(36px) saturate(190%);
+      -webkit-backdrop-filter: blur(36px) saturate(190%);
+      border: 1px solid rgba(0, 0, 0, 0.09);
       box-shadow:
-        inset 0 1px 0.5px rgba(255, 255, 255, 0.35),
-        0 2px 10px rgba(0, 0, 0, 0.35);
+        0 12px 30px rgba(0, 0, 0, 0.10),
+        inset 0 1.5px 1px 0 rgba(255, 255, 255, 0.95);
     }
 
-    /* Переключение вида нижней навигации: Парящая капсула (ТГ) vs Обычная панель */
+    /* Активная вкладка в нижней навигации */
+    body.mode-dark .nav-tab.active-tg-pill {
+      background: linear-gradient(180deg, rgba(96, 96, 106, 0.55) 0%, rgba(62, 62, 70, 0.65) 100%);
+      box-shadow: inset 0 1px 0.5px rgba(255, 255, 255, 0.35), 0 2px 10px rgba(0, 0, 0, 0.35);
+    }
+    body.mode-light .nav-tab.active-tg-pill {
+      background: rgba(0, 0, 0, 0.08);
+      box-shadow: inset 0 1px 0.5px rgba(255, 255, 255, 0.8);
+    }
+
+    /* ==========================================================================
+       4. АДАПТАЦИЯ СВЕТЛОЙ ТЕМЫ (body.mode-light) ДЛЯ ВСЕХ ЭЛЕМЕНТОВ
+       ========================================================================== */
+    body.mode-light {
+      color: #111114;
+    }
+    body.mode-light header.sticky {
+      background-color: rgba(255, 255, 255, 0.78) !important;
+      border-bottom-color: rgba(0, 0, 0, 0.08) !important;
+    }
+    body.mode-light .text-white {
+      color: #111114 !important;
+    }
+    body.mode-light .text-gray-100,
+    body.mode-light .text-gray-200,
+    body.mode-light .text-gray-300 {
+      color: #3A3A42 !important;
+    }
+    body.mode-light .text-gray-400,
+    body.mode-light .text-ios-gray {
+      color: #6E6E77 !important;
+    }
+    body.mode-light .bg-ios-elevated {
+      background-color: #EBEBF0 !important;
+      color: #111114 !important;
+    }
+    body.mode-light .bg-black\/30,
+    body.mode-light .bg-black\/35,
+    body.mode-light .bg-black\/40,
+    body.mode-light .bg-white\/\[0\.04\],
+    body.mode-light .bg-white\/\[0\.07\] {
+      background-color: rgba(0, 0, 0, 0.045) !important;
+      border-color: rgba(0, 0, 0, 0.09) !important;
+    }
+    body.mode-light .border-white\/10,
+    body.mode-light .border-white\/15,
+    body.mode-light .border-white\/20 {
+      border-color: rgba(0, 0, 0, 0.09) !important;
+    }
+    body.mode-light .bg-white\/15 {
+      background-color: rgba(0, 0, 0, 0.09) !important;
+    }
+    body.mode-light .text-purple-200 {
+      color: #7E22CE !important;
+    }
+
+    /* Положение нижней навигации */
     body.nav-docked #bottom-nav-wrapper {
       bottom: 0;
       padding-left: 0;
@@ -283,30 +465,35 @@
       padding-bottom: max(var(--sab), 0.5rem);
     }
 
-    /* Общие акцентные кнопки */
+    /* Акцентная оранжевая кнопка */
     .ios-active-orange {
-      background: linear-gradient(135deg, #FF9F0A 0%, #FF6B00 100%);
-      color: #000000;
-      border-color: #FFB340;
-      box-shadow: 0 8px 22px -4px rgba(255, 159, 10, 0.55), inset 0 1.5px 1px rgba(255, 255, 255, 0.55);
+      background: linear-gradient(135deg, #FF9F0A 0%, #FF6B00 100%) !important;
+      color: #000000 !important;
+      border-color: #FFB340 !important;
+      box-shadow: 0 6px 18px -4px rgba(255, 159, 10, 0.5), inset 0 1px 0.5px rgba(255, 255, 255, 0.5);
     }
+
     .ios-press { transition: transform 0.16s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.16s ease; }
     .ios-press:active { transform: scale(0.96); opacity: 0.85; }
     .no-scrollbar::-webkit-scrollbar { display: none; }
     .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
   </style>
 </head>
-<body class="theme-tg-glass rim-normal min-h-screen flex flex-col text-white antialiased relative">
+<body class="mode-dark theme-classic btn-matte bg-mode-black rim-normal min-h-screen flex flex-col text-white antialiased relative">
 
-  <!-- ФОНОВЫЕ КРУГИ (ВКЛЮЧАЮТСЯ ТОЛЬКО ЕСЛИ В НАСТРОЙКАХ ВЫБРАН РЕЖИМ С КРУГАМИ) -->
+  <!-- СЛОЙ 1: ПОЛЬЗОВАТЕЛЬСКИЙ ФОН ИЗ ГАЛЕРЕИ -->
+  <div id="custom-bg-layer" aria-hidden="true"></div>
+  <div id="custom-bg-overlay" aria-hidden="true"></div>
+
+  <!-- СЛОЙ 2: АБСТРАКТНЫЙ ФОН -->
   <div id="liquid-ambient-bg" aria-hidden="true">
     <div class="liquid-orb liquid-orb-1"></div>
     <div class="liquid-orb liquid-orb-2"></div>
     <div class="liquid-orb liquid-orb-3"></div>
   </div>
 
-  <!-- ВЕРХНЯЯ ПАНЕЛЬ В СТИЛЕ TELEGRAM iOS 26 + ВИДЖЕТ РЕАЛЬНОГО ВРЕМЕНИ -->
-  <header class="sticky top-0 z-30 bg-black/70 backdrop-blur-2xl border-b border-white/10 pt-safe px-4 pb-3 space-y-2.5">
+  <!-- ВЕРХНЯЯ ПАНЕЛЬ + ВИДЖЕТ РЕАЛЬНОГО ВРЕМЕНИ -->
+  <header class="sticky top-0 z-30 bg-black/75 backdrop-blur-2xl border-b border-white/10 pt-safe px-4 pb-3 space-y-2.5">
     <div class="max-w-lg mx-auto flex items-center justify-between gap-2">
       <div>
         <div class="flex items-center gap-2 mb-0.5">
@@ -318,11 +505,16 @@
         <h1 id="header-title" class="text-2xl font-extrabold tracking-tight">Расписание</h1>
       </div>
 
-      <div class="flex items-center gap-2">
-        <!-- Единая стеклянная капсула инструментов как в правом верхнем углу Telegram на iPhone -->
-        <div class="tg-glass-capsule rounded-full px-1.5 py-1 flex items-center gap-1">
-          <!-- Быстрое переключение 3 тем дизайна -->
-          <button id="btn-theme-toggle" class="ios-press w-8 h-8 rounded-full hover:bg-white/10 text-ios-orange flex items-center justify-center" title="Сменить стиль: ТГ Стекло / С кругами / Классический">
+      <div class="flex items-center gap-1.5">
+        <!-- Капсула быстрых инструментов -->
+        <div class="tg-glass-capsule rounded-full px-1.5 py-1 flex items-center gap-0.5">
+          <!-- БЫСТРЫЙ ВЫБОР ТЕМЫ: ТЕМНАЯ / СВЕТЛАЯ -->
+          <button id="btn-color-mode-toggle" class="ios-press w-8 h-8 rounded-full hover:bg-white/10 text-ios-orange flex items-center justify-center" title="Быстрое переключение: Темная / Светлая тема">
+            <i id="icon-color-mode" data-lucide="sun" class="w-4 h-4"></i>
+          </button>
+
+          <!-- Быстрое переключение стиля карточек (Матовая / Liquid Glass / TG Glass) -->
+          <button id="btn-theme-toggle" class="ios-press w-8 h-8 rounded-full hover:bg-white/10 text-ios-blue flex items-center justify-center" title="Сменить стиль карточек (Матовая / Liquid Glass)">
             <i data-lucide="sparkles" class="w-4 h-4"></i>
           </button>
 
@@ -338,13 +530,13 @@
             <span id="badge-hidden-count" class="hidden absolute -top-1 -right-1 px-1.5 py-0.2 bg-ios-orange text-black text-[10px] font-extrabold rounded-full">0</span>
           </button>
 
-          <!-- Настройки внешнего вида и расписания -->
-          <button id="btn-tools" class="ios-press w-8 h-8 rounded-full hover:bg-white/10 text-gray-200 flex items-center justify-center" title="Настройки дизайна и расписания">
+          <!-- Настройки тем, кнопок, фона и расписания -->
+          <button id="btn-tools" class="ios-press w-8 h-8 rounded-full hover:bg-white/10 text-gray-200 flex items-center justify-center" title="Настройки тем, фона и расписания">
             <i data-lucide="sliders-horizontal" class="w-4 h-4"></i>
           </button>
         </div>
 
-        <!-- Кнопка добавить -->
+        <!-- Кнопка добавить (+) -->
         <button id="btn-header-add" class="ios-press w-9 h-9 rounded-full ios-active-orange text-black font-bold flex items-center justify-center shrink-0" title="Добавить">
           <i data-lucide="plus" class="w-5 h-5 stroke-[2.5]"></i>
         </button>
@@ -363,7 +555,7 @@
       </div>
     </div>
 
-    <!-- ДИНАМИЧЕСКАЯ ПЛАШКА РЕАЛЬНОГО ВРЕМЕНИ: ТЕКУЩАЯ ПАРА И СЛЕДУЮЩАЯ ПАРА -->
+    <!-- ДИНАМИЧЕСКАЯ ПЛАШКА РЕАЛЬНОГО ВРЕМЕНИ: ТЕКУЩАЯ И СЛЕДУЮЩАЯ ПАРА -->
     <div id="live-now-widget" class="max-w-lg mx-auto ios26-card rounded-3xl p-3 transition-all">
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
         <!-- Блок: Текущая пара -->
@@ -458,7 +650,7 @@
       <!-- Переключатель дней недели (ПН - СБ) -->
       <div id="day-selector" class="grid grid-cols-6 gap-1.5"></div>
 
-      <!-- ОТДЕЛЬНЫЙ БЛОК МЕРОПРИЯТИЙ НА ВЫБРАННЫЙ ДЕНЬ (Не смешивается с парами и заметками) -->
+      <!-- ОТДЕЛЬНЫЙ БЛОК МЕРОПРИЯТИЙ НА ВЫБРАННЫЙ ДЕНЬ -->
       <div id="events-section-wrapper" class="hidden space-y-2">
         <div class="flex items-center justify-between px-1">
           <span class="text-[11px] font-extrabold uppercase tracking-wider text-ios-purple flex items-center gap-1.5">
@@ -502,7 +694,6 @@
         </button>
       </div>
 
-      <!-- Переключатель вкладок в виде стеклянной капсулы как в Telegram -->
       <div class="tg-glass-capsule p-1 rounded-full grid grid-cols-3 gap-1">
         <button data-status="active" class="task-filter-tab ios-press py-2 rounded-full text-xs font-bold transition-all bg-white/15 text-white shadow">
           Активные (<span id="count-active-tasks">0</span>)
@@ -522,14 +713,12 @@
          ВКЛАДКА 3: РАЗДЕЛ ЗАМЕТОК В СТИЛЕ GOOGLE KEEP
          ====================================================================== -->
     <section id="view-notes" class="hidden space-y-4">
-      <!-- Компактная шапка раздела с маленькой кнопкой импорта -->
       <div class="flex items-center justify-between px-1">
         <div class="flex items-center gap-2">
           <span class="text-xs font-bold text-gray-300">Мои заметки</span>
           <span id="note-save-status" class="text-[10px] font-semibold text-ios-green bg-ios-green/15 px-2 py-0.5 rounded-full">Сохранено</span>
         </div>
 
-        <!-- Маленькая аккуратная кнопка импорта -->
         <label class="ios-press px-3 py-1 rounded-full ios26-pill text-gray-300 hover:text-white text-[11px] font-semibold flex items-center gap-1.5 cursor-pointer" title="Импорт заметок из файла (.json, .txt, .html)">
           <i data-lucide="upload" class="w-3 h-3 text-ios-orange"></i>
           <span>Импорт</span>
@@ -537,9 +726,8 @@
         </label>
       </div>
 
-      <!-- БОЛЬШАЯ КАРТОЧКА СОЗДАНИЯ ЗАМЕТКИ КАК В GOOGLE KEEP -->
+      <!-- КАРТОЧКА СОЗДАНИЯ ЗАМЕТКИ КАК В GOOGLE KEEP -->
       <div id="keep-composer-card" class="ios26-card rounded-3xl p-4 space-y-3">
-        <!-- Верхняя строка: Оглавление ("Название") + Иконка закрепления -->
         <div class="flex items-center justify-between gap-2">
           <input
             type="text"
@@ -557,7 +745,6 @@
           </button>
         </div>
 
-        <!-- Основной многострочный текст заметки ("Заметка...") -->
         <textarea
           id="keep-content-input"
           rows="3"
@@ -565,12 +752,9 @@
           class="w-full bg-transparent text-sm text-gray-100 placeholder-gray-400 outline-none resize-y leading-relaxed"
         ></textarea>
 
-        <!-- Превью прикрепленных фотографий в конструкторе заметки -->
         <div id="keep-photos-preview" class="flex gap-2 overflow-x-auto no-scrollbar pt-1"></div>
 
-        <!-- Раскрывающиеся опциональные разделы (Пара, Дата, Уведомление) -->
         <div id="keep-optional-panels" class="space-y-2 pt-1">
-          <!-- Опция 1: Привязка к паре (необязательно) -->
           <div id="keep-panel-subject" class="hidden flex items-center gap-2 bg-black/40 border border-white/10 rounded-2xl px-3 py-2">
             <i data-lucide="book-open" class="w-4 h-4 text-ios-orange shrink-0"></i>
             <input
@@ -583,7 +767,6 @@
             <button type="button" data-clear-keep-opt="subject" class="text-gray-400 hover:text-white text-xs">✕</button>
           </div>
 
-          <!-- Опция 2: Привязка к дате (необязательно) -->
           <div id="keep-panel-date" class="hidden flex items-center gap-2 bg-black/40 border border-white/10 rounded-2xl px-3 py-2">
             <i data-lucide="calendar" class="w-4 h-4 text-ios-blue shrink-0"></i>
             <span class="text-xs text-gray-300">К дате:</span>
@@ -595,7 +778,6 @@
             <button type="button" data-clear-keep-opt="date" class="text-gray-400 hover:text-white text-xs">✕</button>
           </div>
 
-          <!-- Опция 3: Напоминание / Уведомление о заметке (необязательно) -->
           <div id="keep-panel-notify" class="hidden flex items-center gap-2 bg-black/40 border border-white/10 rounded-2xl px-3 py-2">
             <i data-lucide="bell-ring" class="w-4 h-4 text-ios-green shrink-0"></i>
             <span class="text-xs text-gray-300">Напомнить:</span>
@@ -608,7 +790,6 @@
           </div>
         </div>
 
-        <!-- Нижняя панель иконок (Пара, Дата, Картинка, Уведомление + Добавить) -->
         <div class="flex items-center justify-between gap-2 pt-2 border-t border-white/10 flex-wrap">
           <div class="flex items-center gap-1">
             <button
@@ -673,20 +854,18 @@
         </div>
       </div>
 
-      <!-- Фильтр заметок в виде стеклянной капсулы -->
       <div class="tg-glass-capsule p-1 rounded-full grid grid-cols-3 gap-1">
         <button data-note-filter="all" class="note-filter-tab ios-press py-1.5 rounded-full text-xs font-bold bg-white/15 text-white shadow">Все заметки</button>
         <button data-note-filter="class" class="note-filter-tab ios-press py-1.5 rounded-full text-xs font-bold text-ios-gray">К парам</button>
         <button data-note-filter="general" class="note-filter-tab ios-press py-1.5 rounded-full text-xs font-bold text-ios-gray">Личные</button>
       </div>
 
-      <!-- Список сохраненных заметок -->
       <div id="notes-list" class="space-y-3"></div>
     </section>
 
   </main>
 
-  <!-- ПАРЯЩАЯ НИЖНЯЯ КАПСУЛА НАВИГАЦИИ КАК В TELEGRAM НА iOS 26 -->
+  <!-- НИЖНЯЯ КАПСУЛА НАВИГАЦИИ -->
   <nav id="bottom-nav-wrapper" class="fixed bottom-2 inset-x-0 z-30 px-4 pb-safe-nav pointer-events-none transition-all">
     <div id="bottom-nav-capsule" class="max-w-md mx-auto tg-glass-capsule rounded-full p-1.5 grid grid-cols-3 gap-1 pointer-events-auto transition-all">
       <button data-tab="schedule" class="nav-tab active-tg-pill ios-press py-1.5 rounded-full flex flex-col items-center justify-center gap-0.5 text-ios-orange transition-all">
@@ -706,7 +885,7 @@
   </nav>
 
   <!-- ========================================================================
-       МОДАЛЬНОЕ ОКНО 1: ДОБАВИТЬ / ИЗМЕНИТЬ ПАРУ (+ ПОЛЕ ТЕМЫ ПАРЫ)
+       МОДАЛЬНОЕ ОКНО 1: ДОБАВИТЬ / ИЗМЕНИТЬ ПАРУ
        ======================================================================== -->
   <div id="modal-schedule" class="fixed inset-0 z-50 hidden items-end sm:items-center justify-center bg-black/75 backdrop-blur-md">
     <div class="ios26-card w-full max-w-lg rounded-t-3xl sm:rounded-3xl p-5 pb-safe-nav space-y-4 max-h-[92vh] overflow-y-auto">
@@ -895,7 +1074,7 @@
   </div>
 
   <!-- ========================================================================
-       МОДАЛЬНОЕ ОКНО 4: ПОКАЗАТЬ СКРЫТЫЕ ПАРЫ (ВОССТАНОВЛЕНИЕ)
+       МОДАЛЬНОЕ ОКНО 4: ПОКАЗАТЬ СКРЫТЫЕ ПАРЫ
        ======================================================================== -->
   <div id="modal-hidden-classes" class="fixed inset-0 z-50 hidden items-end sm:items-center justify-center bg-black/75 backdrop-blur-md">
     <div class="ios26-card w-full max-w-lg rounded-t-3xl sm:rounded-3xl p-5 pb-safe-nav space-y-4 max-h-[88vh] overflow-y-auto">
@@ -918,7 +1097,7 @@
   </div>
 
   <!-- ========================================================================
-       МОДАЛЬНОЕ ОКНО 5: УПРОЩЕННАЯ ФОРМА ДЗ + УМНОЕ РАСПРЕДЕЛЕНИЕ + ФОТО
+       МОДАЛЬНОЕ ОКНО 5: ФОРМА ДОМАШНЕГО ЗАДАНИЯ
        ======================================================================== -->
   <div id="modal-task" class="fixed inset-0 z-50 hidden items-end sm:items-center justify-center bg-black/75 backdrop-blur-md">
     <div class="ios26-card w-full max-w-lg rounded-t-3xl sm:rounded-3xl p-5 pb-safe-nav space-y-4 max-h-[92vh] overflow-y-auto">
@@ -1049,7 +1228,7 @@
   </div>
 
   <!-- ========================================================================
-       МОДАЛЬНОЕ ОКНО 7: НАСТРОЙКИ УВЕДОМЛЕНИЙ (ПАРЫ, ДЕДЛАЙНЫ, ЗАМЕТКИ)
+       МОДАЛЬНОЕ ОКНО 7: НАСТРОЙКИ УВЕДОМЛЕНИЙ
        ======================================================================== -->
   <div id="modal-notifications" class="fixed inset-0 z-50 hidden items-end sm:items-center justify-center bg-black/75 backdrop-blur-md">
     <div class="ios26-card w-full max-w-lg rounded-t-3xl sm:rounded-3xl p-5 pb-safe-nav space-y-4 max-h-[90vh] overflow-y-auto">
@@ -1106,52 +1285,138 @@
   </div>
 
   <!-- ========================================================================
-       МОДАЛЬНОЕ ОКНО 8: РАСШИРЕННЫЕ НАСТРОЙКИ ДИЗАЙНА И РАСПИСАНИЯ
+       МОДАЛЬНОЕ ОКНО 8: НАСТРОЙКИ ТЕМ, КНОПОК, ФОНА И РАСПИСАНИЯ
        ======================================================================== -->
   <div id="modal-tools" class="fixed inset-0 z-50 hidden items-end sm:items-center justify-center bg-black/75 backdrop-blur-md">
     <div class="ios26-card w-full max-w-lg rounded-t-3xl sm:rounded-3xl p-5 pb-safe-nav space-y-4 max-h-[92vh] overflow-y-auto">
       <div class="flex items-center justify-between">
-        <h2 class="text-lg font-extrabold">Дизайн и управление</h2>
+        <h2 class="text-lg font-extrabold">Темы, фон и расписание</h2>
         <button type="button" data-close-modal="modal-tools" class="w-8 h-8 rounded-full ios26-pill text-ios-gray flex items-center justify-center">
           <i data-lucide="x" class="w-4 h-4"></i>
         </button>
       </div>
 
       <div class="space-y-3.5 text-xs text-gray-300">
-        <!-- 1. Выбор из 3 вариантов темы оформления -->
+        <!-- 1. БЫСТРЫЙ ВЫБОР РЕЖИМА: ТЕМНАЯ / СВЕТЛАЯ ТЕМА -->
         <div class="bg-ios-elevated p-3.5 rounded-2xl space-y-2.5">
           <p class="font-bold text-white text-sm flex items-center gap-1.5">
-            <i data-lucide="sparkles" class="w-4 h-4 text-ios-orange"></i>
-            Тема оформления (3 варианта)
+            <i data-lucide="sun-moon" class="w-4 h-4 text-ios-orange"></i>
+            Режим темы (Темная / Светлая)
           </p>
-          <div class="grid grid-cols-1 gap-2">
-            <button type="button" data-set-theme="tg-glass" class="theme-choice-btn ios-press py-2.5 px-3.5 rounded-xl font-bold text-xs flex items-center justify-between ios-active-orange text-black">
-              <span>iOS 26 Telegram Glass (Без кругов)</span>
-              <span class="text-[10px] opacity-80">Как в ТГ</span>
+          <div class="grid grid-cols-2 gap-2">
+            <button type="button" data-set-color-mode="dark" class="color-mode-btn ios-press py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 ios-active-orange text-black">
+              <i data-lucide="moon" class="w-4 h-4"></i>
+              <span>Темная</span>
             </button>
-            <button type="button" data-set-theme="liquid" class="theme-choice-btn ios-press py-2.5 px-3.5 rounded-xl font-bold text-xs flex items-center justify-between bg-black/40 text-gray-300 border border-white/10">
-              <span>Liquid Glass (С кругами на фоне)</span>
-              <span class="text-[10px] opacity-75">Неоновый свет</span>
-            </button>
-            <button type="button" data-set-theme="classic" class="theme-choice-btn ios-press py-2.5 px-3.5 rounded-xl font-bold text-xs flex items-center justify-between bg-black/40 text-gray-300 border border-white/10">
-              <span>Классический темный (Текущий)</span>
-              <span class="text-[10px] opacity-75">Матовый</span>
+            <button type="button" data-set-color-mode="light" class="color-mode-btn ios-press py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 bg-black/40 text-gray-300 border border-white/10">
+              <i data-lucide="sun" class="w-4 h-4"></i>
+              <span>Светлая</span>
             </button>
           </div>
         </div>
 
-        <!-- 2. Тонкие настройки стекла и панели навигации -->
+        <!-- 2. ВЫБОР ТЕМЫ КАРТОЧЕК И КНОПОК -->
         <div class="bg-ios-elevated p-3.5 rounded-2xl space-y-3">
           <p class="font-bold text-white text-sm flex items-center gap-1.5">
-            <i data-lucide="sliders" class="w-4 h-4 text-ios-blue"></i>
-            Тонкие настройки интерфейса
+            <i data-lucide="layers" class="w-4 h-4 text-ios-blue"></i>
+            Стиль карточек и кнопок
           </p>
 
           <div class="space-y-1.5">
-            <span class="text-[11px] text-ios-gray">Вид нижней панели навигации:</span>
+            <span class="text-[11px] text-ios-gray">Тема карточек:</span>
+            <div class="grid grid-cols-1 gap-1.5">
+              <button type="button" data-set-theme="classic" class="theme-choice-btn ios-press py-2.5 px-3.5 rounded-xl font-bold text-xs flex items-center justify-between ios-active-orange text-black">
+                <span>Классическая матовая (Та, что была)</span>
+                <span class="text-[10px] opacity-80">Нормальная</span>
+              </button>
+              <button type="button" data-set-theme="liquid" class="theme-choice-btn ios-press py-2.5 px-3.5 rounded-xl font-bold text-xs flex items-center justify-between bg-black/40 text-gray-300 border border-white/10">
+                <span>Liquid Glass (Жидкое стекло iOS 26)</span>
+                <span class="text-[10px] opacity-75">Объемные блики</span>
+              </button>
+              <button type="button" data-set-theme="tg-glass" class="theme-choice-btn ios-press py-2.5 px-3.5 rounded-xl font-bold text-xs flex items-center justify-between bg-black/40 text-gray-300 border border-white/10">
+                <span>Telegram Glass (Мягкое стекло)</span>
+                <span class="text-[10px] opacity-75">Полупрозрачная</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="space-y-1.5 pt-1">
+            <span class="text-[11px] text-ios-gray">Стиль кнопок:</span>
+            <div class="grid grid-cols-2 gap-1.5">
+              <button type="button" data-set-btn-style="matte" class="btn-style-choice ios-press py-2.5 px-3 rounded-xl font-bold text-xs ios-active-orange text-black">
+                Матовые нормальные
+              </button>
+              <button type="button" data-set-btn-style="glass" class="btn-style-choice ios-press py-2.5 px-3 rounded-xl font-bold text-xs bg-black/40 text-gray-300 border border-white/10">
+                Кнопки Liquid Glass
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. ВЫБОР ФОНА: ЧИСТО ЧЕРНЫЙ, ЧИСТО БЕЛЫЙ, АБСТРАКЦИЯ, СВОЙ ИЗ ГАЛЕРЕИ -->
+        <div class="bg-ios-elevated p-3.5 rounded-2xl space-y-3">
+          <p class="font-bold text-white text-sm flex items-center gap-1.5">
+            <i data-lucide="image" class="w-4 h-4 text-ios-purple"></i>
+            Выбор фона
+          </p>
+
+          <div class="grid grid-cols-2 gap-2">
+            <button type="button" data-set-bg="black" class="bg-choice-btn ios-press py-2.5 px-3 rounded-xl font-bold text-xs flex items-center gap-2 ios-active-orange text-black">
+              <span class="w-3.5 h-3.5 rounded-full bg-black border border-white/40 shrink-0"></span>
+              <span>Чисто черный</span>
+            </button>
+
+            <button type="button" data-set-bg="white" class="bg-choice-btn ios-press py-2.5 px-3 rounded-xl font-bold text-xs flex items-center gap-2 bg-black/40 text-gray-300 border border-white/10">
+              <span class="w-3.5 h-3.5 rounded-full bg-white border border-black/20 shrink-0"></span>
+              <span>Чисто белый</span>
+            </button>
+
+            <button type="button" data-set-bg="abstract" class="bg-choice-btn ios-press py-2.5 px-3 rounded-xl font-bold text-xs flex items-center gap-2 bg-black/40 text-gray-300 border border-white/10">
+              <span class="w-3.5 h-3.5 rounded-full bg-gradient-to-tr from-ios-orange via-ios-purple to-ios-blue shrink-0"></span>
+              <span>Абстракция</span>
+            </button>
+
+            <button type="button" data-set-bg="custom" class="bg-choice-btn ios-press py-2.5 px-3 rounded-xl font-bold text-xs flex items-center gap-2 bg-black/40 text-gray-300 border border-white/10">
+              <i data-lucide="Wallpaper" class="w-3.5 h-3.5 text-ios-green shrink-0"></i>
+              <span>Свой из галереи</span>
+            </button>
+          </div>
+
+          <!-- Загрузка и настройка своего фона из галереи -->
+          <div class="p-3 rounded-xl bg-black/35 border border-white/10 space-y-2.5">
+            <div class="flex items-center justify-between gap-2">
+              <label class="ios-press flex-1 py-2 px-3 rounded-xl bg-ios-blue/20 border border-ios-blue/40 text-ios-blue font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer">
+                <i data-lucide="upload" class="w-3.5 h-3.5"></i>
+                <span>Выбрать фото из галереи</span>
+                <input type="file" id="custom-bg-input" accept="image/*" class="hidden" />
+              </label>
+              <button type="button" id="btn-clear-custom-bg" class="ios-press py-2 px-3 rounded-xl bg-ios-red/20 border border-ios-red/40 text-ios-red font-bold text-xs">
+                Сбросить
+              </button>
+            </div>
+
+            <div class="space-y-1">
+              <div class="flex justify-between text-[11px] text-ios-gray">
+                <span>Затемнение своего фона:</span>
+                <span id="bg-dim-value">45%</span>
+              </div>
+              <input type="range" id="bg-dim-slider" min="0" max="85" value="45" class="w-full accent-ios-orange" />
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. Тонкие настройки панели навигации и бликов -->
+        <div class="bg-ios-elevated p-3.5 rounded-2xl space-y-3">
+          <p class="font-bold text-white text-sm flex items-center gap-1.5">
+            <i data-lucide="sliders" class="w-4 h-4 text-ios-green"></i>
+            Панель навигации и грани
+          </p>
+
+          <div class="space-y-1.5">
+            <span class="text-[11px] text-ios-gray">Нижняя панель:</span>
             <div class="grid grid-cols-2 gap-1.5">
               <button type="button" data-set-nav="floating" class="nav-style-btn ios-press py-2 rounded-xl font-bold text-xs bg-white/15 text-white border border-white/20">
-                Парящая капсула (ТГ)
+                Парящая капсула
               </button>
               <button type="button" data-set-nav="docked" class="nav-style-btn ios-press py-2 rounded-xl font-bold text-xs bg-black/40 text-gray-400 border border-white/10">
                 Сплошная полоса
@@ -1160,13 +1425,13 @@
           </div>
 
           <div class="space-y-1.5">
-            <span class="text-[11px] text-ios-gray">Яркость стеклянных граней (бликов):</span>
+            <span class="text-[11px] text-ios-gray">Яркость граней стекла:</span>
             <div class="grid grid-cols-3 gap-1.5">
               <button type="button" data-set-rim="soft" class="rim-style-btn ios-press py-1.5 rounded-xl font-bold text-xs bg-black/40 text-gray-400 border border-white/10">
                 Мягкие
               </button>
               <button type="button" data-set-rim="normal" class="rim-style-btn ios-press py-1.5 rounded-xl font-bold text-xs bg-white/15 text-white border border-white/20">
-                Стандарт (ТГ)
+                Стандарт
               </button>
               <button type="button" data-set-rim="bright" class="rim-style-btn ios-press py-1.5 rounded-xl font-bold text-xs bg-black/40 text-gray-400 border border-white/10">
                 Яркие
@@ -1175,43 +1440,32 @@
           </div>
         </div>
 
-        <!-- 3. Быстрый переход к настройкам уведомлений -->
-        <div class="bg-ios-elevated p-3.5 rounded-2xl space-y-2">
-          <p class="font-bold text-white text-sm">Уведомления (Пары, ДЗ, Заметки)</p>
-          <p>Включите или отключите отдельные категории напоминаний.</p>
-          <button id="btn-open-notif-from-tools" class="ios-press w-full py-2.5 rounded-xl bg-ios-green/20 border border-ios-green/40 text-ios-green font-bold text-xs mt-1">
-            Настроить уведомления
+        <!-- 5. Уведомления и скрытые пары -->
+        <div class="grid grid-cols-2 gap-2">
+          <button id="btn-open-notif-from-tools" class="ios-press py-2.5 px-3 rounded-xl bg-ios-green/20 border border-ios-green/40 text-ios-green font-bold text-xs">
+            Уведомления
+          </button>
+          <button id="btn-open-hidden-from-tools" class="ios-press py-2.5 px-3 rounded-xl bg-ios-orange/20 border border-ios-orange/40 text-ios-orange font-bold text-xs">
+            Скрытые пары
           </button>
         </div>
 
-        <!-- 4. Скрытые пары -->
+        <!-- 6. Восстановление 275 пар и импорт .ics -->
         <div class="bg-ios-elevated p-3.5 rounded-2xl space-y-2">
-          <p class="font-bold text-white text-sm">Скрытые пары и предметы</p>
-          <p>Управляйте парами, которые вы отменили на текущую неделю или скрыли навсегда.</p>
-          <button id="btn-open-hidden-from-tools" class="ios-press w-full py-2.5 rounded-xl bg-ios-orange/20 border border-ios-orange/40 text-ios-orange font-bold text-xs mt-1">
-            Показать скрытые пары
-          </button>
-        </div>
-
-        <!-- 5. Восстановление 275 пар -->
-        <div class="bg-ios-elevated p-3.5 rounded-2xl space-y-2">
-          <p class="font-bold text-white text-sm">Встроенное расписание (1 семестр — 275 пар)</p>
-          <p>Восстановить базовое расписание семестра и сбросить скрытые пары:</p>
-          <button id="btn-restore-default" class="ios-press w-full py-2.5 rounded-xl bg-ios-blue text-white font-bold text-xs mt-1">
+          <p class="font-bold text-white text-sm">Управление базой расписания</p>
+          <button id="btn-restore-default" class="ios-press w-full py-2.5 rounded-xl bg-ios-blue text-white font-bold text-xs">
             Перезагрузить базовое расписание (275 пар)
           </button>
-        </div>
-
-        <!-- 6. Импорт .ics -->
-        <div class="bg-ios-elevated p-3.5 rounded-2xl space-y-2">
-          <p class="font-bold text-white text-sm">Импорт из файла календаря (.ics)</p>
-          <input type="file" id="ics-file-input" accept=".ics" class="block w-full text-xs text-gray-300 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-ios-blue/20 file:text-ios-blue" />
+          <div class="pt-2">
+            <label class="block text-[11px] text-ios-gray mb-1">Импорт нового календаря (.ics):</label>
+            <input type="file" id="ics-file-input" accept=".ics" class="block w-full text-xs text-gray-300 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-ios-blue/20 file:text-ios-blue" />
+          </div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- МОДАЛЬНОЕ ОКНО 9: ПРОСМОТР ФОТО НА ВЕСЬ ЭКРАН (ЛАЙТБОКС) -->
+  <!-- МОДАЛЬНОЕ ОКНО 9: ПРОСМОТР ФОТО НА ВЕСЬ ЭКРАН -->
   <div id="modal-photo-viewer" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/90 backdrop-blur-xl p-4">
     <button type="button" data-close-modal="modal-photo-viewer" class="fixed top-6 right-6 w-10 h-10 rounded-full ios26-pill text-white flex items-center justify-center">
       <i data-lucide="x" class="w-5 h-5"></i>
