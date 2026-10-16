@@ -1,4 +1,4 @@
-const CACHE_NAME = "student-diary-v6";
+const CACHE_NAME = "student-diary-v7";
 const ASSETS = [
   "./",
   "./index.html",
@@ -15,7 +15,9 @@ self.addEventListener("install", (event) => {
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))))
+    caches.keys().then((keys) =>
+      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
+    )
   );
   self.clients.claim();
 });
@@ -33,18 +35,17 @@ self.addEventListener("notificationclick", (event) => {
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
   if (event.request.method !== "GET" || url.hostname.includes("googleapis.com")) return;
+
+  // Стратегия Network-First: сначала пробуем получить свежую версию из сети, а если оффлайн — отдаем из кэша
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      const networked = fetch(event.request)
-        .then((res) => {
-          if (res && res.status === 200) {
-            const copy = res.clone();
-            caches.open(CACHE_NAME).then((c) => c.put(event.request, copy));
-          }
-          return res;
-        })
-        .catch(() => cached);
-      return cached || networked;
-    })
+    fetch(event.request)
+      .then((res) => {
+        if (res && res.status === 200) {
+          const copy = res.clone();
+          caches.open(CACHE_NAME).then((c) => c.put(event.request, copy));
+        }
+        return res;
+      })
+      .catch(() => caches.match(event.request))
   );
 });
