@@ -75,7 +75,6 @@
       -webkit-text-size-adjust: 100%;
     }
 
-    /* Запрет зума на iOS и предотвращение растягивания контейнеров датами */
     input, select, textarea {
       font-size: 16px !important;
       user-select: text;
@@ -89,7 +88,7 @@
       min-width: 0;
     }
 
-    /* Безопасные зоны iOS PWA (Dynamic Island / Notch / Home Indicator) */
+    /* Безопасные зоны iOS PWA */
     .pt-safe {
       padding-top: calc(env(safe-area-inset-top, 0px) + 0.6rem);
     }
@@ -100,7 +99,6 @@
       padding-bottom: calc(6.5rem + env(safe-area-inset-bottom, 0px));
     }
 
-    /* Настройка интенсивности бликов */
     body.rim-soft { --glass-border-alpha: 0.10; --glass-specular-alpha: 0.18; }
     body.rim-normal { --glass-border-alpha: 0.18; --glass-specular-alpha: 0.38; }
     body.rim-bright { --glass-border-alpha: 0.30; --glass-specular-alpha: 0.62; }
@@ -314,7 +312,6 @@
       background: rgba(0, 0, 0, 0.08);
     }
 
-    /* Акцентная кнопка по умолчанию (в цветных темах) */
     .ios-active-orange {
       background: linear-gradient(135deg, #FF9F0A 0%, #FF6B00 100%);
       color: #000000;
@@ -352,7 +349,6 @@
 
     /* ==========================================================================
        5. ПОЛНОСТЬЮ Ч/Б ТЕМА (МОНОХРОМНАЯ ЧЕРНО-БЕЛАЯ И БЕЛО-ЧЕРНАЯ КАК НА iOS)
-          Убирает любые цветные выделения, оранжевые рамки и цветные плашки
        ========================================================================== */
     body.mono-mode .ios26-card-orange {
       background: inherit !important;
@@ -370,7 +366,6 @@
       border: 1px solid rgba(0, 0, 0, 0.12) !important;
     }
 
-    /* В Ч/Б режиме активные элементы строго белые (в темной) или черные (в светлой) */
     body.mono-mode.mode-dark .ios-active-orange {
       background: #FFFFFF !important;
       color: #000000 !important;
@@ -384,7 +379,6 @@
       box-shadow: none !important;
     }
 
-    /* Убираем цветные тексты в Ч/Б режиме */
     body.mono-mode.mode-dark .text-ios-orange,
     body.mono-mode.mode-dark .text-ios-blue,
     body.mono-mode.mode-dark .text-ios-purple,
@@ -404,7 +398,6 @@
       color: #000000 !important;
     }
 
-    /* Убираем цветные фоны бейджей и рамок в Ч/Б режиме */
     body.mono-mode [class*="bg-ios-orange"],
     body.mono-mode [class*="bg-ios-blue"],
     body.mono-mode [class*="bg-ios-purple"],
@@ -423,7 +416,6 @@
       display: none !important;
     }
 
-    /* Положение нижней навигации */
     body.nav-docked #bottom-nav-wrapper { bottom: 0; padding-left: 0; padding-right: 0; }
     body.nav-docked #bottom-nav-capsule {
       max-width: 100%;
@@ -453,10 +445,9 @@
     <div class="liquid-orb liquid-orb-3"></div>
   </div>
 
-  <!-- КОМПАКТНАЯ ВЕРХНЯЯ ПАНЕЛЬ (НЕ ПЕРЕКРЫВАЕТ ЭКРАН НА iOS PWA) -->
+  <!-- КОМПАКТНАЯ ВЕРХНЯЯ ПАНЕЛЬ -->
   <header class="sticky top-0 z-30 bg-black/80 backdrop-blur-2xl border-b border-white/10 pt-safe px-3.5 pb-2.5">
     <div class="max-w-lg mx-auto flex items-center justify-between gap-2">
-      <!-- Левая часть: статус + заголовок -->
       <div class="min-w-0 flex-1">
         <div class="flex items-center gap-1.5 mb-0.5">
           <span id="network-dot" class="w-2 h-2 rounded-full bg-ios-green shrink-0"></span>
@@ -467,12 +458,16 @@
         <h1 id="header-title" class="text-xl font-extrabold tracking-tight truncate">Расписание</h1>
       </div>
 
-      <!-- Правая часть: компактная капсула инструментов -->
       <div class="flex items-center gap-1.5 shrink-0">
         <div class="tg-glass-capsule rounded-full px-1 py-1 flex items-center gap-0.5">
-          <!-- Быстрый выбор: Темная / Светлая / ЧБ -->
+          <!-- Быстрое переключение: Темная / Светлая / ЧБ -->
           <button type="button" id="btn-color-mode-toggle" class="ios-press w-7 h-7 rounded-full hover:bg-white/10 text-ios-orange flex items-center justify-center" title="Темная / Светлая / ЧБ тема">
-            <i data-lucide="sun-moon" class="w-4 h-4"></i>
+            <i data-lucide="sun" class="w-4 h-4"></i>
+          </button>
+
+          <!-- Быстрое переключение стиля карточек (Матовая / Liquid Glass) -->
+          <button type="button" id="btn-theme-toggle" class="ios-press w-7 h-7 rounded-full hover:bg-white/10 text-ios-blue flex items-center justify-center" title="Стиль карточек: Матовая / Liquid Glass">
+            <i data-lucide="sparkles" class="w-4 h-4"></i>
           </button>
 
           <!-- Уведомления -->
@@ -520,7 +515,7 @@
          ====================================================================== -->
     <section id="view-schedule" class="space-y-3">
 
-      <!-- ВИДЖЕТ РЕАЛЬНОГО ВРЕМЕНИ: ТЕКУЩАЯ И СЛЕДУЮЩАЯ ПАРА (ТЕПЕРЬ НЕ ПЕРЕКРЫВАЕТ ЭКРАН) -->
+      <!-- ВИДЖЕТ РЕАЛЬНОГО ВРЕМЕНИ: ТЕКУЩАЯ И СЛЕДУЮЩАЯ ПАРА -->
       <div id="live-now-widget" class="ios26-card rounded-3xl p-3 transition-all">
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <!-- Текущая пара -->
@@ -530,7 +525,7 @@
                 <span id="live-current-dot" class="w-2 h-2 rounded-full bg-ios-orange animate-ping shrink-0"></span>
                 Текущая пара
               </span>
-              <span id="live-current-timer" class="text-[10px] font-bold text-ios-orange bg-ios-orange/15 px-2 py-0.5 rounded-full shrink-0">—</span>
+              <span id="live-current-timer" class="text-[10px] font-bold text-ios-orange bg-ios-orange/15 px-2 py-0.5 rounded-full shrink-0">Свободно</span>
             </div>
             <div id="live-current-title" class="text-xs font-bold text-white mt-1 truncate">Сейчас окна / пар нет</div>
             <div id="live-current-meta" class="text-[11px] text-ios-gray mt-0.5 flex items-center justify-between gap-1">
@@ -551,7 +546,7 @@
               </span>
               <span id="live-next-timer" class="text-[10px] font-semibold text-ios-blue bg-ios-blue/15 px-2 py-0.5 rounded-full shrink-0">—</span>
             </div>
-            <div id="live-next-title" class="text-xs font-bold text-white mt-1 truncate">Загрузка...</div>
+            <div id="live-next-title" class="text-xs font-bold text-white mt-1 truncate">Поиск по расписанию...</div>
             <div id="live-next-meta" class="text-[11px] text-ios-gray mt-0.5 flex items-center justify-between gap-1">
               <span id="live-next-room" class="truncate">—</span>
               <span id="live-next-time-range" class="font-medium text-gray-200 shrink-0"></span>
@@ -560,7 +555,7 @@
         </div>
       </div>
 
-      <!-- Карточка управления неделями -->
+      <!-- Карточка управления неделями (БЕЗ СЖАТИЯ ПОЛЯ ДАТЫ) -->
       <div id="week-header-card" class="ios26-card rounded-3xl p-3 space-y-2.5 transition-all">
         <div class="flex items-center justify-between gap-2">
           <button type="button" id="btn-prev-week" class="ios-press w-8 h-8 rounded-full ios26-pill flex items-center justify-center text-white shrink-0">
@@ -572,7 +567,7 @@
               <span id="week-title" class="text-sm font-extrabold text-white truncate">Учебная неделя №1</span>
               <span id="week-current-badge" class="hidden text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-ios-orange text-black">Текущая</span>
             </div>
-            <div id="week-subtitle" class="text-[11px] text-gray-300 font-medium mt-0.5 truncate">Числитель • 1 сен – 7 сен</div>
+            <div id="week-subtitle" class="text-[11px] text-gray-300 font-medium mt-0.5 truncate">Числитель • ПН – ВС</div>
           </div>
 
           <button type="button" id="btn-next-week" class="ios-press w-8 h-8 rounded-full ios26-pill flex items-center justify-center text-white shrink-0">
@@ -580,36 +575,38 @@
           </button>
         </div>
 
-        <!-- Кнопки управления неделей и мероприятиями -->
-        <div class="grid grid-cols-2 sm:flex sm:items-center gap-1.5 pt-0.5">
-          <div class="flex items-center gap-1.5 col-span-2 sm:col-auto">
-            <button type="button" id="btn-today" class="ios-press px-2.5 py-1.5 rounded-full ios26-pill text-xs font-bold shrink-0 flex items-center gap-1">
-              <span class="w-1.5 h-1.5 rounded-full bg-ios-orange"></span>
-              Сегодня
-            </button>
-            <button type="button" id="btn-jump-next-week" class="ios-press px-2.5 py-1.5 rounded-full ios26-pill text-xs font-semibold shrink-0 flex items-center gap-1">
-              <span>След. нед.</span>
-              <i data-lucide="arrow-right" class="w-3 h-3"></i>
-            </button>
-            <button type="button" id="btn-add-event" class="ios-press px-2.5 py-1.5 rounded-full ios26-pill text-xs font-semibold shrink-0 flex items-center gap-1">
-              <i data-lucide="sparkles" class="w-3 h-3 text-ios-purple"></i>
-              <span>+ Событие</span>
-            </button>
-            <button type="button" id="btn-toggle-events" class="ios-press px-2.5 py-1.5 rounded-full ios26-pill text-xs font-semibold shrink-0 flex items-center gap-1" title="Скрыть или показать мероприятия">
-              <i id="icon-toggle-events" data-lucide="eye" class="w-3 h-3 text-ios-purple"></i>
-              <span id="text-toggle-events" class="hidden sm:inline">События</span>
-            </button>
+        <!-- Ряд 1: Сегодня | След. неделя | Выбор конкретной даты -->
+        <div class="grid grid-cols-12 gap-1.5 pt-0.5">
+          <button type="button" id="btn-today" class="col-span-4 ios-press py-1.5 px-2 rounded-full ios26-pill text-xs font-bold flex items-center justify-center gap-1.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-ios-orange shrink-0"></span>
+            <span>Сегодня</span>
+          </button>
+          <button type="button" id="btn-jump-next-week" class="col-span-4 ios-press py-1.5 px-2 rounded-full ios26-pill text-xs font-semibold flex items-center justify-center gap-1">
+            <span>След. нед.</span>
+            <i data-lucide="arrow-right" class="w-3 h-3 text-ios-orange shrink-0"></i>
+          </button>
+          <div class="col-span-4">
+            <input type="date" id="date-jump-picker" class="w-full h-full ios26-pill text-white text-[11px] font-semibold rounded-full px-2.5 py-1.5 outline-none text-center" />
           </div>
-          <div class="col-span-2 sm:flex-1 min-w-0">
-            <input type="date" id="date-jump-picker" class="w-full ios26-pill text-white text-xs rounded-full px-3 py-1.5 outline-none" />
-          </div>
+        </div>
+
+        <!-- Ряд 2: + Мероприятие | Показать/скрыть события -->
+        <div class="grid grid-cols-2 gap-1.5">
+          <button type="button" id="btn-add-event" class="ios-press py-1.5 px-3 rounded-full ios26-pill text-xs font-semibold flex items-center justify-center gap-1.5">
+            <i data-lucide="sparkles" class="w-3.5 h-3.5 text-ios-purple shrink-0"></i>
+            <span>+ Мероприятие</span>
+          </button>
+          <button type="button" id="btn-toggle-events" class="ios-press py-1.5 px-3 rounded-full ios26-pill text-xs font-semibold flex items-center justify-center gap-1.5">
+            <i id="icon-toggle-events" data-lucide="eye" class="w-3.5 h-3.5 text-ios-purple shrink-0"></i>
+            <span id="text-toggle-events">События: Вкл</span>
+          </button>
         </div>
       </div>
 
-      <!-- Переключатель ВСЕХ 7 ДНЕЙ НЕДЕЛИ (ПН - ВС), чтобы воскресенье не пропадало -->
+      <!-- Переключатель ВСЕХ 7 ДНЕЙ НЕДЕЛИ (ПН - ВС) -->
       <div id="day-selector" class="grid grid-cols-7 gap-1"></div>
 
-      <!-- ОТДЕЛЬНЫЙ БЛОК МЕРОПРИЯТИЙ (ПОКАЗЫВАЕТСЯ И В ВОСКРЕСЕНЬЕ, И В ЛЮБОЙ ДЕНЬ) -->
+      <!-- ОТДЕЛЬНЫЙ БЛОК МЕРОПРИЯТИЙ (ВКЛЮЧАЯ ВОСКРЕСЕНЬЕ) -->
       <div id="events-section-wrapper" class="hidden space-y-2">
         <div class="flex items-center justify-between px-1">
           <span class="text-[11px] font-extrabold uppercase tracking-wider text-ios-purple flex items-center gap-1.5">
@@ -840,7 +837,7 @@
   </nav>
 
   <!-- ========================================================================
-       МОДАЛЬНОЕ ОКНО 1: ДОБАВИТЬ / ИЗМЕНИТЬ ПАРУ (С ПОДДЕРЖКОЙ ВОСКРЕСЕНЬЯ)
+       МОДАЛЬНОЕ ОКНО 1: ДОБАВИТЬ / ИЗМЕНИТЬ ПАРУ
        ======================================================================== -->
   <div id="modal-schedule" class="fixed inset-0 z-50 hidden items-end sm:items-center justify-center bg-black/75 backdrop-blur-md">
     <div class="ios26-card w-full max-w-lg rounded-t-3xl sm:rounded-3xl p-5 pb-safe-nav space-y-4 max-h-[90vh] overflow-y-auto">
@@ -1256,7 +1253,7 @@
         <!-- 1. ВЫБОР ЦВЕТОВОГО РЕЖИМА (ТЕМНАЯ / СВЕТЛАЯ / ЧБ ЧЕРНО-БЕЛАЯ / ЧБ БЕЛО-ЧЕРНАЯ) -->
         <div class="bg-ios-elevated p-3.5 rounded-2xl space-y-2.5">
           <p class="font-bold text-white text-sm flex items-center gap-1.5">
-            <i data-lucide="sun-moon" class="w-4 h-4 text-ios-orange"></i>
+            <i data-lucide="sun" class="w-4 h-4 text-ios-orange"></i>
             Режим темы (Цветная или строго Ч/Б без выделений)
           </p>
           <div class="grid grid-cols-2 gap-2">
@@ -1317,7 +1314,7 @@
           </div>
         </div>
 
-        <!-- 3. ВЫБОР ФОНА: ЧИСТО ЧЕРНЫЙ, ЧИСТО БЕЛЫЙ, АБСТРАКЦИЯ, СВОЙ ИЗ ГАЛЕРЕИ -->
+        <!-- 3. ВЫБОР ФОНА -->
         <div class="bg-ios-elevated p-3.5 rounded-2xl space-y-3">
           <p class="font-bold text-white text-sm flex items-center gap-1.5">
             <i data-lucide="image" class="w-4 h-4 text-ios-purple"></i>
@@ -1346,7 +1343,6 @@
             </button>
           </div>
 
-          <!-- Загрузка своего фона из галереи -->
           <div class="p-3 rounded-xl bg-black/35 border border-white/10 space-y-2.5">
             <div class="flex items-center justify-between gap-2">
               <label class="ios-press flex-1 py-2 px-3 rounded-xl bg-ios-blue/20 border border-ios-blue/40 text-ios-blue font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer">
@@ -1399,7 +1395,17 @@
           </div>
         </div>
 
-        <!-- 5. Восстановление 275 пар и импорт .ics -->
+        <!-- 5. Быстрые кнопки уведомлений и скрытых пар (для совместимости со всеми версиями) -->
+        <div class="grid grid-cols-2 gap-2">
+          <button type="button" id="btn-open-notif-from-tools" class="ios-press py-2.5 px-3 rounded-xl bg-ios-green/20 border border-ios-green/40 text-ios-green font-bold text-xs">
+            Уведомления
+          </button>
+          <button type="button" id="btn-open-hidden-from-tools" class="ios-press py-2.5 px-3 rounded-xl bg-ios-orange/20 border border-ios-orange/40 text-ios-orange font-bold text-xs">
+            Скрытые пары
+          </button>
+        </div>
+
+        <!-- 6. Восстановление 275 пар и импорт .ics -->
         <div class="bg-ios-elevated p-3.5 rounded-2xl space-y-2">
           <p class="font-bold text-white text-sm">Управление базой расписания</p>
           <button type="button" id="btn-restore-default" class="ios-press w-full py-2.5 rounded-xl ios-active-orange font-bold text-xs">
@@ -1422,9 +1428,19 @@
     <img id="photo-viewer-img" src="" alt="Фото" class="max-w-full max-h-[85vh] rounded-2xl object-contain shadow-2xl border border-white/15" />
   </div>
 
-  <!-- ВСТРОЕННЫЙ КОНТРОЛЛЕР ТЕМ И ФОНОВ (ГАРАНТИРУЕТ РАБОТУ КНОПОК НА ПК И iOS ДАЖЕ ПРИ СТАРОМ КЭШЕ) -->
+  <!-- АВТО-ОЧИСТКА СТАРОГО КЭША SERVICE WORKER + МГНОВЕННОЕ ПЕРЕКЛЮЧЕНИЕ ТЕМ -->
   <script>
     (function () {
+      // 1. Принудительно удаляем старые кэши v1-v7, чтобы никогда не грузился старый app.js
+      if ("caches" in window && localStorage.getItem("diary_sw_cleaned_v8") !== "1") {
+        caches.keys().then(function (keys) {
+          keys.forEach(function (k) {
+            if (k !== "student-diary-v8") caches.delete(k);
+          });
+        });
+        localStorage.setItem("diary_sw_cleaned_v8", "1");
+      }
+
       function syncHighlight(selector, attr, val) {
         document.querySelectorAll(selector).forEach(function (btn) {
           var active = btn.getAttribute(attr) === val;
@@ -1519,6 +1535,17 @@
           return;
         }
 
+        var quickTheme = e.target.closest("#btn-theme-toggle");
+        if (quickTheme) {
+          var tOrder = ["classic", "liquid", "tg-glass"];
+          var curT = localStorage.getItem("diary_theme_v6") || "classic";
+          var nextT = tOrder[(tOrder.indexOf(curT) + 1) % tOrder.length];
+          localStorage.setItem("diary_theme_v6", nextT);
+          localStorage.setItem("diary_btn_style_v6", nextT === "classic" ? "matte" : "glass");
+          window.__applyDiaryAppearance();
+          return;
+        }
+
         var themeBtn = e.target.closest("[data-set-theme]");
         if (themeBtn) {
           localStorage.setItem("diary_theme_v6", themeBtn.getAttribute("data-set-theme"));
@@ -1574,6 +1601,7 @@
     })();
   </script>
 
-  <script type="module" src="./app.js"></script>
+  <!-- Параметр ?v=8 гарантирует, что браузер и iOS обходят старый кэш Service Worker -->
+  <script type="module" src="./app.js?v=8"></script>
 </body>
 </html>
