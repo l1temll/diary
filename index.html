@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="ru" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  
+  <!-- Настройки iOS PWA -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Дневник" />
+  <meta name="theme-color" content="#000000" />
+  <meta name="format-detection" content="telephone=no" />
+
+  <title>Студенческий Дневник</title>
+  <link rel="manifest" href="./manifest.webmanifest" />
+  
+  <!-- Иконка для домашнего экрана iOS -->
+  <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><rect width='180' height='180' rx='40' fill='%230A84FF'/><path d='M50 45h80a10 10 0 0 1 10 10v70a10 10 0 0 1-10 10H50a10 10 0 0 1-10-10V55a10 10 0 0 1 10-10zm0 25h80M70 45v-10M110 45v-10' stroke='white' stroke-width='10' stroke-linecap='round' fill='none'/></svg>" />
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            ios: {
+              bg: '#000000',
+              card: '#1C1C1E',
+              elevated: '#2C2C2E',
+              blue: '#0A84FF',
+              green: '#30D158',
+              indigo: '#5E5CE6',
+              orange: '#FF9F0A',
+              red: '#FF453A',
+              gray: '#8E8E93',
+              separator: 'rgba(84, 84, 88, 0.65)'
+            }
+          },
+          fontFamily: {
+            sans: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Text"', '"SF Pro Display"', '"Helvetica Neue"', 'sans-serif']
+          }
+        }
+      }
+    };
+  </script>
+
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    :root {
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+    }
+
+    * {
+      -webkit-tap-highlight-color: transparent;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      background-color: #000000;
+      color: #FFFFFF;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", sans-serif;
+      overscroll-behavior-y: none;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+    }
+
+    /* Запрет авто-зума iOS при вводе текста (размер шрифта строго >= 16px) */
+    input, select, textarea {
+      font-size: 16px !important;
+      user-select: text;
+      -webkit-user-select: text;
+    }
+
+    .pt-safe {
+      padding-top: max(calc(var(--sat) + 0.5rem), 1rem);
+    }
+    .pb-safe-nav {
+      padding-bottom: max(var(--sab), 0.75rem);
+    }
+    .main-scroll-area {
+      padding-bottom: calc(6rem + var(--sab));
+    }
+
+    .ios-hairline-b {
+      border-bottom: 0.5px solid rgba(84, 84, 88, 0.65);
+    }
+    .ios-hairline-t {
+      border-top: 0.5px solid rgba(84, 84, 88, 0.65);
+    }
+
+    .ios-press {
+      transition: transform 0.15s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.15s ease;
+    }
+    .ios-press:active {
+      transform: scale(0.96);
+      opacity: 0.85;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col bg-ios-bg text-white antialiased">
+
+  <!-- ВЕРХНЯЯ ПАНЕЛЬ -->
+  <header class="sticky top-0 z-30 bg-black/80 backdrop-blur-xl ios-hairline-b pt-safe px-4 pb-3">
+    <div class="max-w-lg mx-auto flex items-center justify-between gap-2">
+      <div>
+        <div class="flex items-center gap-2 mb-0.5">
+          <span id="network-dot" class="w-2 h-2 rounded-full bg-ios-green"></span>
+          <span id="network-text" class="text-[11px] font-medium uppercase tracking-wider text-ios-gray">Онлайн</span>
+          <span id="sync-indicator" class="hidden text-[11px] text-ios-blue font-medium">• Синхр...</span>
+        </div>
+        <h1 id="header-title" class="text-2xl font-bold tracking-tight">Расписание</h1>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <!-- Кнопка меню расписания (Импорт .ics / Сброс к базовому) -->
+        <button id="btn-tools" class="ios-press w-9 h-9 rounded-full bg-ios-elevated text-gray-300 flex items-center justify-center" title="Настройки расписания">
+          <i data-lucide="sliders-horizontal" class="w-4 h-4"></i>
+        </button>
+
+        <!-- Кнопка добавления (+) -->
+        <button id="btn-header-add" class="ios-press w-9 h-9 rounded-full bg-ios-blue text-white flex items-center justify-center shadow" title="Добавить">
+          <i data-lucide="plus" class="w-5 h-5"></i>
+        </button>
+
+        <!-- Кнопка входа Google -->
+        <button id="btn-login" class="ios-press px-3 py-1.5 rounded-full bg-ios-blue/20 text-ios-blue border border-ios-blue/40 text-xs font-semibold flex items-center gap-1.5">
+          <i data-lucide="log-in" class="w-3.5 h-3.5"></i>
+          <span>Войти</span>
+        </button>
+
+        <!-- Профиль пользователя -->
+        <div id="user-profile" class="hidden items-center gap-1.5 bg-ios-card pl-1.5 pr-2 py-1 rounded-full border border-white/10">
+          <img id="user-avatar" src="" alt="Avatar" class="w-6 h-6 rounded-full object-cover bg-ios-elevated" />
+          <button id="btn-logout" class="ios-press text-ios-gray hover:text-ios-red p-1 flex items-center" title="Выйти">
+            <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ОСНОВНОЙ КОНТЕНТ -->
+  <main class="flex-1 max-w-lg w-full mx-auto px-4 pt-3 main-scroll-area">
+
+    <!-- ==================== ВКЛАДКА 1: РАСПИСАНИЕ ==================== -->
+    <section id="view-schedule" class="space-y-3.5">
+      
+      <!-- Навигатор по учебным неделям и датам -->
+      <div class="bg-ios-card rounded-2xl p-3 border border-white/5 space-y-2.5">
+        <div class="flex items-center justify-between gap-2">
+          <button id="btn-prev-week" class="ios-press w-9 h-9 rounded-xl bg-ios-elevated flex items-center justify-center text-white">
+            <i data-lucide="chevron-left" class="w-5 h-5"></i>
+          </button>
+
+          <div class="flex-1 text-center">
+            <div id="week-title" class="text-sm font-bold text-white">Неделя 1</div>
+            <div id="week-subtitle" class="text-[11px] text-ios-blue font-medium">Числитель • 1 сен – 6 сен</div>
+          </div>
+
+          <button id="btn-next-week" class="ios-press w-9 h-9 rounded-xl bg-ios-elevated flex items-center justify-center text-white">
+            <i data-lucide="chevron-right" class="w-5 h-5"></i>
+          </button>
+        </div>
+
+        <!-- Быстрый переход к дате или на Сегодня -->
+        <div class="flex items-center gap-2 pt-1">
+          <button id="btn-today" class="ios-press px-3 py-1.5 rounded-xl bg-ios-blue/15 text-ios-blue text-xs font-semibold shrink-0">
+            Сегодня
+          </button>
+          <div class="relative flex-1">
+            <input type="date" id="date-jump-picker" class="w-full bg-ios-elevated text-white text-xs rounded-xl px-3 py-1.5 outline-none border border-white/5" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Сетка дней недели (ПН - СБ) с числами месяца -->
+      <div id="day-selector" class="grid grid-cols-6 gap-1.5"></div>
+
+      <!-- Список пар выбранного дня -->
+      <div id="schedule-list" class="space-y-3"></div>
+    </section>
+
+    <!-- ==================== ВКЛАДКА 2: ДОМАШНИЕ ЗАДАНИЯ ==================== -->
+    <section id="view-tasks" class="hidden space-y-4">
+      <div class="bg-ios-card p-1 rounded-xl grid grid-cols-2 gap-1 border border-white/5">
+        <button data-status="active" class="task-filter-tab ios-press py-1.5 rounded-lg text-xs font-semibold transition-all bg-ios-elevated text-white shadow">
+          Активные (<span id="count-active-tasks">0</span>)
+        </button>
+        <button data-status="completed" class="task-filter-tab ios-press py-1.5 rounded-lg text-xs font-semibold transition-all text-ios-gray">
+          Выполненные (<span id="count-completed-tasks">0</span>)
+        </button>
+      </div>
+
+      <div id="tasks-list" class="space-y-2.5"></div>
+    </section>
+
+    <!-- ==================== ВКЛАДКА 3: ЗАМЕТКИ ==================== -->
+    <section id="view-notes" class="hidden space-y-4">
+      <div class="flex items-center justify-between bg-ios-card px-3.5 py-2.5 rounded-2xl border border-white/5">
+        <div class="flex items-center gap-2">
+          <i data-lucide="sparkles" class="w-4 h-4 text-ios-orange"></i>
+          <span class="text-xs text-gray-300">Автосохранение при вводе текста</span>
+        </div>
+        <span id="note-save-status" class="text-xs font-medium text-ios-gray">Сохранено</span>
+      </div>
+
+      <div id="notes-list" class="space-y-3"></div>
+    </section>
+
+  </main>
+
+  <!-- НИЖНЯЯ ПАНЕЛЬ НАВИГАЦИИ (iOS Tab Bar) -->
+  <nav class="fixed bottom-0 inset-x-0 z-30 bg-ios-card/85 backdrop-blur-2xl ios-hairline-t pb-safe-nav">
+    <div class="max-w-lg mx-auto grid grid-cols-3 pt-2">
+      <button data-tab="schedule" class="nav-tab ios-press flex flex-col items-center gap-1 text-ios-blue">
+        <i data-lucide="calendar-days" class="w-6 h-6"></i>
+        <span class="text-[10px] font-medium">Расписание</span>
+      </button>
+      <button data-tab="tasks" class="nav-tab ios-press flex flex-col items-center gap-1 text-ios-gray relative">
+        <i data-lucide="check-square" class="w-6 h-6"></i>
+        <span class="text-[10px] font-medium">Задания</span>
+        <span id="nav-badge-tasks" class="hidden absolute top-0 right-1/3 translate-x-3 px-1.5 py-0.2 bg-ios-red text-white text-[10px] font-bold rounded-full leading-tight">0</span>
+      </button>
+      <button data-tab="notes" class="nav-tab ios-press flex flex-col items-center gap-1 text-ios-gray">
+        <i data-lucide="file-text" class="w-6 h-6"></i>
+        <span class="text-[10px] font-medium">Заметки</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- ==================== МОДАЛЬНОЕ ОКНО: ДОБАВИТЬ / ИЗМЕНИТЬ ПАРУ ==================== -->
+  <div id="modal-schedule" class="fixed inset-0 z-50 hidden items-end sm:items-center justify-center bg-black/65 backdrop-blur-sm">
+    <div class="bg-ios-card w-full max-w-lg rounded-t-3xl sm:rounded-3xl p-5 pb-safe-nav border-t border-white/10 space-y-4 max-h-[92vh] overflow-y-auto">
+      <div class="flex items-center justify-between">
+        <h2 id="modal-schedule-title" class="text-lg font-bold">Добавить пару</h2>
+        <button type="button" data-close-modal="modal-schedule" class="w-8 h-8 rounded-full bg-ios-elevated text-ios-gray flex items-center justify-center">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <form id="form-schedule" class="space-y-3.5">
+        <input type="hidden" id="sched-edit-id" value="" />
+
+        <!-- Выбор режима добавления: На дату / На неделю / На весь семестр -->
+        <div id="scope-selector-wrapper" class="space-y-2">
+          <label class="block text-xs text-ios-gray">Куда добавить пару?</label>
+          <div class="bg-ios-elevated p-1 rounded-xl grid grid-cols-3 gap-1">
+            <button type="button" data-scope="date" class="scope-btn py-1.5 rounded-lg text-xs font-semibold bg-ios-blue text-white">
+              На дату
+            </button>
+            <button type="button" data-scope="week" class="scope-btn py-1.5 rounded-lg text-xs font-semibold text-ios-gray">
+              На неделю
+            </button>
+            <button type="button" data-scope="semester" class="scope-btn py-1.5 rounded-lg text-xs font-semibold text-ios-gray">
+              На семестр
+            </button>
+          </div>
+        </div>
+
+        <!-- Поля для режима 1: "На определенную дату" -->
+        <div id="scope-box-date" class="space-y-2">
+          <label class="block text-xs text-ios-gray">Дата проведения пары</label>
+          <input type="date" id="sched-date" required class="w-full bg-ios-elevated rounded-xl px-3.5 py-2.5 text-white outline-none focus:ring-2 focus:ring-ios-blue" />
+        </div>
+
+        <!-- Поля для режима 2: "На выбранную неделю" -->
+        <div id="scope-box-week" class="hidden space-y-2">
+          <label class="block text-xs text-ios-gray">Отметьте дни текущей недели</label>
+          <div class="grid grid-cols-6 gap-1.5" id="week-days-checkboxes">
+            <label class="flex flex-col items-center bg-ios-elevated py-2 rounded-xl cursor-pointer">
+              <input type="checkbox" value="1" class="week-day-cb accent-ios-blue mb-1" />
+              <span class="text-xs font-medium">ПН</span>
+            </label>
+            <label class="flex flex-col items-center bg-ios-elevated py-2 rounded-xl cursor-pointer">
+              <input type="checkbox" value="2" class="week-day-cb accent-ios-blue mb-1" />
+              <span class="text-xs font-medium">ВТ</span>
+            </label>
+            <label class="flex flex-col items-center bg-ios-elevated py-2 rounded-xl cursor-pointer">
+              <input type="checkbox" value="3" class="week-day-cb accent-ios-blue mb-1" />
+              <span class="text-xs font-medium">СР</span>
+            </label>
+            <label class="flex flex-col items-center bg-ios-elevated py-2 rounded-xl cursor-pointer">
+              <input type="checkbox" value="4" class="week-day-cb accent-ios-blue mb-1" />
+              <span class="text-xs font-medium">ЧТ</span>
+            </label>
+            <label class="flex flex-col items-center bg-ios-elevated py-2 rounded-xl cursor-pointer">
+              <input type="checkbox" value="5" class="week-day-cb accent-ios-blue mb-1" />
+              <span class="text-xs font-medium">ПТ</span>
+            </label>
+            <label class="flex flex-col items-center bg-ios-elevated py-2 rounded-xl cursor-pointer">
+              <input type="checkbox" value="6" class="week-day-cb accent-ios-blue mb-1" />
+              <span class="text-xs font-medium">СБ</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Поля для режима 3: "На весь семестр" -->
+        <div id="scope-box-semester" class="hidden space-y-3">
+          <div class="grid grid-cols-2 gap-2.5">
+            <div>
+              <label class="block text-xs text-ios-gray mb-1">День недели</label>
+              <select id="sched-sem-day" class="w-full bg-ios-elevated rounded-xl px-3 py-2.5 text-white outline-none">
+                <option value="1">Понедельник</option>
+                <option value="2">Вторник</option>
+                <option value="3">Среда</option>
+                <option value="4">Четверг</option>
+                <option value="5">Пятница</option>
+                <option value="6">Суббота</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs text-ios-gray mb-1">Повторение</label>
+              <select id="sched-sem-parity" class="w-full bg-ios-elevated rounded-xl px-3 py-2.5 text-white outline-none">
+                <option value="all">Каждую неделю</option>
+                <option value="odd">Нечетные (Числитель)</option>
+                <option value="even">Четные (Знаменатель)</option>
+              </select>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-2.5">
+            <div>
+              <label class="block text-xs text-ios-gray mb-1">С даты</label>
+              <input type="date" id="sched-sem-from" value="2026-09-01" class="w-full bg-ios-elevated rounded-xl px-3 py-2 text-white outline-none" />
+            </div>
+            <div>
+              <label class="block text-xs text-ios-gray mb-1">По дату</label>
+              <input type="date" id="sched-sem-to" value="2026-12-26" class="w-full bg-ios-elevated rounded-xl px-3 py-2 text-white outline-none" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Номер пары и время (звонки КГУ) -->
+        <div class="grid grid-cols-3 gap-2.5">
+          <div>
+            <label class="block text-xs text-ios-gray mb-1">№ пары</label>
+            <select id="sched-number" required class="w-full bg-ios-elevated rounded-xl px-3 py-2.5 text-white outline-none">
+              <option value="1">1 пара</option>
+              <option value="2">2 пара</option>
+              <option value="3">3 пара</option>
+              <option value="4">4 пара</option>
+              <option value="5">5 пара</option>
+              <option value="6">6 пара</option>
+              <option value="7">7 пара</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs text-ios-gray mb-1">Начало</label>
+            <input type="time" id="sched-start" value="08:00" required class="w-full bg-ios-elevated rounded-xl px-3 py-2.5 text-white outline-none" />
+          </div>
+          <div>
+            <label class="block text-xs text-ios-gray mb-1">Конец</label>
+            <input type="time" id="sched-end" value="09:30" required class="w-full bg-ios-elevated rounded-xl px-3 py-2.5 text-white outline-none" />
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs text-ios-gray mb-1">Название предмета</label>
+          <input type="text" id="sched-subject" list="subjects-datalist" placeholder="Например: Основы программирования" required class="w-full bg-ios-elevated rounded-xl px-3.5 py-2.5 text-white placeholder-ios-gray outline-none focus:ring-2 focus:ring-ios-blue" />
+        </div>
+
+        <div class="grid grid-cols-2 gap-2.5">
+          <div>
+            <label class="block text-xs text-ios-gray mb-1">Тип занятия</label>
+            <select id="sched-type" required class="w-full bg-ios-elevated rounded-xl px-3 py-2.5 text-white outline-none">
+              <option value="Лекция">Лекция</option>
+              <option value="Практика">Практика</option>
+              <option value="Лабораторная">Лабораторная</option>
+              <option value="Лекция (Дистант)">Лекция (Дистант)</option>
+              <option value="Практика (Дистант)">Практика (Дистант)</option>
+              <option value="Экзамен / Зачет">Экзамен / Зачет</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs text-ios-gray mb-1">Кабинет / Корпус</label>
+            <input type="text" id="sched-room" placeholder="Б-403 или дистант" required class="w-full bg-ios-elevated rounded-xl px-3.5 py-2.5 text-white placeholder-ios-gray outline-none" />
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs text-ios-gray mb-1">Преподаватель</label>
+          <input type="text" id="sched-teacher" placeholder="ст.пр. Адаменко Ю.В." class="w-full bg-ios-elevated rounded-xl px-3.5 py-2.5 text-white placeholder-ios-gray outline-none" />
+        </div>
+
+        <button type="submit" class="ios-press w-full py-3 rounded-2xl bg-ios-blue text-white font-semibold text-base mt-2">
+          Сохранить
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==================== МОДАЛЬНОЕ ОКНО: УДАЛЕНИЕ ПАРЫ ==================== -->
+  <div id="modal-delete-schedule" class="fixed inset-0 z-50 hidden items-end sm:items-center justify-center bg-black/65 backdrop-blur-sm">
+    <div class="bg-ios-card w-full max-w-lg rounded-t-3xl sm:rounded-3xl p-5 pb-safe-nav border-t border-white/10 space-y-3">
+      <h3 class="text-base font-bold text-center">Как удалить эту пару?</h3>
+      <p id="delete-sched-info" class="text-xs text-ios-gray text-center"></p>
+      <div class="space-y-2 pt-2">
+        <button id="btn-del-single" class="ios-press w-full py-3 rounded-2xl bg-ios-elevated text-ios-red font-semibold text-sm">
+          Удалить только в этот день
+        </button>
+        <button id="btn-del-series" class="ios-press w-full py-3 rounded-2xl bg-ios-red text-white font-semibold text-sm">
+          Удалить эту пару во всех неделях семестра
+        </button>
+        <button type="button" data-close-modal="modal-delete-schedule" class="ios-press w-full py-3 rounded-2xl bg-ios-card text-ios-gray font-semibold text-sm">
+          Отмена
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== МОДАЛЬНОЕ ОКНО: УПРАВЛЕНИЕ БАЗОЙ И ИМПОРТ .ICS ==================== -->
+  <div id="modal-tools" class="fixed inset-0 z-50 hidden items-end sm:items-center justify-center bg-black/65 backdrop-blur-sm">
+    <div class="bg-ios-card w-full max-w-lg rounded-t-3xl sm:rounded-3xl p-5 pb-safe-nav border-t border-white/10 space-y-4">
+      <div class="flex items-center justify-between">
+        <h2 class="text-lg font-bold">Управление расписанием</h2>
+        <button type="button" data-close-modal="modal-tools" class="w-8 h-8 rounded-full bg-ios-elevated text-ios-gray flex items-center justify-center">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3 text-xs text-gray-300">
+        <div class="bg-ios-elevated p-3.5 rounded-2xl space-y-2">
+          <p class="font-semibold text-white text-sm">Встроенное расписание (1 семестр)</p>
+          <p>Все 275 пар из твоего файла <code class="text-ios-blue">raspisanie_semestr1.ics</code> вшиты в приложение. Если ты случайно удалил нужные пары или хочешь загрузить их в облако после входа в Google — нажми кнопку ниже:</p>
+          <button id="btn-restore-default" class="ios-press w-full py-2.5 rounded-xl bg-ios-blue text-white font-semibold text-xs mt-1">
+            Загрузить моё базовое расписание (275 пар)
+          </button>
+        </div>
+
+        <div class="bg-ios-elevated p-3.5 rounded-2xl space-y-2">
+          <p class="font-semibold text-white text-sm">Импорт из файла календаря (.ics)</p>
+          <p>Можно загрузить любой новый файл <code class="text-ios-blue">.ics</code> — пары автоматически распознаются и добавятся по датам:</p>
+          <input type="file" id="ics-file-input" accept=".ics" class="block w-full text-xs text-gray-300 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-ios-blue/20 file:text-ios-blue" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== МОДАЛЬНОЕ ОКНО: НОВОЕ ДЗ ==================== -->
+  <div id="modal-task" class="fixed inset-0 z-50 hidden items-end sm:items-center justify-center bg-black/65 backdrop-blur-sm">
+    <div class="bg-ios-card w-full max-w-lg rounded-t-3xl sm:rounded-3xl p-5 pb-safe-nav border-t border-white/10 space-y-4">
+      <div class="flex items-center justify-between">
+        <h2 class="text-lg font-bold">Новое домашнее задание</h2>
+        <button type="button" data-close-modal="modal-task" class="w-8 h-8 rounded-full bg-ios-elevated text-ios-gray flex items-center justify-center">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <form id="form-task" class="space-y-3">
+        <div>
+          <label class="block text-xs text-ios-gray mb-1">Предмет</label>
+          <input type="text" id="task-subject" list="subjects-datalist" placeholder="Выберите или введите предмет" required class="w-full bg-ios-elevated rounded-xl px-3.5 py-2.5 text-white placeholder-ios-gray outline-none focus:ring-2 focus:ring-ios-blue" />
+          <datalist id="subjects-datalist"></datalist>
+        </div>
+
+        <div>
+          <label class="block text-xs text-ios-gray mb-1">Что задали</label>
+          <textarea id="task-text" rows="3" placeholder="Лабораторная работа №3, решить задачи..." required class="w-full bg-ios-elevated rounded-xl px-3.5 py-2.5 text-white placeholder-ios-gray outline-none focus:ring-2 focus:ring-ios-blue resize-none"></textarea>
+        </div>
+
+        <div>
+          <label class="block text-xs text-ios-gray mb-1">Дедлайн (дата и время)</label>
+          <input type="datetime-local" id="task-deadline" required class="w-full bg-ios-elevated rounded-xl px-3.5 py-2.5 text-white outline-none focus:ring-2 focus:ring-ios-blue" />
+        </div>
+
+        <button type="submit" class="ios-press w-full py-3 rounded-2xl bg-ios-blue text-white font-semibold text-base mt-2">
+          Сохранить задание
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==================== МОДАЛЬНОЕ ОКНО: НОВАЯ ЗАМЕТКА ==================== -->
+  <div id="modal-note" class="fixed inset-0 z-50 hidden items-end sm:items-center justify-center bg-black/65 backdrop-blur-sm">
+    <div class="bg-ios-card w-full max-w-lg rounded-t-3xl sm:rounded-3xl p-5 pb-safe-nav border-t border-white/10 space-y-4">
+      <div class="flex items-center justify-between">
+        <h2 class="text-lg font-bold">Новая заметка</h2>
+        <button type="button" data-close-modal="modal-note" class="w-8 h-8 rounded-full bg-ios-elevated text-ios-gray flex items-center justify-center">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <form id="form-note" class="space-y-3">
+        <div>
+          <label class="block text-xs text-ios-gray mb-1">Предмет / Тема</label>
+          <input type="text" id="note-subject" list="subjects-datalist" placeholder="Например: Математический анализ" required class="w-full bg-ios-elevated rounded-xl px-3.5 py-2.5 text-white placeholder-ios-gray outline-none focus:ring-2 focus:ring-ios-blue" />
+        </div>
+
+        <div>
+          <label class="block text-xs text-ios-gray mb-1">Текст заметки</label>
+          <textarea id="note-content" rows="4" placeholder="Требования к зачету, ссылки, формулы..." class="w-full bg-ios-elevated rounded-xl px-3.5 py-2.5 text-white placeholder-ios-gray outline-none focus:ring-2 focus:ring-ios-blue resize-none"></textarea>
+        </div>
+
+        <button type="submit" class="ios-press w-full py-3 rounded-2xl bg-ios-blue text-white font-semibold text-base mt-2">
+          Создать заметку
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
