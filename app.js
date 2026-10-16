@@ -22,7 +22,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js";
 
 // ============================================================================
-// 1. КОНФИГУРАЦИЯ FIREBASE (вставьте ваши ключи из консоли Firebase)
+// 1. КОНФИГУРАЦИЯ FIREBASE
 // ============================================================================
 const firebaseConfig = {
   apiKey: "AIzaSyDwVDsV2-mbp0mHxZhyTCIP3-ym9UAjrWc",
@@ -168,13 +168,19 @@ function buildDefaultSchedule() {
 const SEMESTER_START_MONDAY = "2026-08-31";
 
 // ============================================================================
-// 3. ГЛОБАЛЬНОЕ СОСТОЯНИЕ ПРИЛОЖЕНИЯ
+// 3. ГЛОБАЛЬНОЕ СОСТОЯНИЕ ПРИЛОЖЕНИЯ (С НАСТРОЙКАМИ ТЕМ, КНОПОК И ФОНА)
 // ============================================================================
 const state = {
   user: null,
-  theme: localStorage.getItem("diary_theme_v5") || "tg-glass", // 'tg-glass' | 'liquid' | 'classic'
+  colorMode: localStorage.getItem("diary_color_mode_v6") || "dark", // 'dark' | 'light'
+  theme: localStorage.getItem("diary_theme_v6") || "classic", // 'classic' | 'liquid' | 'tg-glass'
+  btnStyle: localStorage.getItem("diary_btn_style_v6") || "matte", // 'matte' | 'glass'
+  bgMode: localStorage.getItem("diary_bg_mode_v6") || "black", // 'black' | 'white' | 'abstract' | 'custom'
+  customBgDataUrl: localStorage.getItem("diary_custom_bg_img_v6") || "",
+  customBgDim: Number(localStorage.getItem("diary_custom_bg_dim_v6") ?? 45),
   navStyle: localStorage.getItem("diary_nav_style_v5") || "floating", // 'floating' | 'docked'
   rimStyle: localStorage.getItem("diary_rim_style_v5") || "normal", // 'soft' | 'normal' | 'bright'
+
   activeTab: "schedule",
   selectedDate: getInitialStudyDate(),
   addScope: "date",
@@ -301,13 +307,19 @@ function getVisibleSchedule() {
 }
 
 // ============================================================================
-// 6. ИНИЦИАЛИЗАЦИЯ И РАСШИРЕННЫЕ НАСТРОЙКИ ДИЗАЙНА
+// 6. ИНИЦИАЛИЗАЦИЯ И УПРАВЛЕНИЕ ТЕМАМИ, КНОПКАМИ И ФОНОМ
 // ============================================================================
 document.addEventListener("DOMContentLoaded", () => {
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
+
+  applyColorMode(state.colorMode, false);
   applyTheme(state.theme);
+  applyBtnStyle(state.btnStyle);
+  applyBgMode(state.bgMode);
+  applyCustomBgDim(state.customBgDim);
   applyNavStyle(state.navStyle);
   applyRimStyle(state.rimStyle);
+
   initNetworkListeners();
   initUIListeners();
   loadLocalDataOrSeed();
@@ -324,17 +336,58 @@ function refreshIcons() {
   if (window.lucide) window.lucide.createIcons();
 }
 
+// 1) Темная / Светлая тема
+function applyColorMode(mode, autoSyncBg = true) {
+  state.colorMode = mode === "light" ? "light" : "dark";
+  localStorage.setItem("diary_color_mode_v6", state.colorMode);
+
+  document.documentElement.classList.toggle("dark", state.colorMode === "dark");
+  document.body.classList.toggle("mode-dark", state.colorMode === "dark");
+  document.body.classList.toggle("mode-light", state.colorMode === "light");
+
+  // Автоматически переключаем чисто черный <-> чисто белый фон при смене темы
+  if (autoSyncBg) {
+    if (state.colorMode === "light" && state.bgMode === "black") {
+      applyBgMode("white");
+    } else if (state.colorMode === "dark" && state.bgMode === "white") {
+      applyBgMode("black");
+    }
+  }
+
+  const metaTheme = document.getElementById("meta-theme-color");
+  if (metaTheme) {
+    metaTheme.setAttribute("content", state.colorMode === "light" ? "#F4F4F8" : "#000000");
+  }
+
+  // Обновляем иконку быстрого переключения в шапке
+  const toggleBtn = document.getElementById("btn-color-mode-toggle");
+  if (toggleBtn) {
+    toggleBtn.innerHTML = `<i data-lucide="${state.colorMode === "dark" ? "sun" : "moon"}" class="w-4 h-4"></i>`;
+  }
+
+  // Подсвечиваем активную кнопку в модалке настроек
+  document.querySelectorAll(".color-mode-btn").forEach((btn) => {
+    const active = btn.dataset.setColorMode === state.colorMode;
+    btn.className = `color-mode-btn ios-press py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all ${
+      active ? "ios-active-orange text-black" : "bg-black/40 text-gray-300 border border-white/10"
+    }`;
+  });
+
+  refreshIcons();
+}
+
+// 2) Тема карточек: Классическая матовая / Liquid Glass / Telegram Glass
 function applyTheme(themeName) {
-  if (["tg-glass", "liquid", "classic"].includes(themeName)) {
+  if (["classic", "liquid", "tg-glass"].includes(themeName)) {
     state.theme = themeName;
   } else {
-    state.theme = "tg-glass";
+    state.theme = "classic";
   }
-  localStorage.setItem("diary_theme_v5", state.theme);
+  localStorage.setItem("diary_theme_v6", state.theme);
 
-  document.body.classList.toggle("theme-tg-glass", state.theme === "tg-glass");
-  document.body.classList.toggle("theme-liquid", state.theme === "liquid");
   document.body.classList.toggle("theme-classic", state.theme === "classic");
+  document.body.classList.toggle("theme-liquid", state.theme === "liquid");
+  document.body.classList.toggle("theme-tg-glass", state.theme === "tg-glass");
 
   document.querySelectorAll(".theme-choice-btn").forEach((btn) => {
     const active = btn.dataset.setTheme === state.theme;
@@ -342,6 +395,63 @@ function applyTheme(themeName) {
       active ? "ios-active-orange text-black" : "bg-black/40 text-gray-300 border border-white/10"
     }`;
   });
+}
+
+// 3) Стиль кнопок: Матовые нормальные (matte) vs Кнопки Liquid Glass (glass)
+function applyBtnStyle(styleName) {
+  state.btnStyle = styleName === "glass" ? "glass" : "matte";
+  localStorage.setItem("diary_btn_style_v6", state.btnStyle);
+
+  document.body.classList.toggle("btn-matte", state.btnStyle === "matte");
+  document.body.classList.toggle("btn-glass", state.btnStyle === "glass");
+
+  document.querySelectorAll(".btn-style-choice").forEach((btn) => {
+    const active = btn.dataset.setBtnStyle === state.btnStyle;
+    btn.className = `btn-style-choice ios-press py-2.5 px-3 rounded-xl font-bold text-xs transition-all ${
+      active ? "ios-active-orange text-black" : "bg-black/40 text-gray-300 border border-white/10"
+    }`;
+  });
+}
+
+// 4) Выбор фона: Чисто черный / Чисто белый / Абстракция / Свой из галереи
+function applyBgMode(bgName) {
+  if (["black", "white", "abstract", "custom"].includes(bgName)) {
+    state.bgMode = bgName;
+  } else {
+    state.bgMode = "black";
+  }
+  localStorage.setItem("diary_bg_mode_v6", state.bgMode);
+
+  document.body.classList.remove("bg-mode-black", "bg-mode-white", "bg-mode-abstract", "bg-mode-custom");
+  document.body.classList.add(`bg-mode-${state.bgMode}`);
+
+  const customLayer = document.getElementById("custom-bg-layer");
+  if (customLayer) {
+    if (state.customBgDataUrl) {
+      customLayer.style.backgroundImage = `url("${state.customBgDataUrl}")`;
+    } else {
+      customLayer.style.backgroundImage = "none";
+    }
+  }
+
+  document.querySelectorAll(".bg-choice-btn").forEach((btn) => {
+    const active = btn.dataset.setBg === state.bgMode;
+    btn.className = `bg-choice-btn ios-press py-2.5 px-3 rounded-xl font-bold text-xs flex items-center gap-2 transition-all ${
+      active ? "ios-active-orange text-black" : "bg-black/40 text-gray-300 border border-white/10"
+    }`;
+  });
+}
+
+function applyCustomBgDim(dimPercent) {
+  const clamped = Math.min(85, Math.max(0, Number(dimPercent) || 0));
+  state.customBgDim = clamped;
+  localStorage.setItem("diary_custom_bg_dim_v6", String(clamped));
+  document.documentElement.style.setProperty("--custom-bg-dim", (clamped / 100).toFixed(2));
+
+  const slider = document.getElementById("bg-dim-slider");
+  const label = document.getElementById("bg-dim-value");
+  if (slider) slider.value = String(clamped);
+  if (label) label.textContent = `${clamped}%`;
 }
 
 function applyNavStyle(styleName) {
@@ -352,7 +462,7 @@ function applyNavStyle(styleName) {
   document.querySelectorAll(".nav-style-btn").forEach((btn) => {
     const active = btn.dataset.setNav === state.navStyle;
     btn.className = `nav-style-btn ios-press py-2 rounded-xl font-bold text-xs transition-all ${
-      active ? "bg-white/15 text-white border border-white/20 shadow" : "bg-black/40 text-gray-400 border border-white/10"
+      active ? "ios-active-orange text-black" : "bg-black/40 text-gray-400 border border-white/10"
     }`;
   });
 }
@@ -371,7 +481,7 @@ function applyRimStyle(rimName) {
   document.querySelectorAll(".rim-style-btn").forEach((btn) => {
     const active = btn.dataset.setRim === state.rimStyle;
     btn.className = `rim-style-btn ios-press py-1.5 rounded-xl font-bold text-xs transition-all ${
-      active ? "bg-white/15 text-white border border-white/20 shadow" : "bg-black/40 text-gray-400 border border-white/10"
+      active ? "ios-active-orange text-black" : "bg-black/40 text-gray-400 border border-white/10"
     }`;
   });
 }
@@ -639,7 +749,7 @@ async function saveNoteItem(note) {
 }
 
 // ============================================================================
-// 8. СЖАТИЕ ФОТОГРАФИЙ ЧЕРЕЗ HTML5 CANVAS
+// 8. СЖАТИЕ ФОТОГРАФИЙ И ОБОЕВ ЧЕРЕЗ HTML5 CANVAS
 // ============================================================================
 function compressImageFile(file, maxWidth = 900, quality = 0.72) {
   return new Promise((resolve, reject) => {
@@ -978,7 +1088,9 @@ function renderScheduleSection() {
     if (isSelected && isToday) {
       btnClass = "ios-active-orange font-extrabold";
     } else if (isSelected) {
-      btnClass = "bg-white text-black border-white font-extrabold shadow-lg";
+      btnClass = state.colorMode === "light"
+        ? "bg-ios-blue text-white border-ios-blue font-extrabold shadow-lg"
+        : "bg-white text-black border-white font-extrabold shadow-lg";
     } else if (isToday) {
       btnClass = "bg-ios-orange/20 border-2 border-ios-orange text-ios-orange font-extrabold";
     }
@@ -1158,7 +1270,6 @@ function renderScheduleSection() {
           }
         </div>
 
-        <!-- ПОДПИСЬ ТЕМЫ САМОЙ ПАРЫ -->
         <div class="pt-2.5 border-t border-white/10">
           <div class="flex items-center justify-between gap-2 bg-white/[0.04] border border-white/10 rounded-2xl px-3 py-2">
             <div class="flex items-center gap-2 min-w-0 flex-1">
@@ -1173,7 +1284,6 @@ function renderScheduleSection() {
           </div>
         </div>
 
-        <!-- БЛОК ЗАМЕТОК К ПАРЕ (Shift+Enter / Телефон многострочный) -->
         <div class="pt-2 border-t border-white/10 space-y-2">
           <div class="flex items-center justify-between">
             <span class="text-[11px] font-bold uppercase tracking-wider text-gray-300 flex items-center gap-1.5">
@@ -1247,7 +1357,7 @@ function renderPhotosRow(photos) {
 
 function getBadgeStyle(type) {
   const t = String(type).toLowerCase();
-  if (t.includes("дистант")) return "bg-ios-indigo/25 text-indigo-200 border-ios-indigo/50";
+  if (t.includes("дистант")) return "bg-ios-indigo/25 text-indigo-300 border-ios-indigo/50";
   if (t.includes("лаб")) return "bg-ios-orange/25 text-ios-orange border-ios-orange/50";
   if (t.includes("практ")) return "bg-ios-green/25 text-ios-green border-ios-green/50";
   return "bg-ios-blue/25 text-ios-blue border-ios-blue/50";
@@ -1565,12 +1675,103 @@ function resetKeepComposer() {
 // 16. ОБРАБОТЧИКИ СОБЫТИЙ
 // ============================================================================
 function initUIListeners() {
-  // Выбор темы из 3 вариантов в меню настроек
+  // 1) Быстрый переключатель Темная / Светлая тема в шапке
+  const btnColorModeToggle = document.getElementById("btn-color-mode-toggle");
+  if (btnColorModeToggle) {
+    btnColorModeToggle.addEventListener("click", () => {
+      const nextMode = state.colorMode === "dark" ? "light" : "dark";
+      applyColorMode(nextMode, true);
+      renderScheduleSection();
+    });
+  }
+
+  // Кнопки Темная / Светлая тема в модалке
+  document.querySelectorAll(".color-mode-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      applyColorMode(btn.dataset.setColorMode, true);
+      renderScheduleSection();
+    });
+  });
+
+  // 2) Быстрое переключение стиля карточек в шапке (Classic -> Liquid Glass -> TG Glass)
+  const btnThemeToggle = document.getElementById("btn-theme-toggle");
+  if (btnThemeToggle) {
+    btnThemeToggle.addEventListener("click", () => {
+      const order = ["classic", "liquid", "tg-glass"];
+      const nextIdx = (order.indexOf(state.theme) + 1) % order.length;
+      const nextTheme = order[nextIdx];
+      applyTheme(nextTheme);
+      // При переключении на Liquid Glass включаем также стеклянные кнопки, а на Classic — матовые
+      applyBtnStyle(nextTheme === "classic" ? "matte" : "glass");
+    });
+  }
+
+  // Выбор темы карточек в модалке
   document.querySelectorAll(".theme-choice-btn").forEach((btn) => {
     btn.addEventListener("click", () => applyTheme(btn.dataset.setTheme));
   });
 
-  // Переключатель вида навигации
+  // 3) Выбор стиля кнопок (Матовые нормальные vs Liquid Glass)
+  document.querySelectorAll(".btn-style-choice").forEach((btn) => {
+    btn.addEventListener("click", () => applyBtnStyle(btn.dataset.setBtnStyle));
+  });
+
+  // 4) Выбор фона (Чисто черный, Чисто белый, Абстракция, Свой из галереи)
+  document.querySelectorAll(".bg-choice-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const targetBg = btn.dataset.setBg;
+      if (targetBg === "custom" && !state.customBgDataUrl) {
+        document.getElementById("custom-bg-input")?.click();
+        return;
+      }
+      if (targetBg === "white" && state.colorMode === "dark") {
+        applyColorMode("light", false);
+      } else if (targetBg === "black" && state.colorMode === "light") {
+        applyColorMode("dark", false);
+      }
+      applyBgMode(targetBg);
+      renderScheduleSection();
+    });
+  });
+
+  // Загрузка своего фона из галереи
+  const customBgInput = document.getElementById("custom-bg-input");
+  if (customBgInput) {
+    customBgInput.addEventListener("change", async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      try {
+        const compressedBg = await compressImageFile(file, 1400, 0.78);
+        state.customBgDataUrl = compressedBg;
+        localStorage.setItem("diary_custom_bg_img_v6", compressedBg);
+        applyBgMode("custom");
+        showInAppToast("Фон обновлен", "Ваш фон из галереи успешно установлен.");
+      } catch {
+        alert("Не удалось загрузить изображение фона");
+      }
+      e.target.value = "";
+    });
+  }
+
+  // Сброс пользовательского фона
+  const btnClearCustomBg = document.getElementById("btn-clear-custom-bg");
+  if (btnClearCustomBg) {
+    btnClearCustomBg.addEventListener("click", () => {
+      state.customBgDataUrl = "";
+      localStorage.removeItem("diary_custom_bg_img_v6");
+      applyBgMode(state.colorMode === "light" ? "white" : "black");
+    });
+  }
+
+  // Ползунок затемнения своего фона
+  const bgDimSlider = document.getElementById("bg-dim-slider");
+  if (bgDimSlider) {
+    bgDimSlider.addEventListener("input", (e) => {
+      applyCustomBgDim(e.target.value);
+    });
+  }
+
+  // Переключатель вида нижней навигации
   document.querySelectorAll(".nav-style-btn").forEach((btn) => {
     btn.addEventListener("click", () => applyNavStyle(btn.dataset.setNav));
   });
