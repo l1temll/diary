@@ -44,15 +44,19 @@ let auth = null;
 let db = null;
 let googleProvider = null;
 
-if (isFirebaseConfigured) {
-  app = initializeApp(firebaseConfig);
-  auth = getAuth(app);
-  googleProvider = new GoogleAuthProvider();
-  db = initializeFirestore(app, {
-    localCache: persistentLocalCache({
-      tabManager: persistentMultipleTabManager()
-    })
-  });
+try {
+  if (isFirebaseConfigured) {
+    app = initializeApp(firebaseConfig);
+    auth = getAuth(app);
+    googleProvider = new GoogleAuthProvider();
+    db = initializeFirestore(app, {
+      localCache: persistentLocalCache({
+        tabManager: persistentMultipleTabManager()
+      })
+    });
+  }
+} catch (err) {
+  console.warn("Firebase init warning:", err);
 }
 
 // ============================================================================
@@ -172,17 +176,17 @@ const SEMESTER_START_MONDAY = "2026-08-31";
 // ============================================================================
 const state = {
   user: null,
-  colorMode: localStorage.getItem("diary_color_mode_v6") || "dark", // 'dark' | 'light' | 'mono-dark' | 'mono-light'
-  theme: localStorage.getItem("diary_theme_v6") || "classic", // 'classic' | 'liquid' | 'tg-glass'
-  btnStyle: localStorage.getItem("diary_btn_style_v6") || "matte", // 'matte' | 'glass'
-  bgMode: localStorage.getItem("diary_bg_mode_v6") || "black", // 'black' | 'white' | 'abstract' | 'custom'
+  colorMode: localStorage.getItem("diary_color_mode_v6") || "dark",
+  theme: localStorage.getItem("diary_theme_v6") || "classic",
+  btnStyle: localStorage.getItem("diary_btn_style_v6") || "matte",
+  bgMode: localStorage.getItem("diary_bg_mode_v6") || "black",
   customBgDataUrl: localStorage.getItem("diary_custom_bg_img_v6") || "",
   customBgDim: Number(localStorage.getItem("diary_custom_bg_dim_v6") ?? 45),
   navStyle: localStorage.getItem("diary_nav_style_v5") || "floating",
   rimStyle: localStorage.getItem("diary_rim_style_v5") || "normal",
 
   activeTab: "schedule",
-  selectedDate: getInitialStudyDate(),
+  selectedDate: getTodayISO(),
   addScope: "date",
   taskFilter: "active",
   noteFilter: "all",
@@ -216,7 +220,7 @@ const state = {
 };
 
 // ============================================================================
-// 4. УТИЛИТЫ ДАТЫ И ВРЕМЕНИ (С ПОДДЕРЖКОЙ ВОСКРЕСЕНЬЯ)
+// 4. УТИЛИТЫ ДАТЫ И ВРЕМЕНИ (7 ДНЕЙ С ВОСКРЕСЕНЬЕМ)
 // ============================================================================
 function formatDateISO(dateObj) {
   const y = dateObj.getFullYear();
@@ -235,7 +239,6 @@ function getTodayISO() {
 }
 
 function getInitialStudyDate() {
-  // Теперь воскресенье отображается в 7-дневной сетке, поэтому возвращаем реальный сегодняшний день
   return formatDateISO(new Date());
 }
 
@@ -314,31 +317,46 @@ function getVisibleSchedule() {
 }
 
 // ============================================================================
-// 6. ИНИЦИАЛИЗАЦИЯ И СИНХРОНИЗАЦИЯ ТЕМ
+// 6. СТАРТ ПРИЛОЖЕНИЯ (СНАЧАЛА ДАННЫЕ И РЕНДЕР, ЗАТЕМ СЛУШАТЕЛИ)
 // ============================================================================
-document.addEventListener("DOMContentLoaded", () => {
+function bootstrapApp() {
   if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("./sw.js").then((reg) => {
-      reg.update().catch(() => {});
-    }).catch(() => {});
+    navigator.serviceWorker
+      .register("./sw.js")
+      .then((reg) => reg.update().catch(() => {}))
+      .catch(() => {});
   }
 
+  // 1. Первым делом загружаем расписание (275 пар), чтобы интерфейс сразу отрисовался
+  loadLocalDataOrSeed();
   syncStateFromStorage();
-  if (window.__applyDiaryAppearance) {
+  if (typeof window.__applyDiaryAppearance === "function") {
     window.__applyDiaryAppearance();
   }
 
-  initNetworkListeners();
-  initUIListeners();
-  loadLocalDataOrSeed();
-  initNotificationUI();
+  // 2. Сразу отрисовываем 7 дней недели, пары и запускаем часы
   renderAll();
   updateLiveWidget();
   setInterval(updateLiveWidget, 1000);
+
+  // 3. Подключаем все кнопки с защитой от ошибок
+  initNetworkListeners();
+  initUIListeners();
+  initNotificationUI();
+
   setInterval(checkScheduledNotifications, 25000);
   setTimeout(checkScheduledNotifications, 3000);
-  if (isFirebaseConfigured) initFirebaseAuth();
-});
+
+  if (isFirebaseConfigured && auth) {
+    initFirebaseAuth();
+  }
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", bootstrapApp);
+} else {
+  bootstrapApp();
+}
 
 function syncStateFromStorage() {
   state.colorMode = localStorage.getItem("diary_color_mode_v6") || "dark";
@@ -371,6 +389,7 @@ function initNetworkListeners() {
   const updateUI = () => {
     const dot = document.getElementById("network-dot");
     const text = document.getElementById("network-text");
+    if (!dot || !text) return;
     if (navigator.onLine) {
       dot.className = "w-2 h-2 rounded-full bg-ios-green shrink-0";
       text.textContent = "Онлайн";
@@ -393,15 +412,33 @@ function setSyncIndicator(active) {
 // 7. ХРАНИЛИЩЕ: LOCALSTORAGE + FIREBASE FIRESTORE
 // ============================================================================
 function loadLocalDataOrSeed() {
-  const savedSched = localStorage.getItem("diary_schedule_v2");
-  let rawSched = savedSched ? JSON.parse(savedSched) : buildDefaultSchedule();
+  let rawSched = [];
+  try {
+    const savedSched = localStorage.getItem("diary_schedule_v2");
+    if (savedSched) {
+      const parsed = JSON.parse(savedSched);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        rawSched = parsed;
+      }
+    }
+  } catch {}
 
-  const legacyEvents = rawSched.filter((x) => x.isEvent);
-  state.schedule = rawSched.filter((x) => !x.isEvent);
+  // Если база пустая (например, после прошлого сбоя сохранился []), автоматически заливаем все 275 пар
+  if (rawSched.length === 0) {
+    rawSched = buildDefaultSchedule();
+  }
 
-  const savedEvents = JSON.parse(localStorage.getItem("diary_events_v4") || "[]");
+  const legacyEvents = rawSched.filter((x) => x && x.isEvent);
+  state.schedule = rawSched.filter((x) => x && !x.isEvent);
+
+  let savedEvents = [];
+  try {
+    savedEvents = JSON.parse(localStorage.getItem("diary_events_v4") || "[]");
+  } catch {}
+
   const eventMap = new Map();
   [...legacyEvents, ...savedEvents].forEach((ev) => {
+    if (!ev || !ev.id) return;
     eventMap.set(ev.id, {
       id: ev.id,
       title: ev.title || ev.subject || "Мероприятие",
@@ -413,9 +450,22 @@ function loadLocalDataOrSeed() {
   });
   state.events = [...eventMap.values()];
 
-  state.tasks = JSON.parse(localStorage.getItem("diary_tasks_v2") || "[]");
-  state.notes = JSON.parse(localStorage.getItem("diary_notes_v2") || "[]");
-  state.hiddenRules = JSON.parse(localStorage.getItem("diary_hidden_rules_v3") || "[]");
+  try {
+    state.tasks = JSON.parse(localStorage.getItem("diary_tasks_v2") || "[]");
+  } catch {
+    state.tasks = [];
+  }
+  try {
+    state.notes = JSON.parse(localStorage.getItem("diary_notes_v2") || "[]");
+  } catch {
+    state.notes = [];
+  }
+  try {
+    state.hiddenRules = JSON.parse(localStorage.getItem("diary_hidden_rules_v3") || "[]");
+  } catch {
+    state.hiddenRules = [];
+  }
+
   saveLocalData();
 }
 
@@ -438,17 +488,18 @@ function initFirebaseAuth() {
     const userAvatar = document.getElementById("user-avatar");
 
     if (user) {
-      btnLogin.classList.add("hidden");
-      userProfile.classList.remove("hidden");
-      userProfile.classList.add("flex");
-      userAvatar.src = user.photoURL || "";
+      btnLogin?.classList.add("hidden");
+      userProfile?.classList.remove("hidden");
+      userProfile?.classList.add("flex");
+      if (userAvatar) userAvatar.src = user.photoURL || "";
       subscribeFirestore(user.uid);
     } else {
-      btnLogin.classList.remove("hidden");
-      userProfile.classList.add("hidden");
-      userProfile.classList.remove("flex");
+      btnLogin?.classList.remove("hidden");
+      userProfile?.classList.add("hidden");
+      userProfile?.classList.remove("flex");
       loadLocalDataOrSeed();
       renderAll();
+      updateLiveWidget();
     }
   });
 }
@@ -463,8 +514,11 @@ function subscribeFirestore(uid) {
       return;
     }
     const allDocs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    state.schedule = allDocs.filter((d) => !d.isEvent);
-    saveLocalData();
+    const nonEvents = allDocs.filter((d) => !d.isEvent);
+    if (nonEvents.length > 0) {
+      state.schedule = nonEvents;
+      saveLocalData();
+    }
     renderScheduleSection();
     updateSubjectsDatalist();
     updateLiveWidget();
@@ -799,7 +853,7 @@ function checkScheduledNotifications() {
 }
 
 // ============================================================================
-// 10. ДИНАМИЧЕСКИЙ ВИДЖЕТ РЕАЛЬНОГО ВРЕМЕНИ
+// 10. ДИНАМИЧЕСКИЙ ВИДЖЕТ РЕАЛЬНОГО ВРЕМЕНИ (ТЕКУЩАЯ И СЛЕДУЮЩАЯ ПАРА)
 // ============================================================================
 function updateLiveWidget() {
   const now = new Date();
@@ -856,14 +910,14 @@ function updateLiveWidget() {
     curTitle.textContent = currentClass.subject;
     curTimer.textContent = `${remMin}:${remS}`;
     curMeta.innerHTML = `<span class="truncate">${escapeHtml(currentClass.room)} • ${escapeHtml(currentClass.type)}</span><span class="font-bold text-white shrink-0">${escapeHtml(currentClass.startTime)}–${escapeHtml(currentClass.endTime)}</span>`;
-    curProgWrap.classList.remove("hidden");
-    curProg.style.width = `${pct}%`;
+    curProgWrap?.classList.remove("hidden");
+    if (curProg) curProg.style.width = `${pct}%`;
   } else {
     curBox.className = "rounded-2xl p-2.5 bg-white/[0.04] border border-white/10 flex flex-col justify-between min-w-0";
     curTitle.textContent = "Сейчас окна / пар нет";
     curTimer.textContent = "Свободно";
     curMeta.innerHTML = `<span>Отдыхайте</span><span></span>`;
-    curProgWrap.classList.add("hidden");
+    curProgWrap?.classList.add("hidden");
   }
 
   const nextTitle = document.getElementById("live-next-title");
@@ -871,7 +925,7 @@ function updateLiveWidget() {
   const nextRoom = document.getElementById("live-next-room");
   const nextRange = document.getElementById("live-next-time-range");
 
-  if (nextClass) {
+  if (nextClass && nextTitle && nextTimer && nextRoom && nextRange) {
     nextTitle.textContent = nextClass.subject;
     nextRoom.textContent = `${nextClass.room} (${nextClass.type})`;
     nextRange.textContent = `${nextClass.startTime}–${nextClass.endTime}`;
@@ -886,16 +940,16 @@ function updateLiveWidget() {
       const dLabel = parseDateISO(nextClass.date).toLocaleDateString("ru-RU", { weekday: "short", day: "numeric", month: "short" });
       nextTimer.textContent = dLabel;
     }
-  } else {
+  } else if (nextTitle) {
     nextTitle.textContent = "Нет запланированных пар";
-    nextRoom.textContent = "—";
-    nextRange.textContent = "";
-    nextTimer.textContent = "—";
+    if (nextRoom) nextRoom.textContent = "—";
+    if (nextRange) nextRange.textContent = "";
+    if (nextTimer) nextTimer.textContent = "—";
   }
 }
 
 // ============================================================================
-// 11. РЕНДЕРИНГ РАСПИСАНИЯ (7 ДНЕЙ С ВОСКРЕСЕНЬЕМ + ПОДДЕРЖКА Ч/Б РЕЖИМА)
+// 11. РЕНДЕРИНГ РАСПИСАНИЯ (7 ДНЕЙ С ВОСКРЕСЕНЬЕМ + Ч/Б ТЕМА)
 // ============================================================================
 function renderAll() {
   renderScheduleSection();
@@ -922,24 +976,28 @@ function renderScheduleSection() {
   const weekHeaderCard = document.getElementById("week-header-card");
   const weekCurrentBadge = document.getElementById("week-current-badge");
   const weekTitle = document.getElementById("week-title");
+  const weekSubtitle = document.getElementById("week-subtitle");
+  const datePicker = document.getElementById("date-jump-picker");
 
-  weekTitle.textContent = weekNum >= 1 && weekNum <= 24 ? `Учебная неделя №${weekNum}` : `Календарная неделя`;
-  weekTitle.className = isCurrentStudyWeek && !mono
-    ? "text-sm font-extrabold text-ios-orange truncate"
-    : "text-sm font-extrabold text-white truncate";
+  if (weekTitle) {
+    weekTitle.textContent = weekNum >= 1 && weekNum <= 24 ? `Учебная неделя №${weekNum}` : `Календарная неделя`;
+    weekTitle.className = isCurrentStudyWeek && !mono
+      ? "text-sm font-extrabold text-ios-orange truncate"
+      : "text-sm font-extrabold text-white truncate";
+  }
+  weekCurrentBadge?.classList.toggle("hidden", !isCurrentStudyWeek || mono);
+  if (weekHeaderCard) {
+    weekHeaderCard.className = isCurrentStudyWeek && !mono
+      ? "ios26-card-orange rounded-3xl p-3 space-y-2.5 transition-all"
+      : "ios26-card rounded-3xl p-3 space-y-2.5 transition-all";
+  }
 
-  weekCurrentBadge.classList.toggle("hidden", !isCurrentStudyWeek || mono);
-  weekHeaderCard.className = isCurrentStudyWeek && !mono
-    ? "ios26-card-orange rounded-3xl p-3 space-y-2.5 transition-all"
-    : "ios26-card rounded-3xl p-3 space-y-2.5 transition-all";
+  if (weekSubtitle) weekSubtitle.textContent = `${parityText} • ${fmtShort(monday)} – ${fmtShort(sunday)}`;
+  if (datePicker) datePicker.value = state.selectedDate;
 
-  document.getElementById("week-subtitle").textContent = `${parityText} • ${fmtShort(monday)} – ${fmtShort(sunday)}`;
-  document.getElementById("date-jump-picker").value = state.selectedDate;
-
-  const btnToggleEvents = document.getElementById("btn-toggle-events");
   const textToggleEvents = document.getElementById("text-toggle-events");
-  if (btnToggleEvents && textToggleEvents) {
-    textToggleEvents.textContent = state.showEvents ? "События" : "Скрыты";
+  if (textToggleEvents) {
+    textToggleEvents.textContent = state.showEvents ? "События: Вкл" : "События: Скрыты";
   }
 
   const hiddenCount = state.hiddenRules.length;
@@ -972,7 +1030,6 @@ function renderScheduleSection() {
 
     let btnClass = "ios26-card border-white/10 text-ios-gray font-medium";
     if (mono) {
-      // В Ч/Б теме никаких оранжевых или синих выделений
       if (isSelected) {
         btnClass = light
           ? "bg-black text-white border-black font-extrabold"
@@ -1015,7 +1072,7 @@ function renderScheduleSection() {
       </button>
     `);
   }
-  daySelector.innerHTML = buttonsHtml.join("");
+  if (daySelector) daySelector.innerHTML = buttonsHtml.join("");
 
   // Рендеринг блока Мероприятий (включая Воскресенье)
   const eventsWrapper = document.getElementById("events-section-wrapper");
@@ -1025,45 +1082,49 @@ function renderScheduleSection() {
     .filter((ev) => ev.date === state.selectedDate)
     .sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
 
-  if (state.showEvents && dayEvents.length > 0) {
-    eventsWrapper.classList.remove("hidden");
-    eventsCountEl.textContent = dayEvents.length;
-    eventsListEl.innerHTML = dayEvents
-      .map(
-        (ev) => `
-      <div class="ios26-card rounded-2xl p-3 border border-ios-purple/40 flex items-center justify-between gap-2.5">
-        <div class="flex items-center gap-2.5 min-w-0 flex-1">
-          <div class="px-2 py-1.5 rounded-xl bg-ios-purple/20 border border-ios-purple/40 text-center shrink-0">
-            <span class="block text-[9px] font-extrabold uppercase text-ios-purple">Событие</span>
-            <span class="block text-[11px] font-bold text-white">${escapeHtml(ev.startTime)}–${escapeHtml(ev.endTime)}</span>
+  if (eventsWrapper && eventsListEl) {
+    if (state.showEvents && dayEvents.length > 0) {
+      eventsWrapper.classList.remove("hidden");
+      if (eventsCountEl) eventsCountEl.textContent = dayEvents.length;
+      eventsListEl.innerHTML = dayEvents
+        .map(
+          (ev) => `
+        <div class="ios26-card rounded-2xl p-3 border border-ios-purple/40 flex items-center justify-between gap-2.5">
+          <div class="flex items-center gap-2.5 min-w-0 flex-1">
+            <div class="px-2 py-1.5 rounded-xl bg-ios-purple/20 border border-ios-purple/40 text-center shrink-0">
+              <span class="block text-[9px] font-extrabold uppercase text-ios-purple">Событие</span>
+              <span class="block text-[11px] font-bold text-white">${escapeHtml(ev.startTime)}–${escapeHtml(ev.endTime)}</span>
+            </div>
+            <div class="min-w-0 flex-1">
+              <h4 class="text-sm font-extrabold text-white truncate">${escapeHtml(ev.title)}</h4>
+              <p class="text-xs text-gray-300 flex items-center gap-1 truncate mt-0.5">
+                <i data-lucide="map-pin" class="w-3 h-3 text-ios-purple shrink-0"></i>
+                <span class="truncate">${escapeHtml(ev.location || "Мероприятие")}</span>
+              </p>
+            </div>
           </div>
-          <div class="min-w-0 flex-1">
-            <h4 class="text-sm font-extrabold text-white truncate">${escapeHtml(ev.title)}</h4>
-            <p class="text-xs text-gray-300 flex items-center gap-1 truncate mt-0.5">
-              <i data-lucide="map-pin" class="w-3 h-3 text-ios-purple shrink-0"></i>
-              <span class="truncate">${escapeHtml(ev.location || "Мероприятие")}</span>
-            </p>
+          <div class="flex items-center gap-1 shrink-0">
+            <button type="button" data-edit-event="${ev.id}" class="ios-press w-8 h-8 rounded-full ios26-pill text-gray-300 hover:text-white flex items-center justify-center" title="Изменить">
+              <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
+            </button>
+            <button type="button" data-delete-event="${ev.id}" class="ios-press px-2.5 h-8 rounded-full bg-ios-red/20 border border-ios-red/40 text-ios-red text-xs font-bold flex items-center gap-1" title="Удалить">
+              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            </button>
           </div>
         </div>
-        <div class="flex items-center gap-1 shrink-0">
-          <button type="button" data-edit-event="${ev.id}" class="ios-press w-8 h-8 rounded-full ios26-pill text-gray-300 hover:text-white flex items-center justify-center" title="Изменить">
-            <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
-          </button>
-          <button type="button" data-delete-event="${ev.id}" class="ios-press px-2.5 h-8 rounded-full bg-ios-red/20 border border-ios-red/40 text-ios-red text-xs font-bold flex items-center gap-1" title="Удалить">
-            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-          </button>
-        </div>
-      </div>
-    `
-      )
-      .join("");
-  } else {
-    eventsWrapper.classList.add("hidden");
-    eventsListEl.innerHTML = "";
+      `
+        )
+        .join("");
+    } else {
+      eventsWrapper.classList.add("hidden");
+      eventsListEl.innerHTML = "";
+    }
   }
 
   // Рендеринг учебных пар
   const listEl = document.getElementById("schedule-list");
+  if (!listEl) return;
+
   const dayClasses = visibleSchedule
     .filter((item) => item.date === state.selectedDate)
     .sort((a, b) => Number(a.number || 0) - Number(b.number || 0) || timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
@@ -1280,6 +1341,8 @@ function getBadgeStyle(type) {
 // ============================================================================
 function renderTasks() {
   const container = document.getElementById("tasks-list");
+  if (!container) return;
+
   const todayISO = getTodayISO();
   const currentWeekNum = getStudyWeekNumber(state.selectedDate);
 
@@ -1287,13 +1350,18 @@ function renderTasks() {
   const completedTasks = state.tasks.filter((t) => t.completed);
   const weekTasks = state.tasks.filter((t) => !t.completed && getStudyWeekNumber(String(t.deadline).slice(0, 10)) === currentWeekNum);
 
-  document.getElementById("count-active-tasks").textContent = activeTasks.length;
-  document.getElementById("count-week-tasks").textContent = weekTasks.length;
-  document.getElementById("count-completed-tasks").textContent = completedTasks.length;
+  const countActiveEl = document.getElementById("count-active-tasks");
+  const countWeekEl = document.getElementById("count-week-tasks");
+  const countCompEl = document.getElementById("count-completed-tasks");
+  if (countActiveEl) countActiveEl.textContent = activeTasks.length;
+  if (countWeekEl) countWeekEl.textContent = weekTasks.length;
+  if (countCompEl) countCompEl.textContent = completedTasks.length;
 
   const badge = document.getElementById("nav-badge-tasks");
-  badge.textContent = activeTasks.length;
-  badge.classList.toggle("hidden", activeTasks.length === 0);
+  if (badge) {
+    badge.textContent = activeTasks.length;
+    badge.classList.toggle("hidden", activeTasks.length === 0);
+  }
 
   let list = activeTasks;
   if (state.taskFilter === "this-week") list = weekTasks;
@@ -1355,6 +1423,8 @@ function renderTasks() {
 // ============================================================================
 function renderNotes() {
   const container = document.getElementById("notes-list");
+  if (!container) return;
+
   let list = [...state.notes];
 
   if (state.noteFilter === "class") {
@@ -1451,6 +1521,7 @@ function renderNotes() {
 // ============================================================================
 function renderHiddenClassesModal() {
   const container = document.getElementById("hidden-classes-list");
+  if (!container) return;
   if (state.hiddenRules.length === 0) {
     container.innerHTML = `<div class="p-6 text-center text-xs text-gray-300">Скрытых пар сейчас нет. Все дисциплины отображаются в расписании.</div>`;
     return;
@@ -1492,10 +1563,11 @@ function applyTaskTargetMode(mode) {
     btn.className = `task-target-btn py-2 rounded-xl text-xs font-bold transition-all ${active ? "ios-active-orange" : "text-ios-gray"}`;
   });
 
-  const subj = document.getElementById("task-subject").value.trim();
+  const subj = document.getElementById("task-subject")?.value.trim() || "";
   const baseDate = state.contextClassItem?.date || state.selectedDate;
   const dateInput = document.getElementById("task-deadline");
   const hint = document.getElementById("task-target-hint");
+  if (!dateInput || !hint) return;
 
   if (mode === "current") {
     dateInput.value = baseDate;
@@ -1517,10 +1589,11 @@ function applyNoteTargetMode(mode) {
     btn.className = `note-target-btn py-1.5 rounded-lg text-[11px] font-bold transition-all ${active ? "ios-active-orange" : "text-ios-gray"}`;
   });
 
-  const subj = document.getElementById("note-subject").value.trim();
+  const subj = document.getElementById("note-subject")?.value.trim() || "";
   const baseDate = state.contextClassItem?.date || state.selectedDate;
   const dateInput = document.getElementById("note-date");
   const hint = document.getElementById("note-target-hint");
+  if (!dateInput || !hint) return;
 
   if (mode === "none") {
     dateInput.value = "";
@@ -1563,73 +1636,73 @@ function setScopeMode(scope) {
     const active = btn.dataset.scope === scope;
     btn.className = `scope-btn py-1.5 rounded-xl text-[11px] font-bold transition-all ${active ? "ios-active-orange" : "text-ios-gray"}`;
   });
-  document.getElementById("scope-box-date").classList.toggle("hidden", scope !== "date");
-  document.getElementById("scope-box-week").classList.toggle("hidden", scope !== "week" && scope !== "next-week");
-  document.getElementById("scope-box-semester").classList.toggle("hidden", scope !== "semester");
+  document.getElementById("scope-box-date")?.classList.toggle("hidden", scope !== "date");
+  document.getElementById("scope-box-week")?.classList.toggle("hidden", scope !== "week" && scope !== "next-week");
+  document.getElementById("scope-box-semester")?.classList.toggle("hidden", scope !== "semester");
 }
 
 function resetKeepComposer() {
   state.keepDraft.pinned = false;
   state.keepDraft.photos = [];
-  document.getElementById("keep-title-input").value = "";
-  document.getElementById("keep-content-input").value = "";
-  document.getElementById("keep-subject-input").value = "";
-  document.getElementById("keep-date-input").value = "";
-  document.getElementById("keep-notify-input").value = "";
-  document.getElementById("keep-panel-subject").classList.add("hidden");
-  document.getElementById("keep-panel-date").classList.add("hidden");
-  document.getElementById("keep-panel-notify").classList.add("hidden");
-  document.getElementById("keep-pin-btn").className = "ios-press w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-ios-orange shrink-0";
+  const t = document.getElementById("keep-title-input");
+  const c = document.getElementById("keep-content-input");
+  const s = document.getElementById("keep-subject-input");
+  const d = document.getElementById("keep-date-input");
+  const n = document.getElementById("keep-notify-input");
+  if (t) t.value = "";
+  if (c) c.value = "";
+  if (s) s.value = "";
+  if (d) d.value = "";
+  if (n) n.value = "";
+  document.getElementById("keep-panel-subject")?.classList.add("hidden");
+  document.getElementById("keep-panel-date")?.classList.add("hidden");
+  document.getElementById("keep-panel-notify")?.classList.add("hidden");
+  const pinBtn = document.getElementById("keep-pin-btn");
+  if (pinBtn) pinBtn.className = "ios-press w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-ios-orange shrink-0";
   renderDraftPhotos("keep-photos-preview", state.keepDraft.photos, "keep");
 }
 
 // ============================================================================
-// 16. ОБРАБОТЧИКИ СОБЫТИЙ
+// 16. ОБРАБОТЧИКИ СОБЫТИЙ (ПОЛНОСТЬЮ ЗАЩИЩЕННЫЕ ОТ NULL)
 // ============================================================================
 function initUIListeners() {
   // Загрузка своего фона из галереи
-  const customBgInput = document.getElementById("custom-bg-input");
-  if (customBgInput) {
-    customBgInput.addEventListener("change", async (e) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-      try {
-        const compressedBg = await compressImageFile(file, 1400, 0.78);
-        localStorage.setItem("diary_custom_bg_img_v6", compressedBg);
-        localStorage.setItem("diary_bg_mode_v6", "custom");
-        if (window.__applyDiaryAppearance) window.__applyDiaryAppearance();
-        showInAppToast("Фон обновлен", "Ваш фон из галереи установлен.");
-      } catch {
-        alert("Не удалось загрузить изображение фона");
-      }
-      e.target.value = "";
-    });
-  }
-
-  // Сброс пользовательского фона
-  const btnClearCustomBg = document.getElementById("btn-clear-custom-bg");
-  if (btnClearCustomBg) {
-    btnClearCustomBg.addEventListener("click", () => {
-      localStorage.removeItem("diary_custom_bg_img_v6");
-      localStorage.setItem("diary_bg_mode_v6", isLightMode() ? "white" : "black");
+  document.getElementById("custom-bg-input")?.addEventListener("change", async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const compressedBg = await compressImageFile(file, 1400, 0.78);
+      localStorage.setItem("diary_custom_bg_img_v6", compressedBg);
+      localStorage.setItem("diary_bg_mode_v6", "custom");
       if (window.__applyDiaryAppearance) window.__applyDiaryAppearance();
-    });
-  }
+      showInAppToast("Фон обновлен", "Ваш фон из галереи установлен.");
+    } catch {
+      alert("Не удалось загрузить изображение фона");
+    }
+    e.target.value = "";
+  });
 
-  // Ползунок затемнения своего фона
-  const bgDimSlider = document.getElementById("bg-dim-slider");
-  if (bgDimSlider) {
-    bgDimSlider.addEventListener("input", (e) => {
-      const val = Math.min(85, Math.max(0, Number(e.target.value) || 0));
-      localStorage.setItem("diary_custom_bg_dim_v6", String(val));
-      const label = document.getElementById("bg-dim-value");
-      if (label) label.textContent = `${val}%`;
-      if (window.__applyDiaryAppearance) window.__applyDiaryAppearance();
-    });
-  }
+  document.getElementById("btn-clear-custom-bg")?.addEventListener("click", () => {
+    localStorage.removeItem("diary_custom_bg_img_v6");
+    localStorage.setItem("diary_bg_mode_v6", isLightMode() ? "white" : "black");
+    if (window.__applyDiaryAppearance) window.__applyDiaryAppearance();
+  });
+
+  document.getElementById("bg-dim-slider")?.addEventListener("input", (e) => {
+    const val = Math.min(85, Math.max(0, Number(e.target.value) || 0));
+    localStorage.setItem("diary_custom_bg_dim_v6", String(val));
+    const label = document.getElementById("bg-dim-value");
+    if (label) label.textContent = `${val}%`;
+    if (window.__applyDiaryAppearance) window.__applyDiaryAppearance();
+  });
 
   // Модальное окно уведомлений
   document.getElementById("btn-notifications")?.addEventListener("click", () => {
+    updateNotifPermissionStatusUI();
+    openModal("modal-notifications");
+  });
+  document.getElementById("btn-open-notif-from-tools")?.addEventListener("click", () => {
+    closeModal("modal-tools");
     updateNotifPermissionStatusUI();
     openModal("modal-notifications");
   });
@@ -1648,9 +1721,9 @@ function initUIListeners() {
 
   const saveNotifToggles = () => {
     state.notifSettings = {
-      classes: document.getElementById("notif-toggle-classes").checked,
-      tasks: document.getElementById("notif-toggle-tasks").checked,
-      notes: document.getElementById("notif-toggle-notes").checked
+      classes: Boolean(document.getElementById("notif-toggle-classes")?.checked),
+      tasks: Boolean(document.getElementById("notif-toggle-tasks")?.checked),
+      notes: Boolean(document.getElementById("notif-toggle-notes")?.checked)
     };
     localStorage.setItem("diary_notif_settings_v4", JSON.stringify(state.notifSettings));
     updateNotifPermissionStatusUI();
@@ -1664,29 +1737,29 @@ function initUIListeners() {
   });
 
   // Навигация по неделям
-  document.getElementById("btn-prev-week").addEventListener("click", () => {
+  document.getElementById("btn-prev-week")?.addEventListener("click", () => {
     state.selectedDate = addDaysISO(state.selectedDate, -7);
     renderScheduleSection();
   });
-  document.getElementById("btn-next-week").addEventListener("click", () => {
+  document.getElementById("btn-next-week")?.addEventListener("click", () => {
     state.selectedDate = addDaysISO(state.selectedDate, 7);
     renderScheduleSection();
   });
-  document.getElementById("btn-today").addEventListener("click", () => {
+  document.getElementById("btn-today")?.addEventListener("click", () => {
     state.selectedDate = getInitialStudyDate();
     renderScheduleSection();
   });
-  document.getElementById("btn-jump-next-week").addEventListener("click", () => {
+  document.getElementById("btn-jump-next-week")?.addEventListener("click", () => {
     state.selectedDate = addDaysISO(getInitialStudyDate(), 7);
     renderScheduleSection();
   });
-  document.getElementById("date-jump-picker").addEventListener("change", (e) => {
+  document.getElementById("date-jump-picker")?.addEventListener("change", (e) => {
     if (e.target.value) {
       state.selectedDate = e.target.value;
       renderScheduleSection();
     }
   });
-  document.getElementById("day-selector").addEventListener("click", (e) => {
+  document.getElementById("day-selector")?.addEventListener("click", (e) => {
     const btn = e.target.closest("[data-select-date]");
     if (btn) {
       state.selectedDate = btn.dataset.selectDate;
@@ -1700,27 +1773,31 @@ function initUIListeners() {
     localStorage.setItem("diary_show_events_v4", String(state.showEvents));
     renderScheduleSection();
   };
-  document.getElementById("btn-toggle-events").addEventListener("click", toggleEventsVisibility);
-  document.getElementById("btn-hide-events-inline").addEventListener("click", toggleEventsVisibility);
+  document.getElementById("btn-toggle-events")?.addEventListener("click", toggleEventsVisibility);
+  document.getElementById("btn-hide-events-inline")?.addEventListener("click", toggleEventsVisibility);
 
-  document.getElementById("btn-add-event").addEventListener("click", () => {
-    document.getElementById("form-event").reset();
-    document.getElementById("event-edit-id").value = "";
-    document.getElementById("modal-event-title").textContent = "Новое мероприятие";
-    document.getElementById("event-date-from").value = state.selectedDate;
-    document.getElementById("event-date-to").value = state.selectedDate;
+  document.getElementById("btn-add-event")?.addEventListener("click", () => {
+    document.getElementById("form-event")?.reset();
+    const editId = document.getElementById("event-edit-id");
+    const title = document.getElementById("modal-event-title");
+    const df = document.getElementById("event-date-from");
+    const dt = document.getElementById("event-date-to");
+    if (editId) editId.value = "";
+    if (title) title.textContent = "Новое мероприятие";
+    if (df) df.value = state.selectedDate;
+    if (dt) dt.value = state.selectedDate;
     openModal("modal-event");
   });
 
-  document.getElementById("form-event").addEventListener("submit", async (e) => {
+  document.getElementById("form-event")?.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const editId = document.getElementById("event-edit-id").value;
-    const title = document.getElementById("event-title").value.trim();
-    const fromStr = document.getElementById("event-date-from").value;
-    const toStr = document.getElementById("event-date-to").value || fromStr;
-    const startTime = document.getElementById("event-start").value;
-    const endTime = document.getElementById("event-end").value;
-    const location = document.getElementById("event-location").value.trim() || "Мероприятие";
+    const editId = document.getElementById("event-edit-id")?.value || "";
+    const title = document.getElementById("event-title")?.value.trim() || "Мероприятие";
+    const fromStr = document.getElementById("event-date-from")?.value || state.selectedDate;
+    const toStr = document.getElementById("event-date-to")?.value || fromStr;
+    const startTime = document.getElementById("event-start")?.value || "10:00";
+    const endTime = document.getElementById("event-end")?.value || "12:00";
+    const location = document.getElementById("event-location")?.value.trim() || "Мероприятие";
 
     if (editId) {
       await saveEventItems([{ id: editId, title, date: fromStr, startTime, endTime, location }]);
@@ -1758,11 +1835,14 @@ function initUIListeners() {
   });
 
   // Конструктор заметок
-  document.getElementById("keep-pin-btn").addEventListener("click", () => {
+  document.getElementById("keep-pin-btn")?.addEventListener("click", () => {
     state.keepDraft.pinned = !state.keepDraft.pinned;
-    document.getElementById("keep-pin-btn").className = `ios-press w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
-      state.keepDraft.pinned ? "bg-ios-orange/20 text-ios-orange" : "text-gray-400 hover:text-ios-orange"
-    }`;
+    const btn = document.getElementById("keep-pin-btn");
+    if (btn) {
+      btn.className = `ios-press w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
+        state.keepDraft.pinned ? "bg-ios-orange/20 text-ios-orange" : "text-gray-400 hover:text-ios-orange"
+      }`;
+    }
   });
 
   document.querySelectorAll("[data-toggle-keep-opt]").forEach((btn) => {
@@ -1791,7 +1871,7 @@ function initUIListeners() {
     });
   });
 
-  document.getElementById("keep-photo-input").addEventListener("change", async (e) => {
+  document.getElementById("keep-photo-input")?.addEventListener("change", async (e) => {
     const files = [...(e.target.files || [])];
     for (const f of files) {
       const dataUrl = await compressImageFile(f);
@@ -1801,17 +1881,17 @@ function initUIListeners() {
     e.target.value = "";
   });
 
-  document.getElementById("keep-btn-clear").addEventListener("click", resetKeepComposer);
+  document.getElementById("keep-btn-clear")?.addEventListener("click", resetKeepComposer);
 
-  document.getElementById("keep-btn-save").addEventListener("click", async () => {
-    const title = document.getElementById("keep-title-input").value.trim();
-    const content = document.getElementById("keep-content-input").value.trim();
-    const subject = document.getElementById("keep-subject-input").value.trim();
-    const date = document.getElementById("keep-date-input").value;
-    const notifyTime = document.getElementById("keep-notify-input").value;
+  document.getElementById("keep-btn-save")?.addEventListener("click", async () => {
+    const title = document.getElementById("keep-title-input")?.value.trim() || "";
+    const content = document.getElementById("keep-content-input")?.value.trim() || "";
+    const subject = document.getElementById("keep-subject-input")?.value.trim() || "";
+    const date = document.getElementById("keep-date-input")?.value || "";
+    const notifyTime = document.getElementById("keep-notify-input")?.value || "";
 
     if (!title && !content && state.keepDraft.photos.length === 0) {
-      document.getElementById("keep-content-input").focus();
+      document.getElementById("keep-content-input")?.focus();
       return;
     }
 
@@ -1833,23 +1913,30 @@ function initUIListeners() {
   document.querySelectorAll(".scope-btn").forEach((btn) => {
     btn.addEventListener("click", () => setScopeMode(btn.dataset.scope));
   });
-  document.getElementById("sched-number").addEventListener("change", (e) => {
+  document.getElementById("sched-number")?.addEventListener("change", (e) => {
     const bell = BELL_SCHEDULE[e.target.value];
     if (bell) {
-      document.getElementById("sched-start").value = bell.start;
-      document.getElementById("sched-end").value = bell.end;
+      const s = document.getElementById("sched-start");
+      const end = document.getElementById("sched-end");
+      if (s) s.value = bell.start;
+      if (end) end.value = bell.end;
     }
   });
 
-  document.getElementById("btn-header-add").addEventListener("click", () => {
+  document.getElementById("btn-header-add")?.addEventListener("click", () => {
     if (state.activeTab === "schedule") {
-      document.getElementById("form-schedule").reset();
-      document.getElementById("sched-edit-id").value = "";
-      document.getElementById("modal-schedule-title").textContent = "Добавить пару";
-      document.getElementById("scope-selector-wrapper").classList.remove("hidden");
-      document.getElementById("sched-date").value = state.selectedDate;
-      const rawDay = parseDateISO(state.selectedDate).getDay(); // 0 (ВС) .. 6 (СБ)
-      document.getElementById("sched-sem-day").value = String(rawDay);
+      document.getElementById("form-schedule")?.reset();
+      const editId = document.getElementById("sched-edit-id");
+      const title = document.getElementById("modal-schedule-title");
+      const wrap = document.getElementById("scope-selector-wrapper");
+      const sDate = document.getElementById("sched-date");
+      const semDay = document.getElementById("sched-sem-day");
+      if (editId) editId.value = "";
+      if (title) title.textContent = "Добавить пару";
+      wrap?.classList.remove("hidden");
+      if (sDate) sDate.value = state.selectedDate;
+      const rawDay = parseDateISO(state.selectedDate).getDay();
+      if (semDay) semDay.value = String(rawDay);
       const cbVal = rawDay === 0 ? 7 : rawDay;
       document.querySelectorAll(".week-day-cb").forEach((cb) => {
         cb.checked = Number(cb.value) === cbVal;
@@ -1859,12 +1946,12 @@ function initUIListeners() {
     } else if (state.activeTab === "tasks") {
       openTaskModalFor(null);
     } else {
-      document.getElementById("keep-title-input").focus();
+      document.getElementById("keep-title-input")?.focus();
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
   });
 
-  document.getElementById("btn-new-task-top").addEventListener("click", () => openTaskModalFor(null));
+  document.getElementById("btn-new-task-top")?.addEventListener("click", () => openTaskModalFor(null));
 
   const openHiddenModal = () => {
     renderHiddenClassesModal();
@@ -1872,15 +1959,19 @@ function initUIListeners() {
   };
   document.getElementById("btn-hidden-classes")?.addEventListener("click", openHiddenModal);
   document.getElementById("btn-open-hidden-inline")?.addEventListener("click", openHiddenModal);
+  document.getElementById("btn-open-hidden-from-tools")?.addEventListener("click", () => {
+    closeModal("modal-tools");
+    openHiddenModal();
+  });
 
-  document.getElementById("btn-restore-all-hidden").addEventListener("click", async () => {
+  document.getElementById("btn-restore-all-hidden")?.addEventListener("click", async () => {
     const ids = state.hiddenRules.map((r) => r.id);
     for (const id of ids) await removeHiddenRule(id);
     renderHiddenClassesModal();
     closeModal("modal-hidden-classes");
   });
 
-  document.getElementById("btn-hide-this-week").addEventListener("click", async () => {
+  document.getElementById("btn-hide-this-week")?.addEventListener("click", async () => {
     const item = state.pendingDeleteItem;
     if (!item) return;
     const weekNum = getStudyWeekNumber(item.date);
@@ -1894,7 +1985,7 @@ function initUIListeners() {
     closeModal("modal-delete-schedule");
   });
 
-  document.getElementById("btn-hide-forever").addEventListener("click", async () => {
+  document.getElementById("btn-hide-forever")?.addEventListener("click", async () => {
     const item = state.pendingDeleteItem;
     if (!item) return;
     await saveHiddenRule({
@@ -1906,7 +1997,7 @@ function initUIListeners() {
     closeModal("modal-delete-schedule");
   });
 
-  document.getElementById("btn-del-single").addEventListener("click", async () => {
+  document.getElementById("btn-del-single")?.addEventListener("click", async () => {
     if (!state.pendingDeleteItem) return;
     await removeScheduleItemsByIds([state.pendingDeleteItem.id]);
     closeModal("modal-delete-schedule");
@@ -1915,18 +2006,18 @@ function initUIListeners() {
   document.querySelectorAll(".task-target-btn").forEach((btn) => {
     btn.addEventListener("click", () => applyTaskTargetMode(btn.dataset.taskTarget));
   });
-  document.getElementById("task-subject").addEventListener("change", () => {
+  document.getElementById("task-subject")?.addEventListener("change", () => {
     if (state.taskTargetMode === "next") applyTaskTargetMode("next");
   });
 
   document.querySelectorAll(".note-target-btn").forEach((btn) => {
     btn.addEventListener("click", () => applyNoteTargetMode(btn.dataset.noteTarget));
   });
-  document.getElementById("note-subject").addEventListener("change", () => {
+  document.getElementById("note-subject")?.addEventListener("change", () => {
     if (state.noteTargetMode === "next") applyNoteTargetMode("next");
   });
 
-  document.getElementById("task-photo-input").addEventListener("change", async (e) => {
+  document.getElementById("task-photo-input")?.addEventListener("change", async (e) => {
     const files = [...(e.target.files || [])];
     for (const f of files) {
       const dataUrl = await compressImageFile(f);
@@ -1936,7 +2027,7 @@ function initUIListeners() {
     e.target.value = "";
   });
 
-  document.getElementById("note-photo-input").addEventListener("change", async (e) => {
+  document.getElementById("note-photo-input")?.addEventListener("change", async (e) => {
     const files = [...(e.target.files || [])];
     for (const f of files) {
       const dataUrl = await compressImageFile(f);
@@ -1946,42 +2037,42 @@ function initUIListeners() {
     e.target.value = "";
   });
 
-  document.getElementById("form-schedule").addEventListener("submit", async (e) => {
+  document.getElementById("form-schedule")?.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const editId = document.getElementById("sched-edit-id").value;
-    const number = Number(document.getElementById("sched-number").value);
-    const startTime = document.getElementById("sched-start").value;
-    const endTime = document.getElementById("sched-end").value;
-    const subject = document.getElementById("sched-subject").value.trim();
-    const topic = document.getElementById("sched-topic").value.trim();
-    const type = document.getElementById("sched-type").value;
-    const room = document.getElementById("sched-room").value.trim();
-    const teacher = document.getElementById("sched-teacher").value.trim();
+    const editId = document.getElementById("sched-edit-id")?.value || "";
+    const number = Number(document.getElementById("sched-number")?.value || 1);
+    const startTime = document.getElementById("sched-start")?.value || "08:00";
+    const endTime = document.getElementById("sched-end")?.value || "09:30";
+    const subject = document.getElementById("sched-subject")?.value.trim() || "Предмет";
+    const topic = document.getElementById("sched-topic")?.value.trim() || "";
+    const type = document.getElementById("sched-type")?.value || "Лекция";
+    const room = document.getElementById("sched-room")?.value.trim() || "Ауд.";
+    const teacher = document.getElementById("sched-teacher")?.value.trim() || "";
     const targetDates = [];
 
     if (editId) {
-      const singleDate = document.getElementById("sched-date").value;
+      const singleDate = document.getElementById("sched-date")?.value || state.selectedDate;
       await saveScheduleItems([{ id: editId, date: singleDate, number, startTime, endTime, subject, topic, type, room, teacher }]);
       closeModal("modal-schedule");
       return;
     }
 
     if (state.addScope === "date") {
-      targetDates.push(document.getElementById("sched-date").value);
+      targetDates.push(document.getElementById("sched-date")?.value || state.selectedDate);
     } else if (state.addScope === "week" || state.addScope === "next-week") {
       const baseMonday = getMondayOfDate(state.selectedDate);
       if (state.addScope === "next-week") baseMonday.setDate(baseMonday.getDate() + 7);
       const checkedDays = [...document.querySelectorAll(".week-day-cb:checked")].map((cb) => Number(cb.value));
       for (const dayIdx of checkedDays) {
         const d = new Date(baseMonday);
-        d.setDate(baseMonday.getDate() + (dayIdx - 1)); // 1=ПН .. 7=ВС
+        d.setDate(baseMonday.getDate() + (dayIdx - 1));
         targetDates.push(formatDateISO(d));
       }
     } else if (state.addScope === "semester") {
-      const targetDow = Number(document.getElementById("sched-sem-day").value); // 0=ВС, 1..6=ПН..СБ
-      const parity = document.getElementById("sched-sem-parity").value;
-      const fromDate = parseDateISO(document.getElementById("sched-sem-from").value);
-      const toDate = parseDateISO(document.getElementById("sched-sem-to").value);
+      const targetDow = Number(document.getElementById("sched-sem-day")?.value ?? 1);
+      const parity = document.getElementById("sched-sem-parity")?.value || "all";
+      const fromDate = parseDateISO(document.getElementById("sched-sem-from")?.value || "2026-09-01");
+      const toDate = parseDateISO(document.getElementById("sched-sem-to")?.value || "2026-12-26");
       for (let d = new Date(fromDate); d <= toDate; d.setDate(d.getDate() + 1)) {
         if (d.getDay() !== targetDow) continue;
         const iso = formatDateISO(d);
@@ -2014,43 +2105,43 @@ function initUIListeners() {
     closeModal("modal-schedule");
   });
 
-  document.getElementById("form-task").addEventListener("submit", async (e) => {
+  document.getElementById("form-task")?.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const editId = document.getElementById("task-edit-id").value;
+    const editId = document.getElementById("task-edit-id")?.value || "";
     const taskObj = {
       id: editId || `task_${Date.now()}`,
-      subject: document.getElementById("task-subject").value.trim(),
-      text: document.getElementById("task-text").value.trim(),
-      deadline: document.getElementById("task-deadline").value,
-      completed: document.getElementById("task-completed").checked,
+      subject: document.getElementById("task-subject")?.value.trim() || "Предмет",
+      text: document.getElementById("task-text")?.value.trim() || "",
+      deadline: document.getElementById("task-deadline")?.value || state.selectedDate,
+      completed: Boolean(document.getElementById("task-completed")?.checked),
       photos: [...state.draftTaskPhotos]
     };
     await saveTaskItem(taskObj);
     closeModal("modal-task");
   });
 
-  document.getElementById("form-note").addEventListener("submit", async (e) => {
+  document.getElementById("form-note")?.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const editId = document.getElementById("note-edit-id").value;
+    const editId = document.getElementById("note-edit-id")?.value || "";
     const existing = state.notes.find((n) => n.id === editId);
-    const title = document.getElementById("note-title").value.trim();
-    const subject = document.getElementById("note-subject").value.trim();
+    const title = document.getElementById("note-title")?.value.trim() || "";
+    const subject = document.getElementById("note-subject")?.value.trim() || "";
     const noteObj = {
       id: editId || `note_${Date.now()}`,
       title: title || (subject ? `Заметка: ${subject}` : "Заметка"),
-      content: document.getElementById("note-content").value.trim(),
+      content: document.getElementById("note-content")?.value.trim() || "",
       subject,
-      date: document.getElementById("note-date").value || "",
+      date: document.getElementById("note-date")?.value || "",
       pinned: existing ? Boolean(existing.pinned) : false,
       photos: [...state.draftNotePhotos],
-      notifyEnabled: document.getElementById("note-notify-enabled").checked,
-      notifyTime: document.getElementById("note-notify-time").value || ""
+      notifyEnabled: Boolean(document.getElementById("note-notify-enabled")?.checked),
+      notifyTime: document.getElementById("note-notify-time")?.value || ""
     };
     await saveNoteItem(noteObj);
     closeModal("modal-note");
   });
 
-  document.getElementById("google-keep-import-input").addEventListener("change", async (e) => {
+  document.getElementById("google-keep-import-input")?.addEventListener("change", async (e) => {
     const files = [...(e.target.files || [])];
     for (const file of files) {
       const raw = await file.text();
@@ -2078,12 +2169,12 @@ function initUIListeners() {
     e.target.value = "";
   });
 
-  document.getElementById("btn-tools").addEventListener("click", () => {
+  document.getElementById("btn-tools")?.addEventListener("click", () => {
     if (window.__applyDiaryAppearance) window.__applyDiaryAppearance();
     openModal("modal-tools");
   });
 
-  document.getElementById("btn-restore-default").addEventListener("click", async () => {
+  document.getElementById("btn-restore-default")?.addEventListener("click", async () => {
     const def = buildDefaultSchedule();
     state.schedule = def;
     state.hiddenRules = [];
@@ -2093,9 +2184,10 @@ function initUIListeners() {
     updateSubjectsDatalist();
     updateLiveWidget();
     closeModal("modal-tools");
+    showInAppToast("Расписание восстановлено", "Все 275 пар семестра успешно загружены.");
   });
 
-  document.getElementById("ics-file-input").addEventListener("change", async (e) => {
+  document.getElementById("ics-file-input")?.addEventListener("change", async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const text = await file.text();
@@ -2104,8 +2196,8 @@ function initUIListeners() {
     closeModal("modal-tools");
   });
 
-  document.getElementById("btn-login").addEventListener("click", async () => {
-    if (!isFirebaseConfigured) {
+  document.getElementById("btn-login")?.addEventListener("click", async () => {
+    if (!isFirebaseConfigured || !auth) {
       alert("Для входа через Google укажите ваш firebaseConfig в начале файла app.js");
       return;
     }
@@ -2115,7 +2207,7 @@ function initUIListeners() {
       await signInWithRedirect(auth, googleProvider);
     }
   });
-  document.getElementById("btn-logout").addEventListener("click", () => {
+  document.getElementById("btn-logout")?.addEventListener("click", () => {
     if (auth) signOut(auth);
   });
 
@@ -2123,10 +2215,11 @@ function initUIListeners() {
     btn.addEventListener("click", () => {
       state.activeTab = btn.dataset.tab;
       const titles = { schedule: "Расписание", tasks: "ДЗ и Задачи", notes: "Заметки" };
-      document.getElementById("header-title").textContent = titles[state.activeTab];
-      document.getElementById("view-schedule").classList.toggle("hidden", state.activeTab !== "schedule");
-      document.getElementById("view-tasks").classList.toggle("hidden", state.activeTab !== "tasks");
-      document.getElementById("view-notes").classList.toggle("hidden", state.activeTab !== "notes");
+      const hTitle = document.getElementById("header-title");
+      if (hTitle) hTitle.textContent = titles[state.activeTab];
+      document.getElementById("view-schedule")?.classList.toggle("hidden", state.activeTab !== "schedule");
+      document.getElementById("view-tasks")?.classList.toggle("hidden", state.activeTab !== "tasks");
+      document.getElementById("view-notes")?.classList.toggle("hidden", state.activeTab !== "notes");
 
       document.querySelectorAll(".nav-tab").forEach((b) => {
         const active = b.dataset.tab === state.activeTab;
@@ -2166,7 +2259,8 @@ function initUIListeners() {
   document.addEventListener("click", async (e) => {
     const photoEl = e.target.closest("[data-view-photo]");
     if (photoEl) {
-      document.getElementById("photo-viewer-img").src = photoEl.dataset.viewPhoto;
+      const img = document.getElementById("photo-viewer-img");
+      if (img) img.src = photoEl.dataset.viewPhoto;
       openModal("modal-photo-viewer");
       return;
     }
@@ -2342,7 +2436,7 @@ function initUIListeners() {
       if (!item) return;
       document.getElementById("sched-edit-id").value = item.id;
       document.getElementById("modal-schedule-title").textContent = "Изменить пару";
-      document.getElementById("scope-selector-wrapper").classList.add("hidden");
+      document.getElementById("scope-selector-wrapper")?.classList.add("hidden");
       setScopeMode("date");
       document.getElementById("sched-date").value = item.date;
       document.getElementById("sched-number").value = String(item.number || 1);
@@ -2362,7 +2456,8 @@ function initUIListeners() {
       const item = state.schedule.find((s) => s.id === askDelBtn.dataset.askDeleteSchedule);
       if (!item) return;
       state.pendingDeleteItem = item;
-      document.getElementById("delete-sched-info").textContent = `${item.number} пара • ${item.subject} (${formatShortDate(item.date)})`;
+      const info = document.getElementById("delete-sched-info");
+      if (info) info.textContent = `${item.number} пара • ${item.subject} (${formatShortDate(item.date)})`;
       openModal("modal-delete-schedule");
       return;
     }
@@ -2442,8 +2537,10 @@ function initUIListeners() {
 
     const noteId = contentArea ? contentArea.dataset.noteInput : titleInput.dataset.noteTitleInput;
     const statusEl = document.getElementById("note-save-status");
-    statusEl.textContent = "Печатает...";
-    statusEl.className = "text-[10px] font-semibold text-ios-orange bg-ios-orange/15 px-2 py-0.5 rounded-full";
+    if (statusEl) {
+      statusEl.textContent = "Печатает...";
+      statusEl.className = "text-[10px] font-semibold text-ios-orange bg-ios-orange/15 px-2 py-0.5 rounded-full";
+    }
 
     clearTimeout(state.noteDebounceTimers[noteId]);
     state.noteDebounceTimers[noteId] = setTimeout(async () => {
@@ -2459,8 +2556,10 @@ function initUIListeners() {
           { merge: true }
         );
       }
-      statusEl.textContent = "Сохранено";
-      statusEl.className = "text-[10px] font-semibold text-ios-green bg-ios-green/15 px-2 py-0.5 rounded-full";
+      if (statusEl) {
+        statusEl.textContent = "Сохранено";
+        statusEl.className = "text-[10px] font-semibold text-ios-green bg-ios-green/15 px-2 py-0.5 rounded-full";
+      }
     }, 450);
   });
 }
@@ -2468,7 +2567,7 @@ function initUIListeners() {
 function openTaskModalFor(classItem) {
   state.contextClassItem = classItem;
   state.draftTaskPhotos = [];
-  document.getElementById("form-task").reset();
+  document.getElementById("form-task")?.reset();
   document.getElementById("task-edit-id").value = "";
   document.getElementById("modal-task-title").textContent = "Домашнее задание";
   document.getElementById("task-subject").value = classItem ? classItem.subject : "";
@@ -2481,7 +2580,7 @@ function openTaskModalFor(classItem) {
 function openNoteModalFor(classItem) {
   state.contextClassItem = classItem;
   state.draftNotePhotos = [];
-  document.getElementById("form-note").reset();
+  document.getElementById("form-note")?.reset();
   document.getElementById("note-edit-id").value = "";
   document.getElementById("modal-note-title").textContent = classItem ? "Заметка к паре" : "Новая заметка";
   document.getElementById("note-title").value = classItem?.topic ? classItem.topic : "";
