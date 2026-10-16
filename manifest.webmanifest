@@ -1,0 +1,20 @@
+{
+  "name": "Студенческий Дневник",
+  "short_name": "Дневник",
+  "description": "Расписание пар, домашние задания и заметки",
+  "lang": "ru-RU",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='115' fill='%230A84FF'/><path d='M140 130h232a28 28 0 0 1 28 28v200a28 28 0 0 1-28 28H140a28 28 0 0 1-28-28V158a28 28 0 0 1 28-28zm0 72h232M200 130v-28M312 130v-28' stroke='white' stroke-width='28' stroke-linecap='round' fill='none'/></svg>",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
