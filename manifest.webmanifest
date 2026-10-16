@@ -11,7 +11,7 @@
   "theme_color": "#000000",
   "icons": [
     {
-      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='115' fill='%230A84FF'/><path d='M140 130h232a28 28 0 0 1 28 28v200a28 28 0 0 1-28 28H140a28 28 0 0 1-28-28V158a28 28 0 0 1 28-28zm0 72h232M200 130v-28M312 130v-28' stroke='white' stroke-width='28' stroke-linecap='round' fill='none'/></svg>",
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><defs><linearGradient id='g' x1='0%' y1='0%' x2='100%' y2='100%'><stop offset='0%' stop-color='%23FF9F0A'/><stop offset='100%' stop-color='%23FF375F'/></linearGradient></defs><rect width='512' height='512' rx='115' fill='url(%23g)'/><path d='M140 130h232a28 28 0 0 1 28 28v200a28 28 0 0 1-28 28H140a28 28 0 0 1-28-28V158a28 28 0 0 1 28-28zm0 72h232M200 130v-28M312 130v-28' stroke='white' stroke-width='28' stroke-linecap='round' fill='none'/></svg>",
       "sizes": "512x512",
       "type": "image/svg+xml",
       "purpose": "any maskable"
