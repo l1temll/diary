@@ -13,7 +13,7 @@
   <title>Студенческий Дневник</title>
   <link rel="manifest" href="./manifest.webmanifest" />
   
-  <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><defs><linearGradient id='g' x1='0%' y1='0%' x2='100%' y2='100%'><stop offset='0%' stop-color='%23FF9F0A'/><stop offset='100%' stop-color='%23FF375F'/></linearGradient></defs><rect width='180' height='180' rx='42' fill='url(%23g)'/><path d='M50 48h80a12 12 0 0 1 12 12v68a12 12 0 0 1-12 12H50a12 12 0 0 1-12-12V60a12 12 0 0 1 12-12zm0 26h232M68 48V36M112 48V36' stroke='white' stroke-width='10' stroke-linecap='round' fill='none'/></svg>" />
+  <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><rect width='180' height='180' rx='42' fill='%23111111'/><path d='M50 48h80a12 12 0 0 1 12 12v68a12 12 0 0 1-12 12H50a12 12 0 0 1-12-12V60a12 12 0 0 1 12-12zm0 26h80M68 48V36M112 48V36' stroke='white' stroke-width='10' stroke-linecap='round' fill='none'/></svg>" />
 
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -50,35 +50,55 @@
 
   <style>
     :root {
-      --sat: env(safe-area-inset-top, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
       --glass-border-alpha: 0.18;
       --glass-specular-alpha: 0.38;
       --glass-blur: 32px;
       --custom-bg-dim: 0.45;
-      --custom-bg-blur: 0px;
     }
 
-    * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
+    *, *::before, *::after {
+      -webkit-tap-highlight-color: transparent;
+      box-sizing: border-box;
+    }
 
     html, body {
+      width: 100%;
+      max-width: 100vw;
+      overflow-x: hidden;
+      margin: 0;
+      padding: 0;
       font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", sans-serif;
       overscroll-behavior-y: none;
       user-select: none;
       -webkit-user-select: none;
       touch-action: manipulation;
-      transition: background-color 0.25s ease, color 0.2s ease;
+      -webkit-text-size-adjust: 100%;
     }
 
+    /* Запрет зума на iOS и предотвращение растягивания контейнеров датами */
     input, select, textarea {
       font-size: 16px !important;
       user-select: text;
       -webkit-user-select: text;
+      max-width: 100%;
     }
 
-    .pt-safe { padding-top: max(calc(var(--sat) + 0.5rem), 0.85rem); }
-    .pb-safe-nav { padding-bottom: max(var(--sab), 0.75rem); }
-    .main-scroll-area { padding-bottom: calc(7.25rem + var(--sab)); }
+    input[type="date"], input[type="time"], input[type="datetime-local"] {
+      -webkit-appearance: none;
+      appearance: none;
+      min-width: 0;
+    }
+
+    /* Безопасные зоны iOS PWA (Dynamic Island / Notch / Home Indicator) */
+    .pt-safe {
+      padding-top: calc(env(safe-area-inset-top, 0px) + 0.6rem);
+    }
+    .pb-safe-nav {
+      padding-bottom: max(env(safe-area-inset-bottom, 0px), 0.65rem);
+    }
+    .main-scroll-area {
+      padding-bottom: calc(6.5rem + env(safe-area-inset-bottom, 0px));
+    }
 
     /* Настройка интенсивности бликов */
     body.rim-soft { --glass-border-alpha: 0.10; --glass-specular-alpha: 0.18; }
@@ -97,8 +117,6 @@
       background-size: cover;
       background-position: center;
       background-repeat: no-repeat;
-      filter: blur(var(--custom-bg-blur));
-      transform: scale(1.03);
     }
     #custom-bg-overlay {
       position: fixed;
@@ -108,7 +126,6 @@
       display: none;
       background: rgba(0, 0, 0, var(--custom-bg-dim));
     }
-
     #liquid-ambient-bg {
       position: fixed;
       inset: 0;
@@ -118,32 +135,22 @@
       display: none;
     }
 
-    /* Фон: Чисто черный */
-    body.bg-mode-black {
-      background-color: #000000 !important;
-    }
+    body.bg-mode-black { background-color: #000000 !important; }
+    body.bg-mode-white { background-color: #F4F4F7 !important; }
 
-    /* Фон: Чисто белый */
-    body.bg-mode-white {
-      background-color: #F4F4F8 !important;
-    }
-
-    /* Фон: Абстракция */
-    body.bg-mode-abstract #liquid-ambient-bg {
-      display: block !important;
-    }
+    body.bg-mode-abstract #liquid-ambient-bg { display: block !important; }
     body.mode-dark.bg-mode-abstract #liquid-ambient-bg {
       background:
-        radial-gradient(circle at 15% 15%, rgba(255, 159, 10, 0.28) 0%, transparent 45%),
-        radial-gradient(circle at 85% 25%, rgba(10, 132, 255, 0.30) 0%, transparent 50%),
-        radial-gradient(circle at 50% 85%, rgba(191, 90, 242, 0.25) 0%, transparent 50%),
+        radial-gradient(circle at 15% 15%, rgba(255, 159, 10, 0.25) 0%, transparent 45%),
+        radial-gradient(circle at 85% 25%, rgba(10, 132, 255, 0.28) 0%, transparent 50%),
+        radial-gradient(circle at 50% 85%, rgba(191, 90, 242, 0.22) 0%, transparent 50%),
         linear-gradient(160deg, #090A12 0%, #121526 50%, #07070C 100%);
     }
     body.mode-light.bg-mode-abstract #liquid-ambient-bg {
       background:
-        radial-gradient(circle at 15% 15%, rgba(255, 159, 10, 0.30) 0%, transparent 45%),
-        radial-gradient(circle at 85% 25%, rgba(10, 132, 255, 0.26) 0%, transparent 50%),
-        radial-gradient(circle at 50% 85%, rgba(191, 90, 242, 0.24) 0%, transparent 50%),
+        radial-gradient(circle at 15% 15%, rgba(255, 159, 10, 0.25) 0%, transparent 45%),
+        radial-gradient(circle at 85% 25%, rgba(10, 132, 255, 0.22) 0%, transparent 50%),
+        radial-gradient(circle at 50% 85%, rgba(191, 90, 242, 0.20) 0%, transparent 50%),
         linear-gradient(160deg, #EEF2FF 0%, #FCE7F3 50%, #FFF7ED 100%);
     }
 
@@ -151,34 +158,12 @@
       position: absolute;
       border-radius: 9999px;
       filter: blur(65px);
-      opacity: 0.55;
-      animation: floatOrb 18s ease-in-out infinite alternate;
-      will-change: transform;
+      opacity: 0.5;
     }
-    .liquid-orb-1 {
-      width: 340px; height: 340px;
-      top: -80px; left: -60px;
-      background: radial-gradient(circle, #FF9F0A 0%, #FF375F 70%, transparent 100%);
-    }
-    .liquid-orb-2 {
-      width: 380px; height: 380px;
-      top: 25%; right: -100px;
-      background: radial-gradient(circle, #0A84FF 0%, #5E5CE6 70%, transparent 100%);
-      animation-delay: -6s;
-    }
-    .liquid-orb-3 {
-      width: 320px; height: 320px;
-      bottom: 6%; left: 12%;
-      background: radial-gradient(circle, #BF5AF2 0%, #30D158 75%, transparent 100%);
-      animation-delay: -11s;
-    }
-    @keyframes floatOrb {
-      0% { transform: translate3d(0, 0, 0) scale(1); }
-      50% { transform: translate3d(25px, -25px, 0) scale(1.07); }
-      100% { transform: translate3d(-20px, 20px, 0) scale(0.95); }
-    }
+    .liquid-orb-1 { width: 300px; height: 300px; top: -60px; left: -50px; background: radial-gradient(circle, #FF9F0A 0%, #FF375F 70%, transparent 100%); }
+    .liquid-orb-2 { width: 320px; height: 320px; top: 25%; right: -90px; background: radial-gradient(circle, #0A84FF 0%, #5E5CE6 70%, transparent 100%); }
+    .liquid-orb-3 { width: 280px; height: 280px; bottom: 8%; left: 10%; background: radial-gradient(circle, #BF5AF2 0%, #30D158 75%, transparent 100%); }
 
-    /* Фон: Свой из галереи */
     body.bg-mode-custom #custom-bg-layer,
     body.bg-mode-custom #custom-bg-overlay {
       display: block !important;
@@ -187,52 +172,38 @@
     /* ==========================================================================
        2. СТИЛИ КАРТОЧЕК (КЛАССИЧЕСКАЯ МАТОВАЯ / LIQUID GLASS / TELEGRAM GLASS)
        ========================================================================== */
-
-    /* --- А) КЛАССИЧЕСКАЯ МАТОВАЯ ТЕМА (ТА, КОТОРАЯ БЫЛА) --- */
     body.mode-dark.theme-classic .ios26-card {
       background: #1C1C1E;
       border: 1px solid rgba(255, 255, 255, 0.08);
-      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.55);
-      backdrop-filter: none;
-      -webkit-backdrop-filter: none;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
     }
     body.mode-dark.theme-classic .ios26-card-orange {
-      background: linear-gradient(145deg, rgba(255, 159, 10, 0.16) 0%, #1C1C1E 100%);
+      background: linear-gradient(145deg, rgba(255, 159, 10, 0.14) 0%, #1C1C1E 100%);
       border: 1px solid rgba(255, 159, 10, 0.45);
-      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6);
     }
 
     body.mode-light.theme-classic .ios26-card {
       background: #FFFFFF;
       border: 1px solid rgba(0, 0, 0, 0.08);
-      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
-      backdrop-filter: none;
-      -webkit-backdrop-filter: none;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.05);
     }
     body.mode-light.theme-classic .ios26-card-orange {
-      background: linear-gradient(145deg, rgba(255, 159, 10, 0.18) 0%, #FFFFFF 100%);
-      border: 1px solid rgba(255, 159, 10, 0.55);
-      box-shadow: 0 6px 20px rgba(255, 159, 10, 0.12);
+      background: linear-gradient(145deg, rgba(255, 159, 10, 0.14) 0%, #FFFFFF 100%);
+      border: 1px solid rgba(255, 159, 10, 0.5);
     }
 
-    /* --- Б) TELEGRAM GLASS (МЯГКОЕ МАТОВОЕ СТЕКЛО) --- */
     body.mode-dark.theme-tg-glass .ios26-card {
       background: linear-gradient(180deg, rgba(38, 38, 42, 0.72) 0%, rgba(22, 22, 25, 0.82) 100%);
       backdrop-filter: blur(var(--glass-blur)) saturate(180%);
       -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
       border: 1px solid rgba(255, 255, 255, var(--glass-border-alpha));
-      box-shadow:
-        0 12px 30px -8px rgba(0, 0, 0, 0.7),
-        inset 0 1px 0.5px 0 rgba(255, 255, 255, var(--glass-specular-alpha));
+      box-shadow: 0 10px 26px -8px rgba(0, 0, 0, 0.7), inset 0 1px 0.5px 0 rgba(255, 255, 255, var(--glass-specular-alpha));
     }
     body.mode-dark.theme-tg-glass .ios26-card-orange {
       background: linear-gradient(180deg, rgba(64, 46, 24, 0.72) 0%, rgba(28, 22, 16, 0.84) 100%);
       backdrop-filter: blur(var(--glass-blur)) saturate(190%);
       -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(190%);
-      border: 1px solid rgba(255, 159, 10, 0.50);
-      box-shadow:
-        0 12px 30px -8px rgba(0, 0, 0, 0.75),
-        inset 0 1px 0.5px 0 rgba(255, 210, 150, 0.42);
+      border: 1px solid rgba(255, 159, 10, 0.48);
     }
 
     body.mode-light.theme-tg-glass .ios26-card {
@@ -240,196 +211,131 @@
       backdrop-filter: blur(var(--glass-blur)) saturate(180%);
       -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
       border: 1px solid rgba(0, 0, 0, 0.08);
-      box-shadow:
-        0 10px 26px -8px rgba(0, 0, 0, 0.08),
-        inset 0 1px 1px 0 rgba(255, 255, 255, 0.9);
+      box-shadow: 0 8px 22px -6px rgba(0, 0, 0, 0.07), inset 0 1px 1px 0 rgba(255, 255, 255, 0.9);
     }
     body.mode-light.theme-tg-glass .ios26-card-orange {
       background: linear-gradient(180deg, rgba(255, 243, 224, 0.88) 0%, rgba(255, 250, 242, 0.92) 100%);
       backdrop-filter: blur(var(--glass-blur)) saturate(180%);
       -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
-      border: 1px solid rgba(255, 159, 10, 0.55);
-      box-shadow: 0 10px 26px -8px rgba(255, 159, 10, 0.15);
+      border: 1px solid rgba(255, 159, 10, 0.5);
     }
 
-    /* --- В) LIQUID GLASS (ОБЪЕМНОЕ ЖИДКОЕ СТЕКЛО iOS 26) --- */
     body.mode-dark.theme-liquid .ios26-card {
-      background: linear-gradient(
-        135deg,
-        rgba(255, 255, 255, 0.16) 0%,
-        rgba(255, 255, 255, 0.06) 45%,
-        rgba(20, 20, 28, 0.48) 100%
-      );
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.06) 45%, rgba(20, 20, 28, 0.48) 100%);
       backdrop-filter: blur(36px) saturate(210%);
       -webkit-backdrop-filter: blur(36px) saturate(210%);
       border: 1px solid rgba(255, 255, 255, var(--glass-border-alpha));
       box-shadow:
-        0 18px 40px -12px rgba(0, 0, 0, 0.65),
+        0 16px 36px -12px rgba(0, 0, 0, 0.65),
         inset 0 1.5px 1px 0 rgba(255, 255, 255, var(--glass-specular-alpha)),
         inset 0 -1px 1px 0 rgba(255, 255, 255, 0.12);
     }
     body.mode-dark.theme-liquid .ios26-card-orange {
-      background: linear-gradient(
-        135deg,
-        rgba(255, 159, 10, 0.30) 0%,
-        rgba(255, 107, 0, 0.12) 50%,
-        rgba(30, 20, 12, 0.52) 100%
-      );
+      background: linear-gradient(135deg, rgba(255, 159, 10, 0.28) 0%, rgba(255, 107, 0, 0.12) 50%, rgba(30, 20, 12, 0.52) 100%);
       backdrop-filter: blur(36px) saturate(220%);
       -webkit-backdrop-filter: blur(36px) saturate(220%);
       border: 1px solid rgba(255, 179, 64, 0.58);
-      box-shadow:
-        0 18px 40px -10px rgba(255, 159, 10, 0.25),
-        inset 0 1.5px 1.5px 0 rgba(255, 225, 180, 0.60);
+      box-shadow: inset 0 1.5px 1.5px 0 rgba(255, 225, 180, 0.55);
     }
 
     body.mode-light.theme-liquid .ios26-card {
-      background: linear-gradient(
-        135deg,
-        rgba(255, 255, 255, 0.72) 0%,
-        rgba(255, 255, 255, 0.48) 50%,
-        rgba(240, 244, 255, 0.65) 100%
-      );
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.74) 0%, rgba(255, 255, 255, 0.50) 50%, rgba(240, 244, 255, 0.65) 100%);
       backdrop-filter: blur(36px) saturate(200%);
       -webkit-backdrop-filter: blur(36px) saturate(200%);
-      border: 1px solid rgba(255, 255, 255, 0.85);
-      box-shadow:
-        0 14px 34px -10px rgba(0, 0, 0, 0.10),
-        inset 0 2px 2px 0 rgba(255, 255, 255, 0.95),
-        inset 0 -1px 1px 0 rgba(0, 0, 0, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.88);
+      box-shadow: 0 12px 30px -10px rgba(0, 0, 0, 0.10), inset 0 2px 2px 0 rgba(255, 255, 255, 0.95);
     }
     body.mode-light.theme-liquid .ios26-card-orange {
-      background: linear-gradient(
-        135deg,
-        rgba(255, 232, 196, 0.82) 0%,
-        rgba(255, 245, 230, 0.68) 100%
-      );
+      background: linear-gradient(135deg, rgba(255, 232, 196, 0.82) 0%, rgba(255, 245, 230, 0.68) 100%);
       backdrop-filter: blur(36px) saturate(200%);
       -webkit-backdrop-filter: blur(36px) saturate(200%);
       border: 1px solid rgba(255, 159, 10, 0.55);
-      box-shadow:
-        0 14px 34px -10px rgba(255, 159, 10, 0.18),
-        inset 0 2px 2px 0 rgba(255, 255, 255, 0.95);
     }
 
     /* ==========================================================================
        3. СТИЛЬ КНОПОК: МАТОВЫЕ НОРМАЛЬНЫЕ (btn-matte) ИЛИ LIQUID GLASS (btn-glass)
        ========================================================================== */
-
-    /* Вариант А: Матовые нормальные кнопки (спокойные, без бликов) */
     body.mode-dark.btn-matte .ios26-pill {
       background: #2C2C2E;
-      border: 1px solid rgba(255, 255, 255, 0.07);
+      border: 1px solid rgba(255, 255, 255, 0.08);
       box-shadow: none;
-      backdrop-filter: none;
-      -webkit-backdrop-filter: none;
     }
     body.mode-light.btn-matte .ios26-pill {
       background: #E5E5EA;
-      border: 1px solid rgba(0, 0, 0, 0.06);
-      color: #1C1C1E;
+      border: 1px solid rgba(0, 0, 0, 0.07);
+      color: #111114;
       box-shadow: none;
-      backdrop-filter: none;
-      -webkit-backdrop-filter: none;
     }
-
     body.mode-dark.btn-matte .tg-glass-capsule {
       background: #1C1C1E;
-      border: 1px solid rgba(255, 255, 255, 0.09);
+      border: 1px solid rgba(255, 255, 255, 0.10);
       box-shadow: 0 8px 24px rgba(0, 0, 0, 0.65);
     }
     body.mode-light.btn-matte .tg-glass-capsule {
       background: #FFFFFF;
-      border: 1px solid rgba(0, 0, 0, 0.09);
+      border: 1px solid rgba(0, 0, 0, 0.10);
       box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
     }
 
-    /* Вариант Б: Кнопки Liquid Glass (объемная стеклянная капсула с бликом) */
     body.mode-dark.btn-glass .ios26-pill {
-      background: linear-gradient(
-        145deg,
-        rgba(255, 255, 255, 0.20) 0%,
-        rgba(255, 255, 255, 0.06) 55%,
-        rgba(30, 30, 38, 0.55) 100%
-      );
+      background: linear-gradient(145deg, rgba(255, 255, 255, 0.20) 0%, rgba(255, 255, 255, 0.06) 55%, rgba(30, 30, 38, 0.55) 100%);
       backdrop-filter: blur(24px) saturate(190%);
       -webkit-backdrop-filter: blur(24px) saturate(190%);
       border: 1px solid rgba(255, 255, 255, var(--glass-border-alpha));
-      box-shadow:
-        0 6px 16px rgba(0, 0, 0, 0.4),
-        inset 0 1.5px 1px 0 rgba(255, 255, 255, var(--glass-specular-alpha)),
-        inset 0 -0.5px 0.5px 0 rgba(255, 255, 255, 0.12);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35), inset 0 1.5px 1px 0 rgba(255, 255, 255, var(--glass-specular-alpha));
     }
     body.mode-light.btn-glass .ios26-pill {
-      background: linear-gradient(
-        145deg,
-        rgba(255, 255, 255, 0.88) 0%,
-        rgba(240, 242, 248, 0.65) 100%
-      );
+      background: linear-gradient(145deg, rgba(255, 255, 255, 0.90) 0%, rgba(240, 242, 248, 0.68) 100%);
       backdrop-filter: blur(24px) saturate(190%);
       -webkit-backdrop-filter: blur(24px) saturate(190%);
       border: 1px solid rgba(0, 0, 0, 0.10);
       color: #111114;
-      box-shadow:
-        0 4px 12px rgba(0, 0, 0, 0.06),
-        inset 0 1.5px 1px 0 rgba(255, 255, 255, 0.95);
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05), inset 0 1.5px 1px 0 rgba(255, 255, 255, 0.95);
     }
-
     body.mode-dark.btn-glass .tg-glass-capsule {
-      background: linear-gradient(180deg, rgba(52, 52, 58, 0.68) 0%, rgba(24, 24, 28, 0.78) 100%);
+      background: linear-gradient(180deg, rgba(52, 52, 58, 0.72) 0%, rgba(24, 24, 28, 0.82) 100%);
       backdrop-filter: blur(36px) saturate(190%);
       -webkit-backdrop-filter: blur(36px) saturate(190%);
       border: 1px solid rgba(255, 255, 255, var(--glass-border-alpha));
-      box-shadow:
-        0 14px 34px rgba(0, 0, 0, 0.75),
-        inset 0 1px 0.5px 0 rgba(255, 255, 255, var(--glass-specular-alpha));
+      box-shadow: 0 14px 34px rgba(0, 0, 0, 0.75), inset 0 1px 0.5px 0 rgba(255, 255, 255, var(--glass-specular-alpha));
     }
     body.mode-light.btn-glass .tg-glass-capsule {
-      background: linear-gradient(180deg, rgba(255, 255, 255, 0.85) 0%, rgba(242, 242, 247, 0.90) 100%);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.86) 0%, rgba(242, 242, 247, 0.92) 100%);
       backdrop-filter: blur(36px) saturate(190%);
       -webkit-backdrop-filter: blur(36px) saturate(190%);
       border: 1px solid rgba(0, 0, 0, 0.09);
-      box-shadow:
-        0 12px 30px rgba(0, 0, 0, 0.10),
-        inset 0 1.5px 1px 0 rgba(255, 255, 255, 0.95);
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.10), inset 0 1.5px 1px 0 rgba(255, 255, 255, 0.95);
     }
 
-    /* Активная вкладка в нижней навигации */
     body.mode-dark .nav-tab.active-tg-pill {
-      background: linear-gradient(180deg, rgba(96, 96, 106, 0.55) 0%, rgba(62, 62, 70, 0.65) 100%);
-      box-shadow: inset 0 1px 0.5px rgba(255, 255, 255, 0.35), 0 2px 10px rgba(0, 0, 0, 0.35);
+      background: rgba(255, 255, 255, 0.14);
     }
     body.mode-light .nav-tab.active-tg-pill {
       background: rgba(0, 0, 0, 0.08);
-      box-shadow: inset 0 1px 0.5px rgba(255, 255, 255, 0.8);
+    }
+
+    /* Акцентная кнопка по умолчанию (в цветных темах) */
+    .ios-active-orange {
+      background: linear-gradient(135deg, #FF9F0A 0%, #FF6B00 100%);
+      color: #000000;
+      border-color: #FFB340;
     }
 
     /* ==========================================================================
-       4. АДАПТАЦИЯ СВЕТЛОЙ ТЕМЫ (body.mode-light) ДЛЯ ВСЕХ ЭЛЕМЕНТОВ
+       4. СВЕТЛАЯ ТЕМА (body.mode-light)
        ========================================================================== */
-    body.mode-light {
-      color: #111114;
-    }
+    body.mode-light { color: #111114; }
     body.mode-light header.sticky {
-      background-color: rgba(255, 255, 255, 0.78) !important;
+      background-color: rgba(255, 255, 255, 0.82) !important;
       border-bottom-color: rgba(0, 0, 0, 0.08) !important;
     }
-    body.mode-light .text-white {
-      color: #111114 !important;
-    }
+    body.mode-light .text-white { color: #111114 !important; }
     body.mode-light .text-gray-100,
     body.mode-light .text-gray-200,
-    body.mode-light .text-gray-300 {
-      color: #3A3A42 !important;
-    }
+    body.mode-light .text-gray-300 { color: #3A3A42 !important; }
     body.mode-light .text-gray-400,
-    body.mode-light .text-ios-gray {
-      color: #6E6E77 !important;
-    }
-    body.mode-light .bg-ios-elevated {
-      background-color: #EBEBF0 !important;
-      color: #111114 !important;
-    }
+    body.mode-light .text-ios-gray { color: #6E6E77 !important; }
+    body.mode-light .bg-ios-elevated { background-color: #EBEBF0 !important; color: #111114 !important; }
     body.mode-light .bg-black\/30,
     body.mode-light .bg-black\/35,
     body.mode-light .bg-black\/40,
@@ -440,40 +346,95 @@
     }
     body.mode-light .border-white\/10,
     body.mode-light .border-white\/15,
-    body.mode-light .border-white\/20 {
-      border-color: rgba(0, 0, 0, 0.09) !important;
+    body.mode-light .border-white\/20 { border-color: rgba(0, 0, 0, 0.09) !important; }
+    body.mode-light .bg-white\/15 { background-color: rgba(0, 0, 0, 0.09) !important; }
+    body.mode-light .text-purple-200 { color: #6B21A8 !important; }
+
+    /* ==========================================================================
+       5. ПОЛНОСТЬЮ Ч/Б ТЕМА (МОНОХРОМНАЯ ЧЕРНО-БЕЛАЯ И БЕЛО-ЧЕРНАЯ КАК НА iOS)
+          Убирает любые цветные выделения, оранжевые рамки и цветные плашки
+       ========================================================================== */
+    body.mono-mode .ios26-card-orange {
+      background: inherit !important;
+      border-color: rgba(128, 128, 128, 0.22) !important;
+      box-shadow: none !important;
     }
-    body.mode-light .bg-white\/15 {
-      background-color: rgba(0, 0, 0, 0.09) !important;
+    body.mono-mode.mode-dark .ios26-card,
+    body.mono-mode.mode-dark .ios26-card-orange {
+      background: #141416 !important;
+      border: 1px solid rgba(255, 255, 255, 0.12) !important;
     }
-    body.mode-light .text-purple-200 {
-      color: #7E22CE !important;
+    body.mono-mode.mode-light .ios26-card,
+    body.mono-mode.mode-light .ios26-card-orange {
+      background: #FFFFFF !important;
+      border: 1px solid rgba(0, 0, 0, 0.12) !important;
+    }
+
+    /* В Ч/Б режиме активные элементы строго белые (в темной) или черные (в светлой) */
+    body.mono-mode.mode-dark .ios-active-orange {
+      background: #FFFFFF !important;
+      color: #000000 !important;
+      border-color: #FFFFFF !important;
+      box-shadow: none !important;
+    }
+    body.mono-mode.mode-light .ios-active-orange {
+      background: #000000 !important;
+      color: #FFFFFF !important;
+      border-color: #000000 !important;
+      box-shadow: none !important;
+    }
+
+    /* Убираем цветные тексты в Ч/Б режиме */
+    body.mono-mode.mode-dark .text-ios-orange,
+    body.mono-mode.mode-dark .text-ios-blue,
+    body.mono-mode.mode-dark .text-ios-purple,
+    body.mono-mode.mode-dark .text-ios-green,
+    body.mono-mode.mode-dark .text-purple-200,
+    body.mono-mode.mode-dark .text-indigo-200,
+    body.mono-mode.mode-dark .text-indigo-300 {
+      color: #FFFFFF !important;
+    }
+    body.mono-mode.mode-light .text-ios-orange,
+    body.mono-mode.mode-light .text-ios-blue,
+    body.mono-mode.mode-light .text-ios-purple,
+    body.mono-mode.mode-light .text-ios-green,
+    body.mono-mode.mode-light .text-purple-200,
+    body.mono-mode.mode-light .text-indigo-200,
+    body.mono-mode.mode-light .text-indigo-300 {
+      color: #000000 !important;
+    }
+
+    /* Убираем цветные фоны бейджей и рамок в Ч/Б режиме */
+    body.mono-mode [class*="bg-ios-orange"],
+    body.mono-mode [class*="bg-ios-blue"],
+    body.mono-mode [class*="bg-ios-purple"],
+    body.mono-mode [class*="bg-ios-green"],
+    body.mono-mode [class*="bg-ios-indigo"] {
+      background-color: rgba(128, 128, 128, 0.16) !important;
+      border-color: rgba(128, 128, 128, 0.30) !important;
+    }
+    body.mono-mode [class*="border-ios-orange"],
+    body.mono-mode [class*="border-ios-blue"],
+    body.mono-mode [class*="border-ios-purple"],
+    body.mono-mode [class*="border-ios-green"] {
+      border-color: rgba(128, 128, 128, 0.30) !important;
+    }
+    body.mono-mode #week-current-badge {
+      display: none !important;
     }
 
     /* Положение нижней навигации */
-    body.nav-docked #bottom-nav-wrapper {
-      bottom: 0;
-      padding-left: 0;
-      padding-right: 0;
-    }
+    body.nav-docked #bottom-nav-wrapper { bottom: 0; padding-left: 0; padding-right: 0; }
     body.nav-docked #bottom-nav-capsule {
       max-width: 100%;
       border-radius: 0;
       border-left: none;
       border-right: none;
       border-bottom: none;
-      padding-bottom: max(var(--sab), 0.5rem);
+      padding-bottom: max(env(safe-area-inset-bottom, 0px), 0.5rem);
     }
 
-    /* Акцентная оранжевая кнопка */
-    .ios-active-orange {
-      background: linear-gradient(135deg, #FF9F0A 0%, #FF6B00 100%) !important;
-      color: #000000 !important;
-      border-color: #FFB340 !important;
-      box-shadow: 0 6px 18px -4px rgba(255, 159, 10, 0.5), inset 0 1px 0.5px rgba(255, 255, 255, 0.5);
-    }
-
-    .ios-press { transition: transform 0.16s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.16s ease; }
+    .ios-press { transition: transform 0.15s ease, opacity 0.15s ease; }
     .ios-press:active { transform: scale(0.96); opacity: 0.85; }
     .no-scrollbar::-webkit-scrollbar { display: none; }
     .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
@@ -492,189 +453,187 @@
     <div class="liquid-orb liquid-orb-3"></div>
   </div>
 
-  <!-- ВЕРХНЯЯ ПАНЕЛЬ + ВИДЖЕТ РЕАЛЬНОГО ВРЕМЕНИ -->
-  <header class="sticky top-0 z-30 bg-black/75 backdrop-blur-2xl border-b border-white/10 pt-safe px-4 pb-3 space-y-2.5">
+  <!-- КОМПАКТНАЯ ВЕРХНЯЯ ПАНЕЛЬ (НЕ ПЕРЕКРЫВАЕТ ЭКРАН НА iOS PWA) -->
+  <header class="sticky top-0 z-30 bg-black/80 backdrop-blur-2xl border-b border-white/10 pt-safe px-3.5 pb-2.5">
     <div class="max-w-lg mx-auto flex items-center justify-between gap-2">
-      <div>
-        <div class="flex items-center gap-2 mb-0.5">
-          <span id="network-dot" class="w-2 h-2 rounded-full bg-ios-green"></span>
-          <span id="network-text" class="text-[10px] font-semibold uppercase tracking-wider text-ios-gray">Онлайн</span>
-          <span id="live-clock" class="text-[10px] font-semibold text-ios-orange bg-ios-orange/15 px-1.5 py-0.5 rounded-md">--:--</span>
-          <span id="sync-indicator" class="hidden text-[10px] text-ios-blue font-medium">• Синхр...</span>
+      <!-- Левая часть: статус + заголовок -->
+      <div class="min-w-0 flex-1">
+        <div class="flex items-center gap-1.5 mb-0.5">
+          <span id="network-dot" class="w-2 h-2 rounded-full bg-ios-green shrink-0"></span>
+          <span id="network-text" class="text-[10px] font-semibold uppercase tracking-wider text-ios-gray truncate">Онлайн</span>
+          <span id="live-clock" class="text-[10px] font-semibold text-ios-orange bg-ios-orange/15 px-1.5 py-0.5 rounded-md shrink-0">--:--</span>
+          <span id="sync-indicator" class="hidden text-[10px] text-ios-blue font-medium shrink-0">• Синхр</span>
         </div>
-        <h1 id="header-title" class="text-2xl font-extrabold tracking-tight">Расписание</h1>
+        <h1 id="header-title" class="text-xl font-extrabold tracking-tight truncate">Расписание</h1>
       </div>
 
-      <div class="flex items-center gap-1.5">
-        <!-- Капсула быстрых инструментов -->
-        <div class="tg-glass-capsule rounded-full px-1.5 py-1 flex items-center gap-0.5">
-          <!-- БЫСТРЫЙ ВЫБОР ТЕМЫ: ТЕМНАЯ / СВЕТЛАЯ -->
-          <button id="btn-color-mode-toggle" class="ios-press w-8 h-8 rounded-full hover:bg-white/10 text-ios-orange flex items-center justify-center" title="Быстрое переключение: Темная / Светлая тема">
-            <i id="icon-color-mode" data-lucide="sun" class="w-4 h-4"></i>
-          </button>
-
-          <!-- Быстрое переключение стиля карточек (Матовая / Liquid Glass / TG Glass) -->
-          <button id="btn-theme-toggle" class="ios-press w-8 h-8 rounded-full hover:bg-white/10 text-ios-blue flex items-center justify-center" title="Сменить стиль карточек (Матовая / Liquid Glass)">
-            <i data-lucide="sparkles" class="w-4 h-4"></i>
+      <!-- Правая часть: компактная капсула инструментов -->
+      <div class="flex items-center gap-1.5 shrink-0">
+        <div class="tg-glass-capsule rounded-full px-1 py-1 flex items-center gap-0.5">
+          <!-- Быстрый выбор: Темная / Светлая / ЧБ -->
+          <button type="button" id="btn-color-mode-toggle" class="ios-press w-7 h-7 rounded-full hover:bg-white/10 text-ios-orange flex items-center justify-center" title="Темная / Светлая / ЧБ тема">
+            <i data-lucide="sun-moon" class="w-4 h-4"></i>
           </button>
 
           <!-- Уведомления -->
-          <button id="btn-notifications" class="ios-press relative w-8 h-8 rounded-full hover:bg-white/10 text-gray-200 flex items-center justify-center" title="Настройки уведомлений">
+          <button type="button" id="btn-notifications" class="ios-press relative w-7 h-7 rounded-full hover:bg-white/10 text-gray-200 flex items-center justify-center" title="Уведомления">
             <i data-lucide="bell" class="w-4 h-4"></i>
-            <span id="badge-notif-active" class="hidden absolute top-1.5 right-1.5 w-2 h-2 bg-ios-green rounded-full"></span>
+            <span id="badge-notif-active" class="hidden absolute top-1 right-1 w-1.5 h-1.5 bg-ios-green rounded-full"></span>
           </button>
 
           <!-- Скрытые пары -->
-          <button id="btn-hidden-classes" class="ios-press relative w-8 h-8 rounded-full hover:bg-white/10 text-gray-200 flex items-center justify-center" title="Показать скрытые пары">
+          <button type="button" id="btn-hidden-classes" class="ios-press relative w-7 h-7 rounded-full hover:bg-white/10 text-gray-200 flex items-center justify-center" title="Скрытые пары">
             <i data-lucide="eye-off" class="w-4 h-4"></i>
-            <span id="badge-hidden-count" class="hidden absolute -top-1 -right-1 px-1.5 py-0.2 bg-ios-orange text-black text-[10px] font-extrabold rounded-full">0</span>
+            <span id="badge-hidden-count" class="hidden absolute -top-1 -right-1 px-1 bg-ios-orange text-black text-[9px] font-extrabold rounded-full">0</span>
           </button>
 
-          <!-- Настройки тем, кнопок, фона и расписания -->
-          <button id="btn-tools" class="ios-press w-8 h-8 rounded-full hover:bg-white/10 text-gray-200 flex items-center justify-center" title="Настройки тем, фона и расписания">
+          <!-- Настройки тем, кнопок, фона -->
+          <button type="button" id="btn-tools" class="ios-press w-7 h-7 rounded-full hover:bg-white/10 text-gray-200 flex items-center justify-center" title="Настройки тем и фона">
             <i data-lucide="sliders-horizontal" class="w-4 h-4"></i>
           </button>
         </div>
 
         <!-- Кнопка добавить (+) -->
-        <button id="btn-header-add" class="ios-press w-9 h-9 rounded-full ios-active-orange text-black font-bold flex items-center justify-center shrink-0" title="Добавить">
-          <i data-lucide="plus" class="w-5 h-5 stroke-[2.5]"></i>
+        <button type="button" id="btn-header-add" class="ios-press w-8 h-8 rounded-full ios-active-orange text-black font-bold flex items-center justify-center shrink-0" title="Добавить">
+          <i data-lucide="plus" class="w-4 h-4 stroke-[2.5]"></i>
         </button>
 
         <!-- Вход в Google -->
-        <button id="btn-login" class="ios-press px-3 py-1.5 rounded-full ios26-pill text-ios-blue text-xs font-semibold flex items-center gap-1.5 shrink-0">
+        <button type="button" id="btn-login" class="ios-press px-2.5 py-1.5 rounded-full ios26-pill text-ios-blue text-xs font-semibold flex items-center gap-1 shrink-0">
           <i data-lucide="log-in" class="w-3.5 h-3.5"></i>
-          <span class="hidden sm:inline">Войти</span>
         </button>
-        <div id="user-profile" class="hidden items-center gap-1.5 ios26-pill pl-1.5 pr-2 py-1 rounded-full shrink-0">
-          <img id="user-avatar" src="" alt="Avatar" class="w-6 h-6 rounded-full object-cover bg-ios-elevated" />
-          <button id="btn-logout" class="ios-press text-ios-gray hover:text-ios-red p-1 flex items-center" title="Выйти">
-            <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+        <div id="user-profile" class="hidden items-center gap-1 ios26-pill pl-1 pr-1.5 py-0.5 rounded-full shrink-0">
+          <img id="user-avatar" src="" alt="Avatar" class="w-5 h-5 rounded-full object-cover bg-ios-elevated" />
+          <button type="button" id="btn-logout" class="ios-press text-ios-gray hover:text-ios-red p-1 flex items-center" title="Выйти">
+            <i data-lucide="log-out" class="w-3 h-3"></i>
           </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- ДИНАМИЧЕСКАЯ ПЛАШКА РЕАЛЬНОГО ВРЕМЕНИ: ТЕКУЩАЯ И СЛЕДУЮЩАЯ ПАРА -->
-    <div id="live-now-widget" class="max-w-lg mx-auto ios26-card rounded-3xl p-3 transition-all">
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-        <!-- Блок: Текущая пара -->
-        <div id="live-current-box" class="rounded-2xl p-2.5 bg-white/[0.04] border border-white/10 flex flex-col justify-between">
-          <div class="flex items-center justify-between gap-1.5">
-            <span class="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-ios-orange">
-              <span id="live-current-dot" class="w-2 h-2 rounded-full bg-ios-orange animate-ping"></span>
-              Текущая пара
-            </span>
-            <span id="live-current-timer" class="text-[11px] font-bold text-ios-orange bg-ios-orange/15 px-2 py-0.5 rounded-full">—</span>
-          </div>
-          <div id="live-current-title" class="text-xs font-bold text-white mt-1 line-clamp-1">Сейчас окна / пар нет</div>
-          <div id="live-current-meta" class="text-[11px] text-ios-gray mt-0.5 flex items-center justify-between">
-            <span>Отдыхайте</span>
-            <span id="live-current-time-range"></span>
-          </div>
-          <div id="live-current-progress-wrap" class="hidden w-full h-1 bg-white/10 rounded-full overflow-hidden mt-1.5">
-            <div id="live-current-progress" class="h-full bg-gradient-to-r from-ios-orange to-ios-green rounded-full transition-all" style="width: 0%"></div>
-          </div>
-        </div>
-
-        <!-- Блок: Следующая пара -->
-        <div id="live-next-box" class="rounded-2xl p-2.5 bg-white/[0.04] border border-white/10 flex flex-col justify-between">
-          <div class="flex items-center justify-between gap-1.5">
-            <span class="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-ios-blue">
-              <i data-lucide="clock" class="w-3 h-3"></i>
-              Следующая пара
-            </span>
-            <span id="live-next-timer" class="text-[11px] font-semibold text-ios-blue bg-ios-blue/15 px-2 py-0.5 rounded-full">—</span>
-          </div>
-          <div id="live-next-title" class="text-xs font-bold text-white mt-1 line-clamp-1">Загрузка...</div>
-          <div id="live-next-meta" class="text-[11px] text-ios-gray mt-0.5 flex items-center justify-between">
-            <span id="live-next-room">—</span>
-            <span id="live-next-time-range" class="font-medium text-gray-200"></span>
-          </div>
         </div>
       </div>
     </div>
   </header>
 
   <!-- ОСНОВНОЙ КОНТЕНТ -->
-  <main class="relative z-10 flex-1 max-w-lg w-full mx-auto px-4 pt-3 main-scroll-area">
+  <main class="relative z-10 flex-1 max-w-lg w-full mx-auto px-3.5 pt-3 main-scroll-area overflow-x-hidden">
 
     <!-- ======================================================================
          ВКЛАДКА 1: РАСПИСАНИЕ И МЕРОПРИЯТИЯ
          ====================================================================== -->
-    <section id="view-schedule" class="space-y-3.5">
-      <!-- Карточка управления неделями -->
-      <div id="week-header-card" class="ios26-card rounded-3xl p-3.5 space-y-2.5 transition-all">
-        <div class="flex items-center justify-between gap-2">
-          <button id="btn-prev-week" class="ios-press w-9 h-9 rounded-full ios26-pill flex items-center justify-center text-white">
-            <i data-lucide="chevron-left" class="w-5 h-5"></i>
-          </button>
+    <section id="view-schedule" class="space-y-3">
 
-          <div class="flex-1 text-center">
-            <div class="flex items-center justify-center gap-1.5">
-              <span id="week-title" class="text-sm font-extrabold text-white">Учебная неделя №1</span>
-              <span id="week-current-badge" class="hidden text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-ios-orange text-black shadow-sm">Текущая</span>
+      <!-- ВИДЖЕТ РЕАЛЬНОГО ВРЕМЕНИ: ТЕКУЩАЯ И СЛЕДУЮЩАЯ ПАРА (ТЕПЕРЬ НЕ ПЕРЕКРЫВАЕТ ЭКРАН) -->
+      <div id="live-now-widget" class="ios26-card rounded-3xl p-3 transition-all">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <!-- Текущая пара -->
+          <div id="live-current-box" class="rounded-2xl p-2.5 bg-white/[0.04] border border-white/10 flex flex-col justify-between min-w-0">
+            <div class="flex items-center justify-between gap-1.5">
+              <span class="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-ios-orange truncate">
+                <span id="live-current-dot" class="w-2 h-2 rounded-full bg-ios-orange animate-ping shrink-0"></span>
+                Текущая пара
+              </span>
+              <span id="live-current-timer" class="text-[10px] font-bold text-ios-orange bg-ios-orange/15 px-2 py-0.5 rounded-full shrink-0">—</span>
             </div>
-            <div id="week-subtitle" class="text-[11px] text-gray-300 font-medium mt-0.5">Числитель • 1 сен – 6 сен</div>
+            <div id="live-current-title" class="text-xs font-bold text-white mt-1 truncate">Сейчас окна / пар нет</div>
+            <div id="live-current-meta" class="text-[11px] text-ios-gray mt-0.5 flex items-center justify-between gap-1">
+              <span class="truncate">Отдыхайте</span>
+              <span id="live-current-time-range" class="shrink-0"></span>
+            </div>
+            <div id="live-current-progress-wrap" class="hidden w-full h-1 bg-white/10 rounded-full overflow-hidden mt-1.5">
+              <div id="live-current-progress" class="h-full bg-ios-orange rounded-full transition-all" style="width: 0%"></div>
+            </div>
           </div>
 
-          <button id="btn-next-week" class="ios-press w-9 h-9 rounded-full ios26-pill flex items-center justify-center text-white">
-            <i data-lucide="chevron-right" class="w-5 h-5"></i>
+          <!-- Следующая пара -->
+          <div id="live-next-box" class="rounded-2xl p-2.5 bg-white/[0.04] border border-white/10 flex flex-col justify-between min-w-0">
+            <div class="flex items-center justify-between gap-1.5">
+              <span class="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-ios-blue truncate">
+                <i data-lucide="clock" class="w-3 h-3 shrink-0"></i>
+                Следующая пара
+              </span>
+              <span id="live-next-timer" class="text-[10px] font-semibold text-ios-blue bg-ios-blue/15 px-2 py-0.5 rounded-full shrink-0">—</span>
+            </div>
+            <div id="live-next-title" class="text-xs font-bold text-white mt-1 truncate">Загрузка...</div>
+            <div id="live-next-meta" class="text-[11px] text-ios-gray mt-0.5 flex items-center justify-between gap-1">
+              <span id="live-next-room" class="truncate">—</span>
+              <span id="live-next-time-range" class="font-medium text-gray-200 shrink-0"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Карточка управления неделями -->
+      <div id="week-header-card" class="ios26-card rounded-3xl p-3 space-y-2.5 transition-all">
+        <div class="flex items-center justify-between gap-2">
+          <button type="button" id="btn-prev-week" class="ios-press w-8 h-8 rounded-full ios26-pill flex items-center justify-center text-white shrink-0">
+            <i data-lucide="chevron-left" class="w-4 h-4"></i>
+          </button>
+
+          <div class="flex-1 text-center min-w-0">
+            <div class="flex items-center justify-center gap-1.5 flex-wrap">
+              <span id="week-title" class="text-sm font-extrabold text-white truncate">Учебная неделя №1</span>
+              <span id="week-current-badge" class="hidden text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-ios-orange text-black">Текущая</span>
+            </div>
+            <div id="week-subtitle" class="text-[11px] text-gray-300 font-medium mt-0.5 truncate">Числитель • 1 сен – 7 сен</div>
+          </div>
+
+          <button type="button" id="btn-next-week" class="ios-press w-8 h-8 rounded-full ios26-pill flex items-center justify-center text-white shrink-0">
+            <i data-lucide="chevron-right" class="w-4 h-4"></i>
           </button>
         </div>
 
-        <!-- Быстрое переключение недель + создание и скрытие Мероприятий -->
-        <div class="flex items-center gap-1.5 pt-0.5 flex-wrap">
-          <button id="btn-today" class="ios-press px-3 py-1.5 rounded-full bg-ios-orange/20 border border-ios-orange/50 text-ios-orange text-xs font-bold shrink-0 flex items-center gap-1">
-            <span class="w-1.5 h-1.5 rounded-full bg-ios-orange"></span>
-            Сегодня
-          </button>
-          <button id="btn-jump-next-week" class="ios-press px-3 py-1.5 rounded-full ios26-pill text-gray-100 text-xs font-semibold shrink-0 flex items-center gap-1">
-            <span>След. нед.</span>
-            <i data-lucide="arrow-right" class="w-3.5 h-3.5 text-ios-orange"></i>
-          </button>
-          <button id="btn-add-event" class="ios-press px-3 py-1.5 rounded-full ios26-pill text-purple-200 text-xs font-semibold shrink-0 flex items-center gap-1">
-            <i data-lucide="sparkles" class="w-3.5 h-3.5 text-ios-purple"></i>
-            <span>+ Мероприятие</span>
-          </button>
-          <button id="btn-toggle-events" class="ios-press px-3 py-1.5 rounded-full ios26-pill text-gray-200 text-xs font-semibold shrink-0 flex items-center gap-1" title="Скрыть или показать мероприятия">
-            <i id="icon-toggle-events" data-lucide="eye" class="w-3.5 h-3.5 text-ios-purple"></i>
-            <span id="text-toggle-events">События</span>
-          </button>
-          <div class="relative flex-1 min-w-[115px]">
+        <!-- Кнопки управления неделей и мероприятиями -->
+        <div class="grid grid-cols-2 sm:flex sm:items-center gap-1.5 pt-0.5">
+          <div class="flex items-center gap-1.5 col-span-2 sm:col-auto">
+            <button type="button" id="btn-today" class="ios-press px-2.5 py-1.5 rounded-full ios26-pill text-xs font-bold shrink-0 flex items-center gap-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-ios-orange"></span>
+              Сегодня
+            </button>
+            <button type="button" id="btn-jump-next-week" class="ios-press px-2.5 py-1.5 rounded-full ios26-pill text-xs font-semibold shrink-0 flex items-center gap-1">
+              <span>След. нед.</span>
+              <i data-lucide="arrow-right" class="w-3 h-3"></i>
+            </button>
+            <button type="button" id="btn-add-event" class="ios-press px-2.5 py-1.5 rounded-full ios26-pill text-xs font-semibold shrink-0 flex items-center gap-1">
+              <i data-lucide="sparkles" class="w-3 h-3 text-ios-purple"></i>
+              <span>+ Событие</span>
+            </button>
+            <button type="button" id="btn-toggle-events" class="ios-press px-2.5 py-1.5 rounded-full ios26-pill text-xs font-semibold shrink-0 flex items-center gap-1" title="Скрыть или показать мероприятия">
+              <i id="icon-toggle-events" data-lucide="eye" class="w-3 h-3 text-ios-purple"></i>
+              <span id="text-toggle-events" class="hidden sm:inline">События</span>
+            </button>
+          </div>
+          <div class="col-span-2 sm:flex-1 min-w-0">
             <input type="date" id="date-jump-picker" class="w-full ios26-pill text-white text-xs rounded-full px-3 py-1.5 outline-none" />
           </div>
         </div>
       </div>
 
-      <!-- Переключатель дней недели (ПН - СБ) -->
-      <div id="day-selector" class="grid grid-cols-6 gap-1.5"></div>
+      <!-- Переключатель ВСЕХ 7 ДНЕЙ НЕДЕЛИ (ПН - ВС), чтобы воскресенье не пропадало -->
+      <div id="day-selector" class="grid grid-cols-7 gap-1"></div>
 
-      <!-- ОТДЕЛЬНЫЙ БЛОК МЕРОПРИЯТИЙ НА ВЫБРАННЫЙ ДЕНЬ -->
+      <!-- ОТДЕЛЬНЫЙ БЛОК МЕРОПРИЯТИЙ (ПОКАЗЫВАЕТСЯ И В ВОСКРЕСЕНЬЕ, И В ЛЮБОЙ ДЕНЬ) -->
       <div id="events-section-wrapper" class="hidden space-y-2">
         <div class="flex items-center justify-between px-1">
           <span class="text-[11px] font-extrabold uppercase tracking-wider text-ios-purple flex items-center gap-1.5">
             <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
-            Мероприятия дня (<span id="events-day-count">0</span>)
+            Мероприятия (<span id="events-day-count">0</span>)
           </span>
-          <button id="btn-hide-events-inline" class="text-[11px] font-semibold text-ios-gray hover:text-white">
-            Скрыть мероприятия
+          <button type="button" id="btn-hide-events-inline" class="text-[11px] font-semibold text-ios-gray hover:text-white">
+            Скрыть
           </button>
         </div>
-        <div id="events-list" class="space-y-2.5"></div>
+        <div id="events-list" class="space-y-2"></div>
       </div>
 
       <!-- Список учебных пар на выбранный день -->
-      <div id="schedule-list" class="space-y-3.5"></div>
+      <div id="schedule-list" class="space-y-3"></div>
 
-      <!-- Баннер быстрого доступа к скрытым парам -->
+      <!-- Баннер скрытых пар -->
       <div id="hidden-classes-banner" class="hidden">
-        <button id="btn-open-hidden-inline" class="ios-press w-full ios26-card rounded-2xl py-3 px-4 flex items-center justify-between text-xs text-gray-200 hover:text-white">
+        <button type="button" id="btn-open-hidden-inline" class="ios-press w-full ios26-card rounded-2xl py-3 px-4 flex items-center justify-between text-xs text-gray-200">
           <span class="flex items-center gap-2">
             <i data-lucide="eye-off" class="w-4 h-4 text-ios-orange"></i>
-            <span>Есть скрытые пары (<span id="inline-hidden-count">0</span>)</span>
+            <span>Скрытые пары (<span id="inline-hidden-count">0</span>)</span>
           </span>
-          <span class="text-ios-orange font-bold">Показать скрытые пары →</span>
+          <span class="text-ios-orange font-bold">Показать →</span>
         </button>
       </div>
     </section>
@@ -682,26 +641,26 @@
     <!-- ======================================================================
          ВКЛАДКА 2: ТРЕКЕР ДОМАШНИХ ЗАДАНИЙ (ДЗ)
          ====================================================================== -->
-    <section id="view-tasks" class="hidden space-y-4">
+    <section id="view-tasks" class="hidden space-y-3.5">
       <div class="ios26-card p-3.5 rounded-3xl flex items-center justify-between gap-2">
-        <div>
-          <h2 class="text-sm font-bold text-white">Трекер домашних заданий</h2>
-          <p class="text-[11px] text-gray-300">Умное распределение по парам, фото и напоминания</p>
+        <div class="min-w-0">
+          <h2 class="text-sm font-bold text-white truncate">Трекер домашних заданий</h2>
+          <p class="text-[11px] text-gray-300 truncate">Привязка к парам, фото и дедлайны</p>
         </div>
-        <button id="btn-new-task-top" class="ios-press px-3.5 py-2 rounded-full ios-active-orange text-xs font-extrabold flex items-center gap-1.5 shrink-0">
+        <button type="button" id="btn-new-task-top" class="ios-press px-3.5 py-2 rounded-full ios-active-orange text-xs font-extrabold flex items-center gap-1 shrink-0">
           <i data-lucide="plus" class="w-4 h-4 stroke-[2.5]"></i>
           <span>Добавить ДЗ</span>
         </button>
       </div>
 
       <div class="tg-glass-capsule p-1 rounded-full grid grid-cols-3 gap-1">
-        <button data-status="active" class="task-filter-tab ios-press py-2 rounded-full text-xs font-bold transition-all bg-white/15 text-white shadow">
+        <button type="button" data-status="active" class="task-filter-tab ios-press py-2 rounded-full text-xs font-bold transition-all bg-white/15 text-white shadow">
           Активные (<span id="count-active-tasks">0</span>)
         </button>
-        <button data-status="this-week" class="task-filter-tab ios-press py-2 rounded-full text-xs font-bold transition-all text-ios-gray">
-          Эта неделя (<span id="count-week-tasks">0</span>)
+        <button type="button" data-status="this-week" class="task-filter-tab ios-press py-2 rounded-full text-xs font-bold transition-all text-ios-gray">
+          Неделя (<span id="count-week-tasks">0</span>)
         </button>
-        <button data-status="completed" class="task-filter-tab ios-press py-2 rounded-full text-xs font-bold transition-all text-ios-gray">
+        <button type="button" data-status="completed" class="task-filter-tab ios-press py-2 rounded-full text-xs font-bold transition-all text-ios-gray">
           Готовые (<span id="count-completed-tasks">0</span>)
         </button>
       </div>
@@ -712,21 +671,21 @@
     <!-- ======================================================================
          ВКЛАДКА 3: РАЗДЕЛ ЗАМЕТОК В СТИЛЕ GOOGLE KEEP
          ====================================================================== -->
-    <section id="view-notes" class="hidden space-y-4">
+    <section id="view-notes" class="hidden space-y-3.5">
       <div class="flex items-center justify-between px-1">
         <div class="flex items-center gap-2">
           <span class="text-xs font-bold text-gray-300">Мои заметки</span>
           <span id="note-save-status" class="text-[10px] font-semibold text-ios-green bg-ios-green/15 px-2 py-0.5 rounded-full">Сохранено</span>
         </div>
 
-        <label class="ios-press px-3 py-1 rounded-full ios26-pill text-gray-300 hover:text-white text-[11px] font-semibold flex items-center gap-1.5 cursor-pointer" title="Импорт заметок из файла (.json, .txt, .html)">
+        <label class="ios-press px-3 py-1 rounded-full ios26-pill text-gray-300 hover:text-white text-[11px] font-semibold flex items-center gap-1.5 cursor-pointer">
           <i data-lucide="upload" class="w-3 h-3 text-ios-orange"></i>
           <span>Импорт</span>
           <input type="file" id="google-keep-import-input" accept=".json,.txt,.html" multiple class="hidden" />
         </label>
       </div>
 
-      <!-- КАРТОЧКА СОЗДАНИЯ ЗАМЕТКИ КАК В GOOGLE KEEP -->
+      <!-- КАРТОЧКА СОЗДАНИЯ ЗАМЕТКИ -->
       <div id="keep-composer-card" class="ios26-card rounded-3xl p-4 space-y-3">
         <div class="flex items-center justify-between gap-2">
           <input
@@ -769,7 +728,7 @@
 
           <div id="keep-panel-date" class="hidden flex items-center gap-2 bg-black/40 border border-white/10 rounded-2xl px-3 py-2">
             <i data-lucide="calendar" class="w-4 h-4 text-ios-blue shrink-0"></i>
-            <span class="text-xs text-gray-300">К дате:</span>
+            <span class="text-xs text-gray-300 shrink-0">К дате:</span>
             <input
               type="date"
               id="keep-date-input"
@@ -780,7 +739,7 @@
 
           <div id="keep-panel-notify" class="hidden flex items-center gap-2 bg-black/40 border border-white/10 rounded-2xl px-3 py-2">
             <i data-lucide="bell-ring" class="w-4 h-4 text-ios-green shrink-0"></i>
-            <span class="text-xs text-gray-300">Напомнить:</span>
+            <span class="text-xs text-gray-300 shrink-0">Напомнить:</span>
             <input
               type="datetime-local"
               id="keep-notify-input"
@@ -791,13 +750,12 @@
         </div>
 
         <div class="flex items-center justify-between gap-2 pt-2 border-t border-white/10 flex-wrap">
-          <div class="flex items-center gap-1">
+          <div class="flex items-center gap-1 flex-wrap">
             <button
               type="button"
               data-toggle-keep-opt="subject"
               id="keep-btn-opt-subject"
-              class="ios-press px-2.5 py-1.5 rounded-full ios26-pill text-gray-300 hover:text-white text-xs font-semibold flex items-center gap-1.5"
-              title="Привязать к паре (необязательно)"
+              class="ios-press px-2.5 py-1.5 rounded-full ios26-pill text-gray-300 hover:text-white text-xs font-semibold flex items-center gap-1"
             >
               <i data-lucide="graduation-cap" class="w-3.5 h-3.5 text-ios-orange"></i>
               <span>Пара</span>
@@ -807,16 +765,14 @@
               type="button"
               data-toggle-keep-opt="date"
               id="keep-btn-opt-date"
-              class="ios-press px-2.5 py-1.5 rounded-full ios26-pill text-gray-300 hover:text-white text-xs font-semibold flex items-center gap-1.5"
-              title="Привязать к дате (необязательно)"
+              class="ios-press px-2.5 py-1.5 rounded-full ios26-pill text-gray-300 hover:text-white text-xs font-semibold flex items-center gap-1"
             >
               <i data-lucide="calendar-days" class="w-3.5 h-3.5 text-ios-blue"></i>
               <span>Дата</span>
             </button>
 
             <label
-              class="ios-press px-2.5 py-1.5 rounded-full ios26-pill text-gray-300 hover:text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
-              title="Прикрепить картинку"
+              class="ios-press px-2.5 py-1.5 rounded-full ios26-pill text-gray-300 hover:text-white text-xs font-semibold flex items-center gap-1 cursor-pointer"
             >
               <i data-lucide="image" class="w-3.5 h-3.5 text-ios-purple"></i>
               <span>Фото</span>
@@ -827,37 +783,36 @@
               type="button"
               data-toggle-keep-opt="notify"
               id="keep-btn-opt-notify"
-              class="ios-press px-2.5 py-1.5 rounded-full ios26-pill text-gray-300 hover:text-white text-xs font-semibold flex items-center gap-1.5"
-              title="Включить уведомление о заметке"
+              class="ios-press px-2.5 py-1.5 rounded-full ios26-pill text-gray-300 hover:text-white text-xs font-semibold flex items-center gap-1"
             >
               <i data-lucide="bell-plus" class="w-3.5 h-3.5 text-ios-green"></i>
             </button>
           </div>
 
-          <div class="flex items-center gap-2 ml-auto">
+          <div class="flex items-center gap-1.5 ml-auto">
             <button
               type="button"
               id="keep-btn-clear"
-              class="ios-press px-3 py-1.5 rounded-full text-xs font-semibold text-gray-300 hover:text-white"
+              class="ios-press px-2.5 py-1.5 rounded-full text-xs font-semibold text-gray-300 hover:text-white"
             >
               Очистить
             </button>
             <button
               type="button"
               id="keep-btn-save"
-              class="ios-press px-4 py-2 rounded-full ios-active-orange text-xs font-extrabold flex items-center gap-1.5"
+              class="ios-press px-3.5 py-2 rounded-full ios-active-orange text-xs font-extrabold flex items-center gap-1"
             >
               <i data-lucide="plus" class="w-4 h-4 stroke-[2.5]"></i>
-              <span>Добавить заметку</span>
+              <span>Сохранить</span>
             </button>
           </div>
         </div>
       </div>
 
       <div class="tg-glass-capsule p-1 rounded-full grid grid-cols-3 gap-1">
-        <button data-note-filter="all" class="note-filter-tab ios-press py-1.5 rounded-full text-xs font-bold bg-white/15 text-white shadow">Все заметки</button>
-        <button data-note-filter="class" class="note-filter-tab ios-press py-1.5 rounded-full text-xs font-bold text-ios-gray">К парам</button>
-        <button data-note-filter="general" class="note-filter-tab ios-press py-1.5 rounded-full text-xs font-bold text-ios-gray">Личные</button>
+        <button type="button" data-note-filter="all" class="note-filter-tab ios-press py-1.5 rounded-full text-xs font-bold bg-white/15 text-white shadow">Все заметки</button>
+        <button type="button" data-note-filter="class" class="note-filter-tab ios-press py-1.5 rounded-full text-xs font-bold text-ios-gray">К парам</button>
+        <button type="button" data-note-filter="general" class="note-filter-tab ios-press py-1.5 rounded-full text-xs font-bold text-ios-gray">Личные</button>
       </div>
 
       <div id="notes-list" class="space-y-3"></div>
@@ -866,18 +821,18 @@
   </main>
 
   <!-- НИЖНЯЯ КАПСУЛА НАВИГАЦИИ -->
-  <nav id="bottom-nav-wrapper" class="fixed bottom-2 inset-x-0 z-30 px-4 pb-safe-nav pointer-events-none transition-all">
+  <nav id="bottom-nav-wrapper" class="fixed bottom-1.5 inset-x-0 z-30 px-3.5 pb-safe-nav pointer-events-none transition-all">
     <div id="bottom-nav-capsule" class="max-w-md mx-auto tg-glass-capsule rounded-full p-1.5 grid grid-cols-3 gap-1 pointer-events-auto transition-all">
-      <button data-tab="schedule" class="nav-tab active-tg-pill ios-press py-1.5 rounded-full flex flex-col items-center justify-center gap-0.5 text-ios-orange transition-all">
+      <button type="button" data-tab="schedule" class="nav-tab active-tg-pill ios-press py-1.5 rounded-full flex flex-col items-center justify-center gap-0.5 text-ios-orange transition-all">
         <i data-lucide="calendar-days" class="w-5 h-5"></i>
         <span class="text-[10px] font-bold">Расписание</span>
       </button>
-      <button data-tab="tasks" class="nav-tab ios-press py-1.5 rounded-full flex flex-col items-center justify-center gap-0.5 text-ios-gray relative transition-all">
+      <button type="button" data-tab="tasks" class="nav-tab ios-press py-1.5 rounded-full flex flex-col items-center justify-center gap-0.5 text-ios-gray relative transition-all">
         <i data-lucide="check-square" class="w-5 h-5"></i>
         <span class="text-[10px] font-bold">ДЗ и Задачи</span>
         <span id="nav-badge-tasks" class="hidden absolute top-1 right-1/3 translate-x-3.5 px-1.5 py-0.2 bg-ios-orange text-black text-[10px] font-extrabold rounded-full leading-tight">0</span>
       </button>
-      <button data-tab="notes" class="nav-tab ios-press py-1.5 rounded-full flex flex-col items-center justify-center gap-0.5 text-ios-gray transition-all">
+      <button type="button" data-tab="notes" class="nav-tab ios-press py-1.5 rounded-full flex flex-col items-center justify-center gap-0.5 text-ios-gray transition-all">
         <i data-lucide="notebook-pen" class="w-5 h-5"></i>
         <span class="text-[10px] font-bold">Заметки</span>
       </button>
@@ -885,10 +840,10 @@
   </nav>
 
   <!-- ========================================================================
-       МОДАЛЬНОЕ ОКНО 1: ДОБАВИТЬ / ИЗМЕНИТЬ ПАРУ
+       МОДАЛЬНОЕ ОКНО 1: ДОБАВИТЬ / ИЗМЕНИТЬ ПАРУ (С ПОДДЕРЖКОЙ ВОСКРЕСЕНЬЯ)
        ======================================================================== -->
   <div id="modal-schedule" class="fixed inset-0 z-50 hidden items-end sm:items-center justify-center bg-black/75 backdrop-blur-md">
-    <div class="ios26-card w-full max-w-lg rounded-t-3xl sm:rounded-3xl p-5 pb-safe-nav space-y-4 max-h-[92vh] overflow-y-auto">
+    <div class="ios26-card w-full max-w-lg rounded-t-3xl sm:rounded-3xl p-5 pb-safe-nav space-y-4 max-h-[90vh] overflow-y-auto">
       <div class="flex items-center justify-between">
         <h2 id="modal-schedule-title" class="text-lg font-extrabold">Добавить пару</h2>
         <button type="button" data-close-modal="modal-schedule" class="w-8 h-8 rounded-full ios26-pill text-ios-gray flex items-center justify-center">
@@ -901,7 +856,7 @@
         <div id="scope-selector-wrapper" class="space-y-2">
           <label class="block text-xs text-ios-gray">Куда добавить пару?</label>
           <div class="bg-ios-elevated p-1 rounded-2xl grid grid-cols-4 gap-1">
-            <button type="button" data-scope="date" class="scope-btn py-1.5 rounded-xl text-[11px] font-bold bg-ios-orange text-black">На дату</button>
+            <button type="button" data-scope="date" class="scope-btn py-1.5 rounded-xl text-[11px] font-bold ios-active-orange">На дату</button>
             <button type="button" data-scope="week" class="scope-btn py-1.5 rounded-xl text-[11px] font-bold text-ios-gray">Эта нед.</button>
             <button type="button" data-scope="next-week" class="scope-btn py-1.5 rounded-xl text-[11px] font-bold text-ios-gray">След. нед.</button>
             <button type="button" data-scope="semester" class="scope-btn py-1.5 rounded-xl text-[11px] font-bold text-ios-gray">Семестр</button>
@@ -910,18 +865,19 @@
 
         <div id="scope-box-date" class="space-y-2">
           <label class="block text-xs text-ios-gray">Дата проведения пары</label>
-          <input type="date" id="sched-date" required class="w-full bg-ios-elevated rounded-xl px-3.5 py-2.5 text-white outline-none focus:ring-2 focus:ring-ios-orange" />
+          <input type="date" id="sched-date" required class="w-full bg-ios-elevated rounded-xl px-3.5 py-2.5 text-white outline-none" />
         </div>
 
         <div id="scope-box-week" class="hidden space-y-2">
-          <label class="block text-xs text-ios-gray">Отметьте дни недели</label>
-          <div class="grid grid-cols-6 gap-1.5" id="week-days-checkboxes">
-            <label class="flex flex-col items-center bg-ios-elevated py-2 rounded-xl cursor-pointer"><input type="checkbox" value="1" class="week-day-cb accent-ios-orange mb-1" /><span class="text-xs font-medium">ПН</span></label>
-            <label class="flex flex-col items-center bg-ios-elevated py-2 rounded-xl cursor-pointer"><input type="checkbox" value="2" class="week-day-cb accent-ios-orange mb-1" /><span class="text-xs font-medium">ВТ</span></label>
-            <label class="flex flex-col items-center bg-ios-elevated py-2 rounded-xl cursor-pointer"><input type="checkbox" value="3" class="week-day-cb accent-ios-orange mb-1" /><span class="text-xs font-medium">СР</span></label>
-            <label class="flex flex-col items-center bg-ios-elevated py-2 rounded-xl cursor-pointer"><input type="checkbox" value="4" class="week-day-cb accent-ios-orange mb-1" /><span class="text-xs font-medium">ЧТ</span></label>
-            <label class="flex flex-col items-center bg-ios-elevated py-2 rounded-xl cursor-pointer"><input type="checkbox" value="5" class="week-day-cb accent-ios-orange mb-1" /><span class="text-xs font-medium">ПТ</span></label>
-            <label class="flex flex-col items-center bg-ios-elevated py-2 rounded-xl cursor-pointer"><input type="checkbox" value="6" class="week-day-cb accent-ios-orange mb-1" /><span class="text-xs font-medium">СБ</span></label>
+          <label class="block text-xs text-ios-gray">Отметьте дни недели (ПН–ВС)</label>
+          <div class="grid grid-cols-7 gap-1" id="week-days-checkboxes">
+            <label class="flex flex-col items-center bg-ios-elevated py-2 rounded-xl cursor-pointer"><input type="checkbox" value="1" class="week-day-cb accent-ios-orange mb-1" /><span class="text-[11px] font-medium">ПН</span></label>
+            <label class="flex flex-col items-center bg-ios-elevated py-2 rounded-xl cursor-pointer"><input type="checkbox" value="2" class="week-day-cb accent-ios-orange mb-1" /><span class="text-[11px] font-medium">ВТ</span></label>
+            <label class="flex flex-col items-center bg-ios-elevated py-2 rounded-xl cursor-pointer"><input type="checkbox" value="3" class="week-day-cb accent-ios-orange mb-1" /><span class="text-[11px] font-medium">СР</span></label>
+            <label class="flex flex-col items-center bg-ios-elevated py-2 rounded-xl cursor-pointer"><input type="checkbox" value="4" class="week-day-cb accent-ios-orange mb-1" /><span class="text-[11px] font-medium">ЧТ</span></label>
+            <label class="flex flex-col items-center bg-ios-elevated py-2 rounded-xl cursor-pointer"><input type="checkbox" value="5" class="week-day-cb accent-ios-orange mb-1" /><span class="text-[11px] font-medium">ПТ</span></label>
+            <label class="flex flex-col items-center bg-ios-elevated py-2 rounded-xl cursor-pointer"><input type="checkbox" value="6" class="week-day-cb accent-ios-orange mb-1" /><span class="text-[11px] font-medium">СБ</span></label>
+            <label class="flex flex-col items-center bg-ios-elevated py-2 rounded-xl cursor-pointer"><input type="checkbox" value="7" class="week-day-cb accent-ios-orange mb-1" /><span class="text-[11px] font-medium">ВС</span></label>
           </div>
         </div>
 
@@ -930,13 +886,21 @@
             <div>
               <label class="block text-xs text-ios-gray mb-1">День недели</label>
               <select id="sched-sem-day" class="w-full bg-ios-elevated rounded-xl px-3 py-2.5 text-white outline-none">
-                <option value="1">Понедельник</option><option value="2">Вторник</option><option value="3">Среда</option><option value="4">Четверг</option><option value="5">Пятница</option><option value="6">Суббота</option>
+                <option value="1">Понедельник</option>
+                <option value="2">Вторник</option>
+                <option value="3">Среда</option>
+                <option value="4">Четверг</option>
+                <option value="5">Пятница</option>
+                <option value="6">Суббота</option>
+                <option value="0">Воскресенье</option>
               </select>
             </div>
             <div>
               <label class="block text-xs text-ios-gray mb-1">Повторение</label>
               <select id="sched-sem-parity" class="w-full bg-ios-elevated rounded-xl px-3 py-2.5 text-white outline-none">
-                <option value="all">Каждую неделю</option><option value="odd">Нечетные (Числитель)</option><option value="even">Четные (Знаменатель)</option>
+                <option value="all">Каждую неделю</option>
+                <option value="odd">Нечетные (Числитель)</option>
+                <option value="even">Четные (Знаменатель)</option>
               </select>
             </div>
           </div>
@@ -959,12 +923,12 @@
 
         <div>
           <label class="block text-xs text-ios-gray mb-1">Название дисциплины</label>
-          <input type="text" id="sched-subject" list="subjects-datalist" placeholder="Например: Основы программирования" required class="w-full bg-ios-elevated rounded-xl px-3.5 py-2.5 text-white placeholder-ios-gray outline-none focus:ring-2 focus:ring-ios-orange" />
+          <input type="text" id="sched-subject" list="subjects-datalist" placeholder="Например: Основы программирования" required class="w-full bg-ios-elevated rounded-xl px-3.5 py-2.5 text-white placeholder-ios-gray outline-none" />
         </div>
 
         <div>
-          <label class="block text-xs text-ios-gray mb-1">Тема пары (отображается над заметками)</label>
-          <input type="text" id="sched-topic" placeholder="Например: Указатели и динамическая память в C++" class="w-full bg-ios-elevated rounded-xl px-3.5 py-2.5 text-white placeholder-ios-gray outline-none focus:ring-2 focus:ring-ios-orange" />
+          <label class="block text-xs text-ios-gray mb-1">Тема пары (необязательно)</label>
+          <input type="text" id="sched-topic" placeholder="Например: Динамическая память" class="w-full bg-ios-elevated rounded-xl px-3.5 py-2.5 text-white placeholder-ios-gray outline-none" />
         </div>
 
         <div class="grid grid-cols-2 gap-2.5">
@@ -988,7 +952,7 @@
        МОДАЛЬНОЕ ОКНО 2: СОЗДАТЬ / РЕДАКТИРОВАТЬ МЕРОПРИЯТИЕ
        ======================================================================== -->
   <div id="modal-event" class="fixed inset-0 z-50 hidden items-end sm:items-center justify-center bg-black/75 backdrop-blur-md">
-    <div class="ios26-card w-full max-w-lg rounded-t-3xl sm:rounded-3xl p-5 pb-safe-nav space-y-4 max-h-[92vh] overflow-y-auto">
+    <div class="ios26-card w-full max-w-lg rounded-t-3xl sm:rounded-3xl p-5 pb-safe-nav space-y-4 max-h-[90vh] overflow-y-auto">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-2">
           <i data-lucide="sparkles" class="w-5 h-5 text-ios-purple"></i>
@@ -1003,16 +967,16 @@
         <input type="hidden" id="event-edit-id" value="" />
         <div>
           <label class="block text-xs text-ios-gray mb-1">Название мероприятия</label>
-          <input type="text" id="event-title" placeholder="Хакатон, Консультация, Собрание..." required class="w-full bg-ios-elevated rounded-xl px-3.5 py-2.5 text-white placeholder-ios-gray outline-none focus:ring-2 focus:ring-ios-purple" />
+          <input type="text" id="event-title" placeholder="Хакатон, Консультация, Встреча..." required class="w-full bg-ios-elevated rounded-xl px-3.5 py-2.5 text-white placeholder-ios-gray outline-none" />
         </div>
 
         <div class="grid grid-cols-2 gap-2.5">
           <div>
-            <label class="block text-xs text-ios-gray mb-1">С даты</label>
+            <label class="block text-xs text-ios-gray mb-1">С даты (включая ВС)</label>
             <input type="date" id="event-date-from" required class="w-full bg-ios-elevated rounded-xl px-3 py-2.5 text-white outline-none" />
           </div>
           <div>
-            <label class="block text-xs text-ios-gray mb-1">По дату (если несколько дней)</label>
+            <label class="block text-xs text-ios-gray mb-1">По дату</label>
             <input type="date" id="event-date-to" required class="w-full bg-ios-elevated rounded-xl px-3 py-2.5 text-white outline-none" />
           </div>
         </div>
@@ -1030,10 +994,10 @@
 
         <div>
           <label class="block text-xs text-ios-gray mb-1">Место проведения / Описание</label>
-          <input type="text" id="event-location" placeholder="Актовый зал / Онлайн / Ссылка" class="w-full bg-ios-elevated rounded-xl px-3.5 py-2.5 text-white placeholder-ios-gray outline-none" />
+          <input type="text" id="event-location" placeholder="Актовый зал / Онлайн" class="w-full bg-ios-elevated rounded-xl px-3.5 py-2.5 text-white placeholder-ios-gray outline-none" />
         </div>
 
-        <button type="submit" class="ios-press w-full py-3 rounded-2xl bg-ios-purple text-white font-extrabold text-base mt-2">Сохранить мероприятие</button>
+        <button type="submit" class="ios-press w-full py-3 rounded-2xl ios-active-orange font-extrabold text-base mt-2">Сохранить мероприятие</button>
       </form>
     </div>
   </div>
@@ -1043,30 +1007,27 @@
        ======================================================================== -->
   <div id="modal-delete-schedule" class="fixed inset-0 z-50 hidden items-end sm:items-center justify-center bg-black/75 backdrop-blur-md">
     <div class="ios26-card w-full max-w-lg rounded-t-3xl sm:rounded-3xl p-5 pb-safe-nav space-y-3">
-      <div class="flex items-center justify-center w-11 h-11 rounded-2xl bg-ios-orange/20 text-ios-orange mx-auto">
-        <i data-lucide="eye-off" class="w-6 h-6"></i>
-      </div>
       <h3 class="text-base font-extrabold text-center">Управление видимостью пары</h3>
       <p id="delete-sched-info" class="text-xs text-ios-gray text-center"></p>
 
       <div class="space-y-2 pt-2">
-        <button id="btn-hide-this-week" class="ios-press w-full py-3 px-4 rounded-2xl bg-ios-orange/20 border border-ios-orange/40 text-ios-orange font-bold text-sm flex items-center justify-between">
+        <button type="button" id="btn-hide-this-week" class="ios-press w-full py-3 px-4 rounded-2xl bg-ios-orange/20 border border-ios-orange/40 text-ios-orange font-bold text-sm flex items-center justify-between">
           <span>Пары не будет на этой неделе</span>
-          <span class="text-[11px] opacity-80">Скрыть на неделю</span>
+          <span class="text-[11px] opacity-80">На неделю</span>
         </button>
 
-        <button id="btn-hide-forever" class="ios-press w-full py-3 px-4 rounded-2xl bg-ios-red/20 border border-ios-red/40 text-ios-red font-bold text-sm flex items-center justify-between">
-          <span>Не хочу — скрыть эту пару</span>
-          <span class="text-[11px] opacity-80">Убрать насовсем</span>
+        <button type="button" id="btn-hide-forever" class="ios-press w-full py-3 px-4 rounded-2xl bg-ios-red/20 border border-ios-red/40 text-ios-red font-bold text-sm flex items-center justify-between">
+          <span>Не хожу — скрыть эту пару</span>
+          <span class="text-[11px] opacity-80">Насовсем</span>
         </button>
 
-        <div class="pt-1 border-t border-white/10 space-y-2">
-          <button id="btn-del-single" class="ios-press w-full py-2.5 rounded-xl ios26-pill text-gray-300 font-semibold text-xs">
+        <div class="pt-1 border-t border-white/10">
+          <button type="button" id="btn-del-single" class="ios-press w-full py-2.5 rounded-xl ios26-pill text-gray-300 font-semibold text-xs">
             Удалить запись только в этот день
           </button>
         </div>
 
-        <button type="button" data-close-modal="modal-delete-schedule" class="ios-press w-full py-3 rounded-2xl bg-transparent text-ios-gray font-bold text-sm">
+        <button type="button" data-close-modal="modal-delete-schedule" class="ios-press w-full py-2.5 rounded-2xl bg-transparent text-ios-gray font-bold text-sm">
           Отмена
         </button>
       </div>
@@ -1090,7 +1051,7 @@
 
       <div id="hidden-classes-list" class="space-y-2.5"></div>
 
-      <button id="btn-restore-all-hidden" class="ios-press w-full py-3 rounded-2xl ios-active-orange font-extrabold text-sm">
+      <button type="button" id="btn-restore-all-hidden" class="ios-press w-full py-3 rounded-2xl ios-active-orange font-extrabold text-sm">
         Восстановить все скрытые пары
       </button>
     </div>
@@ -1100,7 +1061,7 @@
        МОДАЛЬНОЕ ОКНО 5: ФОРМА ДОМАШНЕГО ЗАДАНИЯ
        ======================================================================== -->
   <div id="modal-task" class="fixed inset-0 z-50 hidden items-end sm:items-center justify-center bg-black/75 backdrop-blur-md">
-    <div class="ios26-card w-full max-w-lg rounded-t-3xl sm:rounded-3xl p-5 pb-safe-nav space-y-4 max-h-[92vh] overflow-y-auto">
+    <div class="ios26-card w-full max-w-lg rounded-t-3xl sm:rounded-3xl p-5 pb-safe-nav space-y-4 max-h-[90vh] overflow-y-auto">
       <div class="flex items-center justify-between">
         <h2 id="modal-task-title" class="text-lg font-extrabold">Домашнее задание</h2>
         <button type="button" data-close-modal="modal-task" class="w-8 h-8 rounded-full ios26-pill text-ios-gray flex items-center justify-center">
@@ -1113,14 +1074,14 @@
 
         <div>
           <label class="block text-xs text-ios-gray mb-1">Название дисциплины</label>
-          <input type="text" id="task-subject" list="subjects-datalist" placeholder="Выберите или введите дисциплину" required class="w-full bg-ios-elevated rounded-xl px-3.5 py-2.5 text-white placeholder-ios-gray outline-none focus:ring-2 focus:ring-ios-orange" />
+          <input type="text" id="task-subject" list="subjects-datalist" placeholder="Выберите или введите дисциплину" required class="w-full bg-ios-elevated rounded-xl px-3.5 py-2.5 text-white placeholder-ios-gray outline-none" />
           <datalist id="subjects-datalist"></datalist>
         </div>
 
         <div class="space-y-1.5">
           <label class="block text-xs text-ios-gray">На какую пару записать ДЗ?</label>
           <div class="bg-ios-elevated p-1 rounded-2xl grid grid-cols-3 gap-1">
-            <button type="button" data-task-target="current" class="task-target-btn py-2 rounded-xl text-xs font-bold bg-ios-orange text-black">На эту</button>
+            <button type="button" data-task-target="current" class="task-target-btn py-2 rounded-xl text-xs font-bold ios-active-orange">На эту</button>
             <button type="button" data-task-target="next" class="task-target-btn py-2 rounded-xl text-xs font-bold text-ios-gray">На следующую</button>
             <button type="button" data-task-target="custom" class="task-target-btn py-2 rounded-xl text-xs font-bold text-ios-gray">На дату</button>
           </div>
@@ -1129,12 +1090,12 @@
 
         <div>
           <label class="block text-xs text-ios-gray mb-1">Дата дедлайна</label>
-          <input type="date" id="task-deadline" required class="w-full bg-ios-elevated rounded-xl px-3.5 py-2.5 text-white outline-none focus:ring-2 focus:ring-ios-orange" />
+          <input type="date" id="task-deadline" required class="w-full bg-ios-elevated rounded-xl px-3.5 py-2.5 text-white outline-none" />
         </div>
 
         <div>
           <label class="block text-xs text-ios-gray mb-1">Текст домашнего задания</label>
-          <textarea id="task-text" rows="3" placeholder="Что нужно сделать..." required class="w-full bg-ios-elevated rounded-xl px-3.5 py-2.5 text-white placeholder-ios-gray outline-none focus:ring-2 focus:ring-ios-orange resize-y"></textarea>
+          <textarea id="task-text" rows="3" placeholder="Что нужно сделать..." required class="w-full bg-ios-elevated rounded-xl px-3.5 py-2.5 text-white placeholder-ios-gray outline-none resize-y"></textarea>
         </div>
 
         <div class="space-y-2">
@@ -1163,7 +1124,7 @@
        МОДАЛЬНОЕ ОКНО 6: РЕДАКТИРОВАНИЕ / ДОБАВЛЕНИЕ ЗАМЕТКИ
        ======================================================================== -->
   <div id="modal-note" class="fixed inset-0 z-50 hidden items-end sm:items-center justify-center bg-black/75 backdrop-blur-md">
-    <div class="ios26-card w-full max-w-lg rounded-t-3xl sm:rounded-3xl p-5 pb-safe-nav space-y-4 max-h-[92vh] overflow-y-auto">
+    <div class="ios26-card w-full max-w-lg rounded-t-3xl sm:rounded-3xl p-5 pb-safe-nav space-y-4 max-h-[90vh] overflow-y-auto">
       <div class="flex items-center justify-between">
         <h2 id="modal-note-title" class="text-lg font-extrabold">Заметка</h2>
         <button type="button" data-close-modal="modal-note" class="w-8 h-8 rounded-full ios26-pill text-ios-gray flex items-center justify-center">
@@ -1176,26 +1137,21 @@
 
         <div>
           <label class="block text-xs text-ios-gray mb-1">Оглавление (Название)</label>
-          <input type="text" id="note-title" placeholder="Название заметки..." class="w-full bg-ios-elevated rounded-xl px-3.5 py-2.5 text-white font-bold placeholder-ios-gray outline-none focus:ring-2 focus:ring-ios-orange" />
+          <input type="text" id="note-title" placeholder="Название заметки..." class="w-full bg-ios-elevated rounded-xl px-3.5 py-2.5 text-white font-bold placeholder-ios-gray outline-none" />
         </div>
 
         <div>
           <label class="block text-xs text-ios-gray mb-1">Основной текст заметки</label>
-          <textarea id="note-content" rows="4" placeholder="Текст заметки (Enter — новая строка)..." required class="w-full bg-ios-elevated rounded-xl px-3.5 py-2.5 text-white placeholder-ios-gray outline-none focus:ring-2 focus:ring-ios-orange resize-y"></textarea>
+          <textarea id="note-content" rows="4" placeholder="Текст заметки..." required class="w-full bg-ios-elevated rounded-xl px-3.5 py-2.5 text-white placeholder-ios-gray outline-none resize-y"></textarea>
         </div>
 
         <div class="p-3 rounded-2xl bg-black/35 border border-white/10 space-y-3">
-          <div class="flex items-center justify-between">
-            <span class="text-xs font-bold text-gray-300">Привязка к паре и дате (необязательно)</span>
-          </div>
-
-          <div>
-            <input type="text" id="note-subject" list="subjects-datalist" placeholder="Дисциплина (оставьте пустым для общей заметки)" class="w-full bg-ios-elevated rounded-xl px-3 py-2 text-xs text-white placeholder-ios-gray outline-none" />
-          </div>
+          <span class="text-xs font-bold text-gray-300">Привязка к паре и дате (необязательно)</span>
+          <input type="text" id="note-subject" list="subjects-datalist" placeholder="Дисциплина" class="w-full bg-ios-elevated rounded-xl px-3 py-2 text-xs text-white placeholder-ios-gray outline-none" />
 
           <div class="bg-ios-elevated p-1 rounded-xl grid grid-cols-4 gap-1">
             <button type="button" data-note-target="none" class="note-target-btn py-1.5 rounded-lg text-[11px] font-bold text-ios-gray">Без даты</button>
-            <button type="button" data-note-target="current" class="note-target-btn py-1.5 rounded-lg text-[11px] font-bold bg-ios-orange text-black">К текущей</button>
+            <button type="button" data-note-target="current" class="note-target-btn py-1.5 rounded-lg text-[11px] font-bold ios-active-orange">К текущей</button>
             <button type="button" data-note-target="next" class="note-target-btn py-1.5 rounded-lg text-[11px] font-bold text-ios-gray">К след.</button>
             <button type="button" data-note-target="custom" class="note-target-btn py-1.5 rounded-lg text-[11px] font-bold text-ios-gray">К дате</button>
           </div>
@@ -1231,7 +1187,7 @@
        МОДАЛЬНОЕ ОКНО 7: НАСТРОЙКИ УВЕДОМЛЕНИЙ
        ======================================================================== -->
   <div id="modal-notifications" class="fixed inset-0 z-50 hidden items-end sm:items-center justify-center bg-black/75 backdrop-blur-md">
-    <div class="ios26-card w-full max-w-lg rounded-t-3xl sm:rounded-3xl p-5 pb-safe-nav space-y-4 max-h-[90vh] overflow-y-auto">
+    <div class="ios26-card w-full max-w-lg rounded-t-3xl sm:rounded-3xl p-5 pb-safe-nav space-y-4 max-h-[88vh] overflow-y-auto">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-2">
           <i data-lucide="bell-ring" class="w-5 h-5 text-ios-orange"></i>
@@ -1247,7 +1203,7 @@
           <p class="text-xs font-bold text-white">Разрешение браузера / iOS PWA</p>
           <p id="notif-permission-status" class="text-[11px] text-ios-gray">Проверьте доступ для отправки пуш-уведомлений</p>
         </div>
-        <button id="btn-request-notif-permission" class="ios-press px-3 py-2 rounded-full ios-active-orange text-xs font-extrabold shrink-0">
+        <button type="button" id="btn-request-notif-permission" class="ios-press px-3 py-2 rounded-full ios-active-orange text-xs font-extrabold shrink-0">
           Разрешить
         </button>
       </div>
@@ -1256,7 +1212,7 @@
         <label class="flex items-center justify-between p-3.5 rounded-2xl bg-ios-elevated cursor-pointer">
           <div class="pr-3">
             <p class="text-sm font-bold text-white">Уведомления о парах</p>
-            <p class="text-[11px] text-ios-gray">Напоминать за 10 минут до начала каждой пары и в момент старта</p>
+            <p class="text-[11px] text-ios-gray">За 10 минут до начала и в момент старта</p>
           </div>
           <input type="checkbox" id="notif-toggle-classes" class="w-5 h-5 accent-ios-orange rounded shrink-0" checked />
         </label>
@@ -1264,7 +1220,7 @@
         <label class="flex items-center justify-between p-3.5 rounded-2xl bg-ios-elevated cursor-pointer">
           <div class="pr-3">
             <p class="text-sm font-bold text-white">Уведомления о дедлайнах ДЗ</p>
-            <p class="text-[11px] text-ios-gray">Напоминать утром и вечером о невыполненных заданиях на сегодня и завтра</p>
+            <p class="text-[11px] text-ios-gray">Напоминания о невыполненных задачах</p>
           </div>
           <input type="checkbox" id="notif-toggle-tasks" class="w-5 h-5 accent-ios-orange rounded shrink-0" checked />
         </label>
@@ -1272,23 +1228,23 @@
         <label class="flex items-center justify-between p-3.5 rounded-2xl bg-ios-elevated cursor-pointer">
           <div class="pr-3">
             <p class="text-sm font-bold text-white">Уведомления о заметках</p>
-            <p class="text-[11px] text-ios-gray">Персональные напоминания в заметках по выбранному времени</p>
+            <p class="text-[11px] text-ios-gray">Напоминания по выбранному времени</p>
           </div>
           <input type="checkbox" id="notif-toggle-notes" class="w-5 h-5 accent-ios-orange rounded shrink-0" checked />
         </label>
       </div>
 
-      <button id="btn-test-notification" class="ios-press w-full py-2.5 rounded-full ios26-pill text-xs font-bold text-ios-blue">
+      <button type="button" id="btn-test-notification" class="ios-press w-full py-2.5 rounded-full ios26-pill text-xs font-bold text-ios-blue">
         Отправить тестовое уведомление
       </button>
     </div>
   </div>
 
   <!-- ========================================================================
-       МОДАЛЬНОЕ ОКНО 8: НАСТРОЙКИ ТЕМ, КНОПОК, ФОНА И РАСПИСАНИЯ
+       МОДАЛЬНОЕ ОКНО 8: НАСТРОЙКИ ТЕМ (ВКЛЮЧАЯ Ч/Б), КНОПОК, ФОНА И РАСПИСАНИЯ
        ======================================================================== -->
   <div id="modal-tools" class="fixed inset-0 z-50 hidden items-end sm:items-center justify-center bg-black/75 backdrop-blur-md">
-    <div class="ios26-card w-full max-w-lg rounded-t-3xl sm:rounded-3xl p-5 pb-safe-nav space-y-4 max-h-[92vh] overflow-y-auto">
+    <div class="ios26-card w-full max-w-lg rounded-t-3xl sm:rounded-3xl p-5 pb-safe-nav space-y-4 max-h-[90vh] overflow-y-auto">
       <div class="flex items-center justify-between">
         <h2 class="text-lg font-extrabold">Темы, фон и расписание</h2>
         <button type="button" data-close-modal="modal-tools" class="w-8 h-8 rounded-full ios26-pill text-ios-gray flex items-center justify-center">
@@ -1297,25 +1253,33 @@
       </div>
 
       <div class="space-y-3.5 text-xs text-gray-300">
-        <!-- 1. БЫСТРЫЙ ВЫБОР РЕЖИМА: ТЕМНАЯ / СВЕТЛАЯ ТЕМА -->
+        <!-- 1. ВЫБОР ЦВЕТОВОГО РЕЖИМА (ТЕМНАЯ / СВЕТЛАЯ / ЧБ ЧЕРНО-БЕЛАЯ / ЧБ БЕЛО-ЧЕРНАЯ) -->
         <div class="bg-ios-elevated p-3.5 rounded-2xl space-y-2.5">
           <p class="font-bold text-white text-sm flex items-center gap-1.5">
             <i data-lucide="sun-moon" class="w-4 h-4 text-ios-orange"></i>
-            Режим темы (Темная / Светлая)
+            Режим темы (Цветная или строго Ч/Б без выделений)
           </p>
           <div class="grid grid-cols-2 gap-2">
-            <button type="button" data-set-color-mode="dark" class="color-mode-btn ios-press py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 ios-active-orange text-black">
-              <i data-lucide="moon" class="w-4 h-4"></i>
+            <button type="button" data-set-color-mode="dark" class="color-mode-btn ios-press py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 ios-active-orange">
+              <i data-lucide="moon" class="w-3.5 h-3.5"></i>
               <span>Темная</span>
             </button>
             <button type="button" data-set-color-mode="light" class="color-mode-btn ios-press py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 bg-black/40 text-gray-300 border border-white/10">
-              <i data-lucide="sun" class="w-4 h-4"></i>
+              <i data-lucide="sun" class="w-3.5 h-3.5"></i>
               <span>Светлая</span>
+            </button>
+            <button type="button" data-set-color-mode="mono-dark" class="color-mode-btn ios-press py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 bg-black/40 text-gray-300 border border-white/10">
+              <span class="w-3 h-3 rounded-full bg-black border border-white"></span>
+              <span>Ч/Б Черно-белая</span>
+            </button>
+            <button type="button" data-set-color-mode="mono-light" class="color-mode-btn ios-press py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 bg-black/40 text-gray-300 border border-white/10">
+              <span class="w-3 h-3 rounded-full bg-white border border-black"></span>
+              <span>Ч/Б Бело-черная</span>
             </button>
           </div>
         </div>
 
-        <!-- 2. ВЫБОР ТЕМЫ КАРТОЧЕК И КНОПОК -->
+        <!-- 2. ВЫБОР СТИЛЯ КАРТОЧЕК И КНОПОК -->
         <div class="bg-ios-elevated p-3.5 rounded-2xl space-y-3">
           <p class="font-bold text-white text-sm flex items-center gap-1.5">
             <i data-lucide="layers" class="w-4 h-4 text-ios-blue"></i>
@@ -1325,13 +1289,13 @@
           <div class="space-y-1.5">
             <span class="text-[11px] text-ios-gray">Тема карточек:</span>
             <div class="grid grid-cols-1 gap-1.5">
-              <button type="button" data-set-theme="classic" class="theme-choice-btn ios-press py-2.5 px-3.5 rounded-xl font-bold text-xs flex items-center justify-between ios-active-orange text-black">
+              <button type="button" data-set-theme="classic" class="theme-choice-btn ios-press py-2.5 px-3.5 rounded-xl font-bold text-xs flex items-center justify-between ios-active-orange">
                 <span>Классическая матовая (Та, что была)</span>
-                <span class="text-[10px] opacity-80">Нормальная</span>
+                <span class="text-[10px] opacity-80">Матовая</span>
               </button>
               <button type="button" data-set-theme="liquid" class="theme-choice-btn ios-press py-2.5 px-3.5 rounded-xl font-bold text-xs flex items-center justify-between bg-black/40 text-gray-300 border border-white/10">
-                <span>Liquid Glass (Жидкое стекло iOS 26)</span>
-                <span class="text-[10px] opacity-75">Объемные блики</span>
+                <span>Liquid Glass (Жидкое стекло)</span>
+                <span class="text-[10px] opacity-75">Блики</span>
               </button>
               <button type="button" data-set-theme="tg-glass" class="theme-choice-btn ios-press py-2.5 px-3.5 rounded-xl font-bold text-xs flex items-center justify-between bg-black/40 text-gray-300 border border-white/10">
                 <span>Telegram Glass (Мягкое стекло)</span>
@@ -1343,7 +1307,7 @@
           <div class="space-y-1.5 pt-1">
             <span class="text-[11px] text-ios-gray">Стиль кнопок:</span>
             <div class="grid grid-cols-2 gap-1.5">
-              <button type="button" data-set-btn-style="matte" class="btn-style-choice ios-press py-2.5 px-3 rounded-xl font-bold text-xs ios-active-orange text-black">
+              <button type="button" data-set-btn-style="matte" class="btn-style-choice ios-press py-2.5 px-3 rounded-xl font-bold text-xs ios-active-orange">
                 Матовые нормальные
               </button>
               <button type="button" data-set-btn-style="glass" class="btn-style-choice ios-press py-2.5 px-3 rounded-xl font-bold text-xs bg-black/40 text-gray-300 border border-white/10">
@@ -1361,7 +1325,7 @@
           </p>
 
           <div class="grid grid-cols-2 gap-2">
-            <button type="button" data-set-bg="black" class="bg-choice-btn ios-press py-2.5 px-3 rounded-xl font-bold text-xs flex items-center gap-2 ios-active-orange text-black">
+            <button type="button" data-set-bg="black" class="bg-choice-btn ios-press py-2.5 px-3 rounded-xl font-bold text-xs flex items-center gap-2 ios-active-orange">
               <span class="w-3.5 h-3.5 rounded-full bg-black border border-white/40 shrink-0"></span>
               <span>Чисто черный</span>
             </button>
@@ -1377,12 +1341,12 @@
             </button>
 
             <button type="button" data-set-bg="custom" class="bg-choice-btn ios-press py-2.5 px-3 rounded-xl font-bold text-xs flex items-center gap-2 bg-black/40 text-gray-300 border border-white/10">
-              <i data-lucide="Wallpaper" class="w-3.5 h-3.5 text-ios-green shrink-0"></i>
+              <i data-lucide="image-plus" class="w-3.5 h-3.5 shrink-0"></i>
               <span>Свой из галереи</span>
             </button>
           </div>
 
-          <!-- Загрузка и настройка своего фона из галереи -->
+          <!-- Загрузка своего фона из галереи -->
           <div class="p-3 rounded-xl bg-black/35 border border-white/10 space-y-2.5">
             <div class="flex items-center justify-between gap-2">
               <label class="ios-press flex-1 py-2 px-3 rounded-xl bg-ios-blue/20 border border-ios-blue/40 text-ios-blue font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer">
@@ -1405,17 +1369,12 @@
           </div>
         </div>
 
-        <!-- 4. Тонкие настройки панели навигации и бликов -->
+        <!-- 4. Панель навигации и грани -->
         <div class="bg-ios-elevated p-3.5 rounded-2xl space-y-3">
-          <p class="font-bold text-white text-sm flex items-center gap-1.5">
-            <i data-lucide="sliders" class="w-4 h-4 text-ios-green"></i>
-            Панель навигации и грани
-          </p>
-
           <div class="space-y-1.5">
             <span class="text-[11px] text-ios-gray">Нижняя панель:</span>
             <div class="grid grid-cols-2 gap-1.5">
-              <button type="button" data-set-nav="floating" class="nav-style-btn ios-press py-2 rounded-xl font-bold text-xs bg-white/15 text-white border border-white/20">
+              <button type="button" data-set-nav="floating" class="nav-style-btn ios-press py-2 rounded-xl font-bold text-xs ios-active-orange">
                 Парящая капсула
               </button>
               <button type="button" data-set-nav="docked" class="nav-style-btn ios-press py-2 rounded-xl font-bold text-xs bg-black/40 text-gray-400 border border-white/10">
@@ -1430,7 +1389,7 @@
               <button type="button" data-set-rim="soft" class="rim-style-btn ios-press py-1.5 rounded-xl font-bold text-xs bg-black/40 text-gray-400 border border-white/10">
                 Мягкие
               </button>
-              <button type="button" data-set-rim="normal" class="rim-style-btn ios-press py-1.5 rounded-xl font-bold text-xs bg-white/15 text-white border border-white/20">
+              <button type="button" data-set-rim="normal" class="rim-style-btn ios-press py-1.5 rounded-xl font-bold text-xs ios-active-orange">
                 Стандарт
               </button>
               <button type="button" data-set-rim="bright" class="rim-style-btn ios-press py-1.5 rounded-xl font-bold text-xs bg-black/40 text-gray-400 border border-white/10">
@@ -1440,20 +1399,10 @@
           </div>
         </div>
 
-        <!-- 5. Уведомления и скрытые пары -->
-        <div class="grid grid-cols-2 gap-2">
-          <button id="btn-open-notif-from-tools" class="ios-press py-2.5 px-3 rounded-xl bg-ios-green/20 border border-ios-green/40 text-ios-green font-bold text-xs">
-            Уведомления
-          </button>
-          <button id="btn-open-hidden-from-tools" class="ios-press py-2.5 px-3 rounded-xl bg-ios-orange/20 border border-ios-orange/40 text-ios-orange font-bold text-xs">
-            Скрытые пары
-          </button>
-        </div>
-
-        <!-- 6. Восстановление 275 пар и импорт .ics -->
+        <!-- 5. Восстановление 275 пар и импорт .ics -->
         <div class="bg-ios-elevated p-3.5 rounded-2xl space-y-2">
           <p class="font-bold text-white text-sm">Управление базой расписания</p>
-          <button id="btn-restore-default" class="ios-press w-full py-2.5 rounded-xl bg-ios-blue text-white font-bold text-xs">
+          <button type="button" id="btn-restore-default" class="ios-press w-full py-2.5 rounded-xl ios-active-orange font-bold text-xs">
             Перезагрузить базовое расписание (275 пар)
           </button>
           <div class="pt-2">
@@ -1472,6 +1421,158 @@
     </button>
     <img id="photo-viewer-img" src="" alt="Фото" class="max-w-full max-h-[85vh] rounded-2xl object-contain shadow-2xl border border-white/15" />
   </div>
+
+  <!-- ВСТРОЕННЫЙ КОНТРОЛЛЕР ТЕМ И ФОНОВ (ГАРАНТИРУЕТ РАБОТУ КНОПОК НА ПК И iOS ДАЖЕ ПРИ СТАРОМ КЭШЕ) -->
+  <script>
+    (function () {
+      function syncHighlight(selector, attr, val) {
+        document.querySelectorAll(selector).forEach(function (btn) {
+          var active = btn.getAttribute(attr) === val;
+          btn.className = btn.className
+            .replace(/ios-active-orange|bg-black\/40|text-gray-300|text-gray-400|border-white\/10|bg-white\/15|text-white/g, "")
+            .trim();
+          if (active) {
+            btn.classList.add("ios-active-orange");
+          } else {
+            btn.classList.add("bg-black/40", "text-gray-300", "border", "border-white/10");
+          }
+        });
+      }
+
+      window.__applyDiaryAppearance = function () {
+        var cMode = localStorage.getItem("diary_color_mode_v6") || "dark";
+        var theme = localStorage.getItem("diary_theme_v6") || "classic";
+        var bStyle = localStorage.getItem("diary_btn_style_v6") || "matte";
+        var bgMode = localStorage.getItem("diary_bg_mode_v6") || "black";
+        var navStyle = localStorage.getItem("diary_nav_style_v5") || "floating";
+        var rimStyle = localStorage.getItem("diary_rim_style_v5") || "normal";
+        var customBg = localStorage.getItem("diary_custom_bg_img_v6") || "";
+        var dim = Number(localStorage.getItem("diary_custom_bg_dim_v6") || 45);
+
+        var isLight = cMode === "light" || cMode === "mono-light";
+        var isMono = cMode === "mono-dark" || cMode === "mono-light";
+
+        document.documentElement.classList.toggle("dark", !isLight);
+        document.body.classList.toggle("mode-dark", !isLight);
+        document.body.classList.toggle("mode-light", isLight);
+        document.body.classList.toggle("mono-mode", isMono);
+
+        document.body.classList.remove("theme-classic", "theme-liquid", "theme-tg-glass");
+        document.body.classList.add("theme-" + theme);
+
+        document.body.classList.toggle("btn-matte", bStyle === "matte");
+        document.body.classList.toggle("btn-glass", bStyle === "glass");
+
+        document.body.classList.remove("bg-mode-black", "bg-mode-white", "bg-mode-abstract", "bg-mode-custom");
+        document.body.classList.add("bg-mode-" + bgMode);
+
+        document.body.classList.toggle("nav-docked", navStyle === "docked");
+        document.body.classList.remove("rim-soft", "rim-normal", "rim-bright");
+        document.body.classList.add("rim-" + rimStyle);
+
+        var layer = document.getElementById("custom-bg-layer");
+        if (layer) {
+          layer.style.backgroundImage = customBg ? 'url("' + customBg + '")' : "none";
+        }
+        document.documentElement.style.setProperty("--custom-bg-dim", (dim / 100).toFixed(2));
+
+        var meta = document.getElementById("meta-theme-color");
+        if (meta) meta.setAttribute("content", isLight ? "#F4F4F7" : "#000000");
+
+        syncHighlight(".color-mode-btn", "data-set-color-mode", cMode);
+        syncHighlight(".theme-choice-btn", "data-set-theme", theme);
+        syncHighlight(".btn-style-choice", "data-set-btn-style", bStyle);
+        syncHighlight(".bg-choice-btn", "data-set-bg", bgMode);
+        syncHighlight(".nav-style-btn", "data-set-nav", navStyle);
+        syncHighlight(".rim-style-btn", "data-set-rim", rimStyle);
+
+        window.dispatchEvent(new CustomEvent("diary-appearance-changed"));
+      };
+
+      document.addEventListener("click", function (e) {
+        var modeBtn = e.target.closest("[data-set-color-mode]");
+        if (modeBtn) {
+          var m = modeBtn.getAttribute("data-set-color-mode");
+          localStorage.setItem("diary_color_mode_v6", m);
+          var curBg = localStorage.getItem("diary_bg_mode_v6") || "black";
+          if ((m === "light" || m === "mono-light") && curBg === "black") {
+            localStorage.setItem("diary_bg_mode_v6", "white");
+          } else if ((m === "dark" || m === "mono-dark") && curBg === "white") {
+            localStorage.setItem("diary_bg_mode_v6", "black");
+          }
+          window.__applyDiaryAppearance();
+          return;
+        }
+
+        var quickToggle = e.target.closest("#btn-color-mode-toggle");
+        if (quickToggle) {
+          var order = ["dark", "light", "mono-dark", "mono-light"];
+          var cur = localStorage.getItem("diary_color_mode_v6") || "dark";
+          var next = order[(order.indexOf(cur) + 1) % order.length];
+          localStorage.setItem("diary_color_mode_v6", next);
+          if (next === "light" || next === "mono-light") {
+            localStorage.setItem("diary_bg_mode_v6", "white");
+          } else {
+            localStorage.setItem("diary_bg_mode_v6", "black");
+          }
+          window.__applyDiaryAppearance();
+          return;
+        }
+
+        var themeBtn = e.target.closest("[data-set-theme]");
+        if (themeBtn) {
+          localStorage.setItem("diary_theme_v6", themeBtn.getAttribute("data-set-theme"));
+          window.__applyDiaryAppearance();
+          return;
+        }
+
+        var btnStyle = e.target.closest("[data-set-btn-style]");
+        if (btnStyle) {
+          localStorage.setItem("diary_btn_style_v6", btnStyle.getAttribute("data-set-btn-style"));
+          window.__applyDiaryAppearance();
+          return;
+        }
+
+        var bgBtn = e.target.closest("[data-set-bg]");
+        if (bgBtn) {
+          var bg = bgBtn.getAttribute("data-set-bg");
+          if (bg === "custom" && !localStorage.getItem("diary_custom_bg_img_v6")) {
+            var fileInp = document.getElementById("custom-bg-input");
+            if (fileInp) fileInp.click();
+            return;
+          }
+          localStorage.setItem("diary_bg_mode_v6", bg);
+          if (bg === "white") {
+            var cm = localStorage.getItem("diary_color_mode_v6") || "dark";
+            if (cm === "dark") localStorage.setItem("diary_color_mode_v6", "light");
+            if (cm === "mono-dark") localStorage.setItem("diary_color_mode_v6", "mono-light");
+          } else if (bg === "black") {
+            var cm2 = localStorage.getItem("diary_color_mode_v6") || "dark";
+            if (cm2 === "light") localStorage.setItem("diary_color_mode_v6", "dark");
+            if (cm2 === "mono-light") localStorage.setItem("diary_color_mode_v6", "mono-dark");
+          }
+          window.__applyDiaryAppearance();
+          return;
+        }
+
+        var navBtn = e.target.closest("[data-set-nav]");
+        if (navBtn) {
+          localStorage.setItem("diary_nav_style_v5", navBtn.getAttribute("data-set-nav"));
+          window.__applyDiaryAppearance();
+          return;
+        }
+
+        var rimBtn = e.target.closest("[data-set-rim]");
+        if (rimBtn) {
+          localStorage.setItem("diary_rim_style_v5", rimBtn.getAttribute("data-set-rim"));
+          window.__applyDiaryAppearance();
+          return;
+        }
+      });
+
+      document.addEventListener("DOMContentLoaded", window.__applyDiaryAppearance);
+    })();
+  </script>
 
   <script type="module" src="./app.js"></script>
 </body>
