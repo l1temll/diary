@@ -1,4 +1,4 @@
-const CACHE_NAME = "student-diary-v7";
+const CACHE_NAME = "student-diary-v8";
 const ASSETS = [
   "./",
   "./index.html",
@@ -36,7 +36,7 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
   if (event.request.method !== "GET" || url.hostname.includes("googleapis.com")) return;
 
-  // Стратегия Network-First: сначала пробуем получить свежую версию из сети, а если оффлайн — отдаем из кэша
+  // Network-First: всегда загружаем свежие файлы при наличии интернета, а в оффлайне берем из кэша
   event.respondWith(
     fetch(event.request)
       .then((res) => {
@@ -46,6 +46,8 @@ self.addEventListener("fetch", (event) => {
         }
         return res;
       })
-      .catch(() => caches.match(event.request))
+      .catch(() =>
+        caches.match(event.request, { ignoreSearch: true })
+      )
   );
 });
