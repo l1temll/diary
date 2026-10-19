@@ -1,11 +1,12 @@
-const CACHE_NAME = "student-diary-v10";
+const CACHE_NAME = "student-diary-v11";
 const ASSETS = [
   "./",
   "./index.html",
   "./app.js",
   "./manifest.webmanifest",
   "https://cdn.tailwindcss.com",
-  "https://unpkg.com/lucide@latest"
+  "https://unpkg.com/lucide@latest",
+  "https://cdn.jsdelivr.net/gh/naughtyduk/liquidGL@main/scripts/liquidGL.js"
 ];
 
 self.addEventListener("install", (event) => {
