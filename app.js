@@ -933,7 +933,7 @@ function updateLiveWidget() {
     const remSec = Math.max(0, endSec - nowSec);
     const pct = Math.min(100, Math.max(0, Math.round(((nowSec - startSec) / (endSec - startSec)) * 100)));
 
-    curBox.className = "rounded-2xl p-2.5 bg-ios-orange/15 border border-ios-orange/50 flex flex-col justify-between min-w-0";
+    curBox.className = "flex flex-col justify-between min-w-0";
     if (curLabel) curLabel.textContent = `Идет ${currentClass.number} пара`;
     curTitle.textContent = currentClass.subject;
     curTimer.textContent = `Еще ${formatDurationWithSeconds(remSec)}`;
@@ -945,7 +945,7 @@ function updateLiveWidget() {
     const remLunchSec = LUNCH_END_SEC - nowSec;
     const lunchPct = Math.min(100, Math.max(0, Math.round(((nowSec - LUNCH_START_SEC) / (LUNCH_END_SEC - LUNCH_START_SEC)) * 100)));
 
-    curBox.className = "rounded-2xl p-2.5 bg-ios-green/15 border border-ios-green/40 flex flex-col justify-between min-w-0";
+    curBox.className = "flex flex-col justify-between min-w-0";
     if (curLabel) curLabel.textContent = "Обеденный перерыв";
     curTitle.textContent = "Обед (12:50–13:20)";
     curTimer.textContent = `Еще ${formatDurationWithSeconds(remLunchSec)}`;
@@ -960,7 +960,7 @@ function updateLiveWidget() {
     const remGapSec = nextStartSec - nowSec;
     const isWindow = totalGapMin > 20;
 
-    curBox.className = "rounded-2xl p-2.5 bg-white/[0.04] border border-white/10 flex flex-col justify-between min-w-0";
+    curBox.className = "flex flex-col justify-between min-w-0";
     if (curLabel) curLabel.textContent = isWindow ? "Окно в расписании" : "Перемена";
     curTitle.textContent = isWindow ? "Сейчас окно" : "Перемена между парами";
     curTimer.textContent = formatDurationWithSeconds(remGapSec);
@@ -968,7 +968,7 @@ function updateLiveWidget() {
     curProgWrap?.classList.add("hidden");
   } else {
     // 4. ПАРЫ ЕЩЕ НЕ НАЧАЛИСЬ ИЛИ УЖЕ ЗАКОНЧИЛИСЬ ("Сейчас нет пары")
-    curBox.className = "rounded-2xl p-2.5 bg-white/[0.04] border border-white/10 flex flex-col justify-between min-w-0";
+    curBox.className = "flex flex-col justify-between min-w-0";
     if (curLabel) curLabel.textContent = "Текущая пара";
     curTitle.textContent = "Сейчас нет пары";
 
