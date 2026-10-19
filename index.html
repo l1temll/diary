@@ -615,6 +615,12 @@
     body.mono-mode #week-current-badge {
       display: none !important;
     }
+    body.mono-mode #live-current-progress,
+    body.mono-mode #island-dot-current,
+    body.mono-mode #island-dot-next {
+      background-image: none !important;
+      background-color: #FFFFFF !important;
+    }
 
     /* ==========================================================================
        6. ТАБЛИЦА РАСПИСАНИЯ НА ВСЮ НЕДЕЛЮ В СТИЛЕ GOOGLE CALENDAR
@@ -800,7 +806,7 @@
               </div>
 
               <div id="live-current-progress-wrap" class="hidden w-full h-1 bg-white/15 rounded-full overflow-hidden mt-2">
-                <div id="live-current-progress" class="h-full bg-gradient-to-r from-ios-orange to-ios-green rounded-full transition-all" style="width: 0%"></div>
+                <div id="live-current-progress" class="h-full bg-ios-orange rounded-full transition-all" style="width: 0%"></div>
               </div>
             </div>
           </div>
