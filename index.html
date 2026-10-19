@@ -47,6 +47,8 @@
   </script>
 
   <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Оригинальная библиотека naughtyduk/liquidGL (WebGPU / WebGL2 / WebGL1) -->
+  <script src="https://cdn.jsdelivr.net/gh/naughtyduk/liquidGL@main/scripts/liquidGL.js" defer></script>
 
   <style>
     :root {
@@ -54,6 +56,7 @@
       --glass-specular-alpha: 0.38;
       --glass-blur: 32px;
       --custom-bg-dim: 0.45;
+      --liquidgl-aberration-px: 1.6px;
       --tg-spring: cubic-bezier(0.22, 1.18, 0.36, 1);
       --ios-spring: cubic-bezier(0.32, 0.72, 0, 1);
     }
@@ -95,7 +98,7 @@
       min-width: 0;
     }
 
-    /* Безопасный отступ под челку iPhone 13 (не слишком высоко, комфортно для глаз и пальца) */
+    /* Безопасный отступ под челку iPhone 13 */
     .pt-safe {
       padding-top: calc(env(safe-area-inset-top, 0px) + 0.5rem);
     }
@@ -139,7 +142,6 @@
       will-change: transform;
     }
 
-    /* Светлая тема: островок остается фирменным глянцево-угольным как настоящий Dynamic Island */
     body.mode-light .dynamic-island-capsule {
       background: #0B0B0E;
       border: 1px solid rgba(255, 255, 255, 0.22);
@@ -155,7 +157,6 @@
       color: #AEAEB2 !important;
     }
 
-    /* Эффект нажатия и морфинга Dynamic Island */
     .dynamic-island-capsule:active {
       transform: scale(0.955);
     }
@@ -170,7 +171,6 @@
       100% { transform: scale(1); }
     }
 
-    /* Анимация смены слайда внутри Dynamic Island */
     .island-slide-enter {
       animation: islandSlideIn 0.36s var(--tg-spring) forwards;
     }
@@ -187,7 +187,6 @@
       }
     }
 
-    /* Эквалайзер / волна активности в Dynamic Island */
     .island-wave {
       display: inline-flex;
       align-items: center;
@@ -212,7 +211,6 @@
     /* ==========================================================================
        АНИМАЦИИ КАК В TELEGRAM НА iOS (КАСКАД КАРТОЧЕК, ТАБЫ, МОДАЛКИ)
        ========================================================================== */
-    /* Пружинный отклик всех кнопок */
     .ios-press {
       transition:
         transform 0.28s var(--tg-spring),
@@ -225,7 +223,6 @@
       transition: transform 0.08s ease;
     }
 
-    /* Анимация переключения вкладок (Расписание / ДЗ / Заметки) */
     #view-schedule:not(.hidden),
     #view-tasks:not(.hidden),
     #view-notes:not(.hidden) {
@@ -242,7 +239,6 @@
       }
     }
 
-    /* Каскадный выезд карточек расписания, задач и заметок */
     #schedule-list > article,
     #schedule-list > div,
     #events-list > div,
@@ -268,7 +264,6 @@
       }
     }
 
-    /* Пружинная анимация иконок в нижней панели как в Telegram */
     .nav-tab i, .nav-tab svg {
       transition: transform 0.35s var(--tg-spring);
     }
@@ -281,7 +276,6 @@
       100% { transform: scale(1) translateY(0); }
     }
 
-    /* Пружинное открытие всех модальных окон (Bottom Sheets) */
     [id^="modal-"]:not(.hidden) {
       animation: tgBackdropFade 0.24s ease forwards;
     }
@@ -368,7 +362,7 @@
     }
 
     /* ==========================================================================
-       2. СТИЛИ КАРТОЧЕК (КЛАССИЧЕСКАЯ МАТОВАЯ / LIQUID GLASS / TELEGRAM GLASS)
+       2. СТИЛИ КАРТОЧЕК (КЛАССИЧЕСКАЯ МАТОВАЯ / LIQUID GLASS / TELEGRAM GLASS / LIQUIDGL)
        ========================================================================== */
     body.mode-dark.theme-classic .ios26-card {
       background: #1C1C1E;
@@ -449,39 +443,69 @@
       -webkit-backdrop-filter: blur(36px) saturate(200%);
       border: 1px solid rgba(255, 159, 10, 0.55);
     }
-	/* --- REAL LIQUID GLASS (СТИЛЬ LIQUIDGL С ДИСПЕРСИЕЙ СВЕТА) --- */
+
+    /* ==========================================================================
+       REAL LIQUID GLASS (НАСТОЯЩИЙ LIQUIDGL: WEBGPU/WEBGL + SVG-РЕФРАКЦИЯ + БЕВЕЛ)
+       ========================================================================== */
     body.mode-dark.theme-liquid-gl .ios26-card {
-      background: radial-gradient(135% 120% at 50% 0%, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0.05) 45%, rgba(10, 10, 16, 0.58) 100%);
-      backdrop-filter: blur(40px) saturate(220%) brightness(1.08);
-      -webkit-backdrop-filter: blur(40px) saturate(220%) brightness(1.08);
-      border: 1px solid rgba(255, 255, 255, 0.28);
+      position: relative;
+      background:
+        radial-gradient(125% 110% at 50% 0%, rgba(255, 255, 255, 0.24) 0%, rgba(255, 255, 255, 0.06) 42%, rgba(8, 10, 20, 0.34) 100%);
+      backdrop-filter: url(#liquid-gl-lens-filter) blur(22px) saturate(230%) brightness(1.1);
+      -webkit-backdrop-filter: blur(28px) saturate(230%) brightness(1.1);
+      border: 1px solid rgba(255, 255, 255, 0.30);
       box-shadow:
-        0 20px 48px -12px rgba(0, 0, 0, 0.8),
-        inset 0 1.5px 1px 0 rgba(255, 255, 255, 0.75),
-        inset 0 -1.5px 1px 0 rgba(255, 255, 255, 0.12),
-        inset 1.5px 0 1.5px 0 rgba(0, 229, 255, 0.28),
-        inset -1.5px 0 1.5px 0 rgba(255, 0, 128, 0.28);
+        0 22px 48px -12px rgba(0, 0, 0, 0.78),
+        inset 0 2px 2px 0 rgba(255, 255, 255, 0.82),
+        inset 0 -2px 3px 0 rgba(255, 255, 255, 0.18),
+        inset var(--liquidgl-aberration-px) 0 2.5px 0 rgba(0, 229, 255, 0.42),
+        inset calc(var(--liquidgl-aberration-px) * -1) 0 2.5px 0 rgba(255, 0, 128, 0.42);
     }
     body.mode-dark.theme-liquid-gl .ios26-card-orange {
-      background: radial-gradient(135% 120% at 50% 0%, rgba(255, 159, 10, 0.32) 0%, rgba(255, 107, 0, 0.12) 50%, rgba(24, 16, 10, 0.65) 100%);
-      backdrop-filter: blur(40px) saturate(230%);
-      -webkit-backdrop-filter: blur(40px) saturate(230%);
-      border: 1px solid rgba(255, 179, 64, 0.65);
+      position: relative;
+      background:
+        radial-gradient(125% 110% at 50% 0%, rgba(255, 170, 30, 0.34) 0%, rgba(255, 107, 0, 0.12) 48%, rgba(24, 14, 8, 0.42) 100%);
+      backdrop-filter: url(#liquid-gl-lens-filter) blur(22px) saturate(240%) brightness(1.12);
+      -webkit-backdrop-filter: blur(28px) saturate(240%) brightness(1.12);
+      border: 1px solid rgba(255, 185, 75, 0.68);
       box-shadow:
-        inset 0 1.5px 1.5px 0 rgba(255, 225, 180, 0.65),
-        inset 1.5px 0 1.5px 0 rgba(0, 229, 255, 0.25),
-        inset -1.5px 0 1.5px 0 rgba(255, 0, 128, 0.25);
+        0 22px 48px -12px rgba(255, 115, 0, 0.25),
+        inset 0 2px 2.5px 0 rgba(255, 235, 200, 0.85),
+        inset var(--liquidgl-aberration-px) 0 2.5px 0 rgba(0, 229, 255, 0.36),
+        inset calc(var(--liquidgl-aberration-px) * -1) 0 2.5px 0 rgba(255, 0, 128, 0.36);
     }
     body.mode-light.theme-liquid-gl .ios26-card {
-      background: radial-gradient(135% 120% at 50% 0%, rgba(255, 255, 255, 0.82) 0%, rgba(255, 255, 255, 0.45) 50%, rgba(235, 240, 255, 0.65) 100%);
-      backdrop-filter: blur(40px) saturate(200%);
-      -webkit-backdrop-filter: blur(40px) saturate(200%);
-      border: 1px solid rgba(255, 255, 255, 0.95);
+      position: relative;
+      background:
+        radial-gradient(125% 110% at 50% 0%, rgba(255, 255, 255, 0.82) 0%, rgba(255, 255, 255, 0.38) 48%, rgba(230, 238, 255, 0.48) 100%);
+      backdrop-filter: url(#liquid-gl-lens-filter) blur(22px) saturate(210%) brightness(1.05);
+      -webkit-backdrop-filter: blur(28px) saturate(210%) brightness(1.05);
+      border: 1px solid rgba(255, 255, 255, 0.96);
       box-shadow:
-        0 14px 34px -10px rgba(0, 0, 0, 0.12),
-        inset 0 2px 2px 0 rgba(255, 255, 255, 0.98),
-        inset 1.5px 0 1.5px 0 rgba(0, 160, 255, 0.22),
-        inset -1.5px 0 1.5px 0 rgba(255, 0, 120, 0.22);
+        0 16px 36px -10px rgba(15, 23, 42, 0.14),
+        inset 0 2.5px 2.5px 0 rgba(255, 255, 255, 1),
+        inset var(--liquidgl-aberration-px) 0 2.5px 0 rgba(0, 165, 255, 0.32),
+        inset calc(var(--liquidgl-aberration-px) * -1) 0 2.5px 0 rgba(255, 0, 120, 0.32);
+    }
+    body.mode-light.theme-liquid-gl .ios26-card-orange {
+      position: relative;
+      background:
+        radial-gradient(125% 110% at 50% 0%, rgba(255, 235, 200, 0.86) 0%, rgba(255, 245, 230, 0.55) 100%);
+      backdrop-filter: url(#liquid-gl-lens-filter) blur(22px) saturate(210%);
+      -webkit-backdrop-filter: blur(28px) saturate(210%);
+      border: 1px solid rgba(255, 159, 10, 0.65);
+    }
+
+    /* Прозрачная подложка для фиксированных капсул, когда на них работает шейдер naughtyduk/liquidGL */
+    body.theme-liquid-gl.liquidgl-engine-ready #bottom-nav-capsule.liquidgl-active-target,
+    body.theme-liquid-gl.liquidgl-engine-ready #main-header.liquidgl-active-target {
+      background: rgba(18, 18, 24, 0.22) !important;
+      border-color: rgba(255, 255, 255, 0.28) !important;
+    }
+    body.mode-light.theme-liquid-gl.liquidgl-engine-ready #bottom-nav-capsule.liquidgl-active-target,
+    body.mode-light.theme-liquid-gl.liquidgl-engine-ready #main-header.liquidgl-active-target {
+      background: rgba(255, 255, 255, 0.28) !important;
+      border-color: rgba(255, 255, 255, 0.85) !important;
     }
 
     /* ==========================================================================
@@ -510,11 +534,15 @@
     }
 
     body.mode-dark.btn-glass .ios26-pill {
-      background: linear-gradient(145deg, rgba(255, 255, 255, 0.20) 0%, rgba(255, 255, 255, 0.06) 55%, rgba(30, 30, 38, 0.55) 100%);
-      backdrop-filter: blur(24px) saturate(190%);
-      -webkit-backdrop-filter: blur(24px) saturate(190%);
+      background: linear-gradient(145deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0.06) 55%, rgba(30, 30, 38, 0.52) 100%);
+      backdrop-filter: blur(24px) saturate(195%);
+      -webkit-backdrop-filter: blur(24px) saturate(195%);
       border: 1px solid rgba(255, 255, 255, var(--glass-border-alpha));
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35), inset 0 1.5px 1px 0 rgba(255, 255, 255, var(--glass-specular-alpha));
+      box-shadow:
+        0 4px 12px rgba(0, 0, 0, 0.35),
+        inset 0 1.5px 1px 0 rgba(255, 255, 255, var(--glass-specular-alpha)),
+        inset 1px 0 1px 0 rgba(0, 229, 255, 0.18),
+        inset -1px 0 1px 0 rgba(255, 0, 128, 0.18);
     }
     body.mode-light.btn-glass .ios26-pill {
       background: linear-gradient(145deg, rgba(255, 255, 255, 0.90) 0%, rgba(240, 242, 248, 0.68) 100%);
@@ -525,16 +553,20 @@
       box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05), inset 0 1.5px 1px 0 rgba(255, 255, 255, 0.95);
     }
     body.mode-dark.btn-glass .tg-glass-capsule {
-      background: linear-gradient(180deg, rgba(52, 52, 58, 0.72) 0%, rgba(24, 24, 28, 0.82) 100%);
-      backdrop-filter: blur(36px) saturate(190%);
-      -webkit-backdrop-filter: blur(36px) saturate(190%);
+      background: linear-gradient(180deg, rgba(52, 52, 58, 0.68) 0%, rgba(24, 24, 28, 0.78) 100%);
+      backdrop-filter: blur(36px) saturate(200%);
+      -webkit-backdrop-filter: blur(36px) saturate(200%);
       border: 1px solid rgba(255, 255, 255, var(--glass-border-alpha));
-      box-shadow: 0 14px 34px rgba(0, 0, 0, 0.75), inset 0 1px 0.5px 0 rgba(255, 255, 255, var(--glass-specular-alpha));
+      box-shadow:
+        0 14px 34px rgba(0, 0, 0, 0.75),
+        inset 0 1.5px 1px 0 rgba(255, 255, 255, var(--glass-specular-alpha)),
+        inset 1.5px 0 1.5px 0 rgba(0, 229, 255, 0.24),
+        inset -1.5px 0 1.5px 0 rgba(255, 0, 128, 0.24);
     }
     body.mode-light.btn-glass .tg-glass-capsule {
-      background: linear-gradient(180deg, rgba(255, 255, 255, 0.86) 0%, rgba(242, 242, 247, 0.92) 100%);
-      backdrop-filter: blur(36px) saturate(190%);
-      -webkit-backdrop-filter: blur(36px) saturate(190%);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.84) 0%, rgba(242, 242, 247, 0.90) 100%);
+      backdrop-filter: blur(36px) saturate(195%);
+      -webkit-backdrop-filter: blur(36px) saturate(195%);
       border: 1px solid rgba(0, 0, 0, 0.09);
       box-shadow: 0 12px 30px rgba(0, 0, 0, 0.10), inset 0 1.5px 1px 0 rgba(255, 255, 255, 0.95);
     }
@@ -649,7 +681,6 @@
     body.mono-mode #week-current-badge {
       display: none !important;
     }
-	/* Ч/Б фон "Абстракция" и монохромная линия времени */
     body.mono-mode #liquid-ambient-bg {
       filter: grayscale(100%) contrast(125%) brightness(0.7) !important;
     }
@@ -756,6 +787,17 @@
 </head>
 <body class="mode-dark theme-classic btn-matte bg-mode-black rim-normal min-h-screen flex flex-col text-white antialiased relative">
 
+  <!-- АППАРАТНЫЙ SVG-ФИЛЬТР ОПТИЧЕСКОЙ ЛИНЗЫ И РЕФРАКЦИИ ДЛЯ LIQUIDGL -->
+  <svg id="svg-liquid-gl-defs" width="0" height="0" class="fixed pointer-events-none opacity-0" aria-hidden="true">
+    <defs>
+      <filter id="liquid-gl-lens-filter" x="-12%" y="-12%" width="124%" height="124%" color-interpolation-filters="sRGB">
+        <feTurbulence type="fractalNoise" baseFrequency="0.014 0.022" numOctaves="2" seed="7" result="noise" />
+        <feGaussianBlur in="noise" stdDeviation="3.5" result="smoothNoise" />
+        <feDisplacementMap id="svg-liquid-disp" in="SourceGraphic" in2="smoothNoise" scale="11" xChannelSelector="R" yChannelSelector="G" result="refracted" />
+      </filter>
+    </defs>
+  </svg>
+
   <!-- СЛОЙ 1: ПОЛЬЗОВАТЕЛЬСКИЙ ФОН ИЗ ГАЛЕРЕИ -->
   <div id="custom-bg-layer" aria-hidden="true"></div>
   <div id="custom-bg-overlay" aria-hidden="true"></div>
@@ -768,7 +810,7 @@
   </div>
 
   <!-- ВЕРХНЯЯ ПАНЕЛЬ -->
-  <header class="sticky top-0 z-30 bg-black/80 backdrop-blur-2xl border-b border-white/10 pt-safe px-3.5 pb-2.5">
+  <header id="main-header" class="sticky top-0 z-30 bg-black/80 backdrop-blur-2xl border-b border-white/10 pt-safe px-3.5 pb-2.5">
     <div class="max-w-lg mx-auto flex items-center justify-between gap-2 transition-all" id="header-inner-container">
       <div class="min-w-0 flex-1">
         <div class="flex items-center gap-1.5 mb-0.5">
@@ -816,17 +858,12 @@
          ====================================================================== -->
     <section id="view-schedule" class="space-y-3">
 
-      <!-- ====================================================================
-           DYNAMIC ISLAND (РАСПОЛОЖЕН НИЖЕ ЧЕЛКИ iPHONE 13, ПЕРЕКЛЮЧАЕТСЯ ПО КЛИКУ)
-           1 клик -> Текущая пара (или Обед / Окно)
-           Следующий клик -> Следующая пара
-           ==================================================================== -->
+      <!-- DYNAMIC ISLAND -->
       <div id="live-now-widget" class="dynamic-island-wrap select-none">
         <div id="dynamic-island-capsule" data-island-mode="current" class="dynamic-island-capsule max-w-md mx-auto px-4 py-3" title="Нажмите, чтобы переключить: Текущая пара / Следующая пара">
 
           <!-- СЛАЙД 1: ТЕКУЩАЯ ПАРА / ОБЕД / ОКНО -->
           <div id="island-slide-current" class="island-slide-enter">
-            <!-- Скрытый прокси-бокс для полной совместимости с логикой app.js -->
             <div id="live-current-box" class="flex flex-col justify-between min-w-0">
               <div class="flex items-center justify-between gap-2">
                 <div class="flex items-center gap-2 min-w-0">
@@ -860,7 +897,7 @@
             </div>
           </div>
 
-          <!-- СЛАЙД 2: СЛЕДУЮЩАЯ ПАРА (ПОКАЗЫВАЕТСЯ ПО КЛИКУ НА ОСТРОВОК) -->
+          <!-- СЛАЙД 2: СЛЕДУЮЩАЯ ПАРА -->
           <div id="island-slide-next" class="hidden island-slide-enter">
             <div id="live-next-box" class="flex flex-col justify-between min-w-0">
               <div class="flex items-center justify-between gap-2">
@@ -868,7 +905,7 @@
                   <span class="w-6 h-6 rounded-full bg-ios-blue/20 text-ios-blue flex items-center justify-center shrink-0">
                     <i data-lucide="fast-forward" class="w-3.5 h-3.5"></i>
                   </span>
-                  <span class="text-[10px] font-extrabold uppercase tracking-wider text-ios-blue truncate">
+                  <span id="live-next-label" class="text-[10px] font-extrabold uppercase tracking-wider text-ios-blue truncate">
                     Следующая пара
                   </span>
                 </div>
@@ -950,9 +987,7 @@
         </div>
       </div>
 
-      <!-- ====================================================================
-           РЕЖИМ 1: СЕТКА РАСПИСАНИЯ НА ВСЮ НЕДЕЛЮ (КАК В GOOGLE КАЛЕНДАРЕ)
-           ==================================================================== -->
+      <!-- РЕЖИМ 1: СЕТКА РАСПИСАНИЯ НА ВСЮ НЕДЕЛЮ (КАК В GOOGLE КАЛЕНДАРЕ) -->
       <div id="week-grid-view" class="hidden ios26-card rounded-3xl p-3 overflow-x-auto">
         <div class="flex items-center justify-between mb-2.5 px-1">
           <div class="flex items-center gap-2">
@@ -966,11 +1001,8 @@
         <div id="week-grid-table-wrapper" class="min-w-[820px]"></div>
       </div>
 
-      <!-- ====================================================================
-           РЕЖИМ 2: ОБЫЧНЫЙ ДНЕВНОЙ ВИД (КНОПКИ ДНЕЙ + КАРТОЧКИ ПАР)
-           ==================================================================== -->
+      <!-- РЕЖИМ 2: ОБЫЧНЫЙ ДНЕВНОЙ ВИД (КНОПКИ ДНЕЙ + КАРТОЧКИ ПАР) -->
       <div id="day-schedule-view" class="space-y-3">
-        <!-- Переключатель 7 дней недели (ПН - ВС) -->
         <div id="day-selector" class="grid grid-cols-7 gap-1"></div>
 
         <!-- Отдельный блок мероприятий -->
@@ -1694,11 +1726,43 @@
                 <span>Telegram Glass (Мягкое стекло)</span>
                 <span class="text-[10px] opacity-75">Полупрозрачная</span>
               </button>
-			  <button type="button" data-set-theme="liquid-gl" class="theme-choice-btn ios-press py-2.5 px-3.5 rounded-xl font-bold text-xs flex items-center justify-between bg-black/40 text-gray-300 border border-white/10">
-                <span>LiquidGL (Оптическое стекло с преломлением)</span>
-                <span class="text-[10px] opacity-75">Дисперсия</span>
+              <button type="button" data-set-theme="liquid-gl" class="theme-choice-btn ios-press py-2.5 px-3.5 rounded-xl font-bold text-xs flex items-center justify-between bg-black/40 text-gray-300 border border-white/10">
+                <span>LiquidGL (WebGPU/WebGL линза + дисперсия)</span>
+                <span class="text-[10px] opacity-75">naughtyduk</span>
               </button>
             </div>
+          </div>
+
+          <!-- ТОНКАЯ НАСТРОЙКА LIQUIDGL (показывается, когда выбрана тема liquid-gl) -->
+          <div id="liquidgl-tuning-box" class="hidden p-3 rounded-xl bg-black/35 border border-white/10 space-y-2.5">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-extrabold text-ios-blue flex items-center gap-1">
+                <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+                Настройки оптики LiquidGL
+              </span>
+              <span id="liquidgl-engine-badge" class="text-[9px] font-bold px-2 py-0.5 rounded-full bg-ios-blue/20 text-ios-blue">WebGPU / WebGL</span>
+            </div>
+
+            <div class="space-y-1">
+              <div class="flex justify-between text-[11px] text-ios-gray">
+                <span>Сила преломления линзы:</span>
+                <span id="liquidgl-refraction-val">2.5%</span>
+              </div>
+              <input type="range" id="liquidgl-refraction-slider" min="5" max="60" value="25" class="w-full accent-ios-blue" />
+            </div>
+
+            <div class="space-y-1">
+              <div class="flex justify-between text-[11px] text-ios-gray">
+                <span>Хроматическая аберрация (дисперсия):</span>
+                <span id="liquidgl-aberration-val">35%</span>
+              </div>
+              <input type="range" id="liquidgl-aberration-slider" min="0" max="100" value="35" class="w-full accent-ios-purple" />
+            </div>
+
+            <label class="flex items-center justify-between pt-1 cursor-pointer">
+              <span class="text-[11px] font-semibold text-white">Жидкая деформация от пальца (Fluid)</span>
+              <input type="checkbox" id="liquidgl-fluid-toggle" class="w-4 h-4 accent-ios-orange rounded" checked />
+            </label>
           </div>
 
           <div class="space-y-1.5 pt-1">
@@ -1824,17 +1888,171 @@
     <img id="photo-viewer-img" src="" alt="Фото" class="max-w-full max-h-[85vh] rounded-2xl object-contain shadow-2xl border border-white/15" />
   </div>
 
-  <!-- КОНТРОЛЛЕР DYNAMIC ISLAND И ТЕМ ОФОРМЛЕНИЯ -->
+  <!-- КОНТРОЛЛЕР DYNAMIC ISLAND, ТЕМ ОФОРМЛЕНИЯ И ДВИЖКА NAUGHTYDUK/LIQUIDGL -->
   <script>
     (function () {
-      if ("caches" in window && localStorage.getItem("diary_sw_cleaned_v10") !== "1") {
+      if ("caches" in window && localStorage.getItem("diary_sw_cleaned_v11") !== "1") {
         caches.keys().then(function (keys) {
           keys.forEach(function (k) {
-            if (k !== "student-diary-v10") caches.delete(k);
+            if (k !== "student-diary-v11") caches.delete(k);
           });
         });
-        localStorage.setItem("diary_sw_cleaned_v10", "1");
+        localStorage.setItem("diary_sw_cleaned_v11", "1");
       }
+
+      // Хранилище активных WebGPU/WebGL линз liquidGL
+      window.__liquidGLInstances = [];
+      var liquidGLInitTimer = null;
+
+      function destroyAllLiquidGLLenses() {
+        if (Array.isArray(window.__liquidGLInstances)) {
+          window.__liquidGLInstances.forEach(function (inst) {
+            try {
+              if (inst && typeof inst.destroy === "function") inst.destroy();
+            } catch (err) {}
+          });
+        }
+        window.__liquidGLInstances = [];
+        document.body.classList.remove("liquidgl-engine-ready");
+        document.querySelectorAll(".liquidgl-active-target").forEach(function (el) {
+          el.classList.remove("liquidgl-active-target");
+        });
+      }
+
+      // Инициализация / обновление настоящих WebGPU/WebGL линз naughtyduk/liquidGL
+      window.__syncLiquidGL = function () {
+        clearTimeout(liquidGLInitTimer);
+        var theme = localStorage.getItem("diary_theme_v6") || "classic";
+        var cMode = localStorage.getItem("diary_color_mode_v6") || "dark";
+        var isMono = cMode === "mono-dark" || cMode === "mono-light";
+        var isLight = cMode === "light" || cMode === "mono-light";
+
+        var refVal = Number(localStorage.getItem("diary_liquidgl_refraction_v1") || 25);
+        var abVal = Number(localStorage.getItem("diary_liquidgl_aberration_v1") || 35);
+        var fluidOn = localStorage.getItem("diary_liquidgl_fluid_v1") !== "false";
+
+        // Обновляем SVG-карту рефракции и CSS-переменную дисперсии для всех карточек
+        var dispEl = document.getElementById("svg-liquid-disp");
+        if (dispEl) {
+          dispEl.setAttribute("scale", String(Math.round(refVal * 0.45)));
+        }
+        document.documentElement.style.setProperty(
+          "--liquidgl-aberration-px",
+          (abVal * 0.045).toFixed(2) + "px"
+        );
+
+        var refSlider = document.getElementById("liquidgl-refraction-slider");
+        var refLabel = document.getElementById("liquidgl-refraction-val");
+        var abSlider = document.getElementById("liquidgl-aberration-slider");
+        var abLabel = document.getElementById("liquidgl-aberration-val");
+        var fluidToggle = document.getElementById("liquidgl-fluid-toggle");
+        var tuningBox = document.getElementById("liquidgl-tuning-box");
+
+        if (refSlider) refSlider.value = String(refVal);
+        if (refLabel) refLabel.textContent = (refVal / 10).toFixed(1) + "%";
+        if (abSlider) abSlider.value = String(abVal);
+        if (abLabel) abLabel.textContent = abVal + "%";
+        if (fluidToggle) fluidToggle.checked = fluidOn;
+        if (tuningBox) tuningBox.classList.toggle("hidden", theme !== "liquid-gl");
+
+        if (theme !== "liquid-gl" || isMono) {
+          destroyAllLiquidGLLenses();
+          return;
+        }
+
+        liquidGLInitTimer = setTimeout(function () {
+          if (typeof window.liquidGL !== "function") return;
+          destroyAllLiquidGLLenses();
+
+          try {
+            var tintColor = isLight
+              ? "rgba(255, 255, 255, 0.22)"
+              : "rgba(12, 14, 24, 0.28)";
+
+            var navEl = document.getElementById("bottom-nav-capsule");
+            var headerEl = document.getElementById("main-header");
+            var islandEl = document.getElementById("dynamic-island-capsule");
+
+            if (navEl) navEl.classList.add("liquidgl-active-target");
+            if (headerEl) headerEl.classList.add("liquidgl-active-target");
+
+            var navLens = window.liquidGL({
+              engine: "auto",
+              snapshot: "body",
+              target: "#bottom-nav-capsule",
+              resolution: 1.75,
+              refraction: refVal / 1000,
+              aberration: abVal / 100,
+              bevelDepth: 0.11,
+              bevelWidth: 0.18,
+              frost: 4,
+              shadow: true,
+              specular: true,
+              interaction: fluidOn ? "fluid" : "none",
+              interactionStrength: 0.45,
+              interactionRadius: 0.38,
+              interactionViscosity: 0.68,
+              magnify: 1.03,
+              tint: tintColor
+            });
+
+            var headerLens = window.liquidGL({
+              engine: "auto",
+              snapshot: "body",
+              target: "#main-header",
+              resolution: 1.5,
+              refraction: (refVal / 1000) * 0.8,
+              aberration: (abVal / 100) * 0.85,
+              bevelDepth: 0.07,
+              bevelWidth: 0.12,
+              frost: 6,
+              shadow: false,
+              specular: true,
+              interaction: fluidOn ? "fluid" : "none",
+              interactionStrength: 0.32,
+              interactionRadius: 0.3,
+              interactionViscosity: 0.72,
+              magnify: 1.01,
+              tint: tintColor
+            });
+
+            var islandLens = null;
+            if (islandEl) {
+              islandLens = window.liquidGL({
+                engine: "auto",
+                snapshot: "body",
+                target: "#dynamic-island-capsule",
+                resolution: 1.5,
+                refraction: refVal / 1000,
+                aberration: abVal / 100,
+                bevelDepth: 0.12,
+                bevelWidth: 0.2,
+                frost: 2,
+                shadow: true,
+                specular: true,
+                interaction: fluidOn ? "fluid" : "none",
+                interactionStrength: 0.5,
+                interactionRadius: 0.42,
+                interactionViscosity: 0.65,
+                magnify: 1.02,
+                tint: "rgba(8, 8, 12, 0.78)"
+              });
+            }
+
+            if (navLens) window.__liquidGLInstances.push(navLens);
+            if (headerLens) window.__liquidGLInstances.push(headerLens);
+            if (islandLens) window.__liquidGLInstances.push(islandLens);
+
+            if (typeof window.liquidGL.registerDynamic === "function") {
+              window.liquidGL.registerDynamic("#main-container");
+            }
+
+            document.body.classList.add("liquidgl-engine-ready");
+          } catch (err) {
+            console.warn("liquidGL fallback to CSS/SVG optical mode:", err);
+          }
+        }, 120);
+      };
 
       // Переключение Dynamic Island по клику: Текущая пара <-> Следующая пара
       window.__toggleDynamicIsland = function (forceMode) {
@@ -1850,7 +2068,6 @@
         var nextMode = forceMode || (curMode === "current" ? "next" : "current");
         capsule.setAttribute("data-island-mode", nextMode);
 
-        // Запускаем пружинную анимацию морфинга Dynamic Island
         capsule.classList.remove("island-morphing");
         void capsule.offsetWidth;
         capsule.classList.add("island-morphing");
@@ -1937,11 +2154,32 @@
         syncHighlight(".nav-style-btn", "data-set-nav", navStyle);
         syncHighlight(".rim-style-btn", "data-set-rim", rimStyle);
 
+        window.__syncLiquidGL();
         window.dispatchEvent(new CustomEvent("diary-appearance-changed"));
       };
 
+      document.addEventListener("input", function (e) {
+        if (e.target && e.target.id === "liquidgl-refraction-slider") {
+          localStorage.setItem("diary_liquidgl_refraction_v1", String(e.target.value));
+          var lbl = document.getElementById("liquidgl-refraction-val");
+          if (lbl) lbl.textContent = (Number(e.target.value) / 10).toFixed(1) + "%";
+          window.__syncLiquidGL();
+        } else if (e.target && e.target.id === "liquidgl-aberration-slider") {
+          localStorage.setItem("diary_liquidgl_aberration_v1", String(e.target.value));
+          var lbl2 = document.getElementById("liquidgl-aberration-val");
+          if (lbl2) lbl2.textContent = e.target.value + "%";
+          window.__syncLiquidGL();
+        }
+      });
+
+      document.addEventListener("change", function (e) {
+        if (e.target && e.target.id === "liquidgl-fluid-toggle") {
+          localStorage.setItem("diary_liquidgl_fluid_v1", String(e.target.checked));
+          window.__syncLiquidGL();
+        }
+      });
+
       document.addEventListener("click", function (e) {
-        // Клик по Dynamic Island -> переключение Текущая / Следующая пара
         var island = e.target.closest("#dynamic-island-capsule");
         if (island) {
           window.__toggleDynamicIsland();
@@ -1990,7 +2228,11 @@
 
         var themeBtn = e.target.closest("[data-set-theme]");
         if (themeBtn) {
-          localStorage.setItem("diary_theme_v6", themeBtn.getAttribute("data-set-theme"));
+          var chosenTheme = themeBtn.getAttribute("data-set-theme");
+          localStorage.setItem("diary_theme_v6", chosenTheme);
+          if (chosenTheme === "liquid-gl") {
+            localStorage.setItem("diary_btn_style_v6", "glass");
+          }
           window.__applyDiaryAppearance();
           return;
         }
@@ -2040,9 +2282,14 @@
       });
 
       document.addEventListener("DOMContentLoaded", window.__applyDiaryAppearance);
+      window.addEventListener("load", function () {
+        if ((localStorage.getItem("diary_theme_v6") || "classic") === "liquid-gl") {
+          window.__syncLiquidGL();
+        }
+      });
     })();
   </script>
 
-  <script type="module" src="./app.js?v=10"></script>
+  <script type="module" src="./app.js?v=11"></script>
 </body>
 </html>
