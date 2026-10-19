@@ -72,6 +72,10 @@ const BELL_SCHEDULE = {
   "7": { start: "18:20", end: "19:50" }
 };
 
+// Константы обеденного перерыва (12:50 - 13:20)
+const LUNCH_START_SEC = (12 * 60 + 50) * 60;
+const LUNCH_END_SEC = (13 * 60 + 20) * 60;
+
 const CLASS_TEMPLATES = [
   [2, "09:40", "11:10", "Элективные курсы по физической культуре и спорту", "Практика", "Зал №2", "доц. Ловыгина О.Н."],
   [4, "13:20", "14:50", "Математический анализ", "Лекция", "Б-403", "Чернышова А.В."],
@@ -186,6 +190,7 @@ const state = {
   rimStyle: localStorage.getItem("diary_rim_style_v5") || "normal",
 
   activeTab: "schedule",
+  weekGridMode: false, // Режим сетки расписания на неделю (как в Google Календаре)
   selectedDate: getTodayISO(),
   addScope: "date",
   taskFilter: "active",
@@ -220,7 +225,7 @@ const state = {
 };
 
 // ============================================================================
-// 4. УТИЛИТЫ ДАТЫ И ВРЕМЕНИ (7 ДНЕЙ С ВОСКРЕСЕНЬЕМ)
+// 4. УТИЛИТЫ ДАТЫ, ВРЕМЕНИ И СЕКУНДНЫХ ТАЙМЕРОВ
 // ============================================================================
 function formatDateISO(dateObj) {
   const y = dateObj.getFullYear();
@@ -276,6 +281,18 @@ function formatShortDate(dateStr) {
   return d.toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
 }
 
+// Форматирование секунд в вид "1ч 12м 05с" или "24м 09с"
+function formatDurationWithSeconds(totalSeconds) {
+  const sec = Math.max(0, Math.floor(totalSeconds));
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = String(sec % 60).padStart(2, "0");
+  if (h > 0) {
+    return `${h}ч ${String(m).padStart(2, "0")}м ${s}с`;
+  }
+  return `${m}м ${s}с`;
+}
+
 function findNextClassDateForSubject(subjectName, afterDateStr) {
   const cleanSubj = String(subjectName || "").trim().toLowerCase();
   if (!cleanSubj) return addDaysISO(afterDateStr, 7);
@@ -317,7 +334,7 @@ function getVisibleSchedule() {
 }
 
 // ============================================================================
-// 6. СТАРТ ПРИЛОЖЕНИЯ (СНАЧАЛА ДАННЫЕ И РЕНДЕР, ЗАТЕМ СЛУШАТЕЛИ)
+// 6. СТАРТ ПРИЛОЖЕНИЯ
 // ============================================================================
 function bootstrapApp() {
   if ("serviceWorker" in navigator) {
@@ -327,19 +344,16 @@ function bootstrapApp() {
       .catch(() => {});
   }
 
-  // 1. Первым делом загружаем расписание (275 пар), чтобы интерфейс сразу отрисовался
   loadLocalDataOrSeed();
   syncStateFromStorage();
   if (typeof window.__applyDiaryAppearance === "function") {
     window.__applyDiaryAppearance();
   }
 
-  // 2. Сразу отрисовываем 7 дней недели, пары и запускаем часы
   renderAll();
   updateLiveWidget();
   setInterval(updateLiveWidget, 1000);
 
-  // 3. Подключаем все кнопки с защитой от ошибок
   initNetworkListeners();
   initUIListeners();
   initNotificationUI();
@@ -423,7 +437,6 @@ function loadLocalDataOrSeed() {
     }
   } catch {}
 
-  // Если база пустая (например, после прошлого сбоя сохранился []), автоматически заливаем все 275 пар
   if (rawSched.length === 0) {
     rawSched = buildDefaultSchedule();
   }
@@ -853,16 +866,17 @@ function checkScheduledNotifications() {
 }
 
 // ============================================================================
-// 10. ДИНАМИЧЕСКИЙ ВИДЖЕТ РЕАЛЬНОГО ВРЕМЕНИ (ТЕКУЩАЯ И СЛЕДУЮЩАЯ ПАРА)
+// 10. УМНЫЙ ВИДЖЕТ РЕАЛЬНОГО ВРЕМЕНИ С СЕКУНДАМИ:
+//     - Текущая пара
+//     - Обед (12:50 - 13:20) и сколько он еще продлится
+//     - Окно / Перемена между парами
+//     - Сейчас нет пары (если пары еще не начались или уже закончились)
+//     - Внизу вместо просто "Отдыхайте" -> "Отдыхайте еще *время*"
 // ============================================================================
 function updateLiveWidget() {
   const now = new Date();
   const todayISO = formatDateISO(now);
   const nowSec = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
-  const clockEl = document.getElementById("live-clock");
-  if (clockEl) {
-    clockEl.textContent = now.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-  }
 
   const visible = getVisibleSchedule();
   const todayClasses = visible
@@ -870,25 +884,30 @@ function updateLiveWidget() {
     .sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
 
   let currentClass = null;
-  let nextClass = null;
+  let nextClassToday = null;
+  let prevClassToday = null;
 
   for (const item of todayClasses) {
     const startSec = timeToMinutes(item.startTime) * 60;
     const endSec = timeToMinutes(item.endTime) * 60;
     if (nowSec >= startSec && nowSec < endSec) {
       currentClass = item;
-    } else if (nowSec < startSec && !nextClass) {
-      nextClass = item;
+    } else if (nowSec < startSec && !nextClassToday) {
+      nextClassToday = item;
+    } else if (nowSec >= endSec) {
+      prevClassToday = item;
     }
   }
 
-  if (!nextClass) {
+  let nextClassAny = nextClassToday;
+  if (!nextClassAny) {
     const upcoming = visible
       .filter((s) => s.date > todayISO)
       .sort((a, b) => a.date.localeCompare(b.date) || timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
-    if (upcoming.length > 0) nextClass = upcoming[0];
+    if (upcoming.length > 0) nextClassAny = upcoming[0];
   }
 
+  const curLabel = document.getElementById("live-current-label");
   const curTitle = document.getElementById("live-current-title");
   const curTimer = document.getElementById("live-current-timer");
   const curMeta = document.getElementById("live-current-meta");
@@ -898,46 +917,89 @@ function updateLiveWidget() {
 
   if (!curTitle || !curBox) return;
 
+  // Строка "Отдыхайте еще *время*" до следующей пары сегодня
+  const getRestTextUntilNext = () => {
+    if (nextClassToday) {
+      const remToNext = timeToMinutes(nextClassToday.startTime) * 60 - nowSec;
+      return `Отдыхайте еще ${formatDurationWithSeconds(remToNext)}`;
+    }
+    return "Сегодня пар больше нет";
+  };
+
   if (currentClass) {
+    // 1. ИДЕТ ПАРА ПРЯМО СЕЙЧАС
     const startSec = timeToMinutes(currentClass.startTime) * 60;
     const endSec = timeToMinutes(currentClass.endTime) * 60;
     const remSec = Math.max(0, endSec - nowSec);
-    const remMin = Math.floor(remSec / 60);
-    const remS = String(remSec % 60).padStart(2, "0");
     const pct = Math.min(100, Math.max(0, Math.round(((nowSec - startSec) / (endSec - startSec)) * 100)));
 
     curBox.className = "rounded-2xl p-2.5 bg-ios-orange/15 border border-ios-orange/50 flex flex-col justify-between min-w-0";
+    if (curLabel) curLabel.textContent = `Идет ${currentClass.number} пара`;
     curTitle.textContent = currentClass.subject;
-    curTimer.textContent = `${remMin}:${remS}`;
+    curTimer.textContent = `Еще ${formatDurationWithSeconds(remSec)}`;
     curMeta.innerHTML = `<span class="truncate">${escapeHtml(currentClass.room)} • ${escapeHtml(currentClass.type)}</span><span class="font-bold text-white shrink-0">${escapeHtml(currentClass.startTime)}–${escapeHtml(currentClass.endTime)}</span>`;
     curProgWrap?.classList.remove("hidden");
     if (curProg) curProg.style.width = `${pct}%`;
-  } else {
+  } else if (nowSec >= LUNCH_START_SEC && nowSec < LUNCH_END_SEC) {
+    // 2. ОБЕДЕННЫЙ ПЕРЕРЫВ (12:50 - 13:20)
+    const remLunchSec = LUNCH_END_SEC - nowSec;
+    const lunchPct = Math.min(100, Math.max(0, Math.round(((nowSec - LUNCH_START_SEC) / (LUNCH_END_SEC - LUNCH_START_SEC)) * 100)));
+
+    curBox.className = "rounded-2xl p-2.5 bg-ios-green/15 border border-ios-green/40 flex flex-col justify-between min-w-0";
+    if (curLabel) curLabel.textContent = "Обеденный перерыв";
+    curTitle.textContent = "Обед (12:50–13:20)";
+    curTimer.textContent = `Еще ${formatDurationWithSeconds(remLunchSec)}`;
+    curMeta.innerHTML = `<span class="truncate">${escapeHtml(getRestTextUntilNext())}</span><span class="font-bold text-white shrink-0">до 13:20</span>`;
+    curProgWrap?.classList.remove("hidden");
+    if (curProg) curProg.style.width = `${lunchPct}%`;
+  } else if (prevClassToday && nextClassToday) {
+    // 3. ОКНО ИЛИ ПЕРЕМЕНА МЕЖДУ ПАРАМИ СЕГОДНЯ
+    const prevEndSec = timeToMinutes(prevClassToday.endTime) * 60;
+    const nextStartSec = timeToMinutes(nextClassToday.startTime) * 60;
+    const totalGapMin = Math.round((nextStartSec - prevEndSec) / 60);
+    const remGapSec = nextStartSec - nowSec;
+    const isWindow = totalGapMin > 20;
+
     curBox.className = "rounded-2xl p-2.5 bg-white/[0.04] border border-white/10 flex flex-col justify-between min-w-0";
-    curTitle.textContent = "Сейчас окна / пар нет";
-    curTimer.textContent = "Свободно";
-    curMeta.innerHTML = `<span>Отдыхайте</span><span></span>`;
+    if (curLabel) curLabel.textContent = isWindow ? "Окно в расписании" : "Перемена";
+    curTitle.textContent = isWindow ? "Сейчас окно" : "Перемена между парами";
+    curTimer.textContent = formatDurationWithSeconds(remGapSec);
+    curMeta.innerHTML = `<span class="truncate">${escapeHtml(getRestTextUntilNext())}</span><span class="shrink-0">${escapeHtml(prevClassToday.endTime)}–${escapeHtml(nextClassToday.startTime)}</span>`;
+    curProgWrap?.classList.add("hidden");
+  } else {
+    // 4. ПАРЫ ЕЩЕ НЕ НАЧАЛИСЬ ИЛИ УЖЕ ЗАКОНЧИЛИСЬ ("Сейчас нет пары")
+    curBox.className = "rounded-2xl p-2.5 bg-white/[0.04] border border-white/10 flex flex-col justify-between min-w-0";
+    if (curLabel) curLabel.textContent = "Текущая пара";
+    curTitle.textContent = "Сейчас нет пары";
+
+    if (nextClassToday) {
+      const remToStart = timeToMinutes(nextClassToday.startTime) * 60 - nowSec;
+      curTimer.textContent = "До старта";
+      curMeta.innerHTML = `<span class="truncate">Отдыхайте еще ${escapeHtml(formatDurationWithSeconds(remToStart))}</span><span class="shrink-0">Старт в ${escapeHtml(nextClassToday.startTime)}</span>`;
+    } else {
+      curTimer.textContent = "Свободно";
+      curMeta.innerHTML = `<span class="truncate">Отдыхайте • Пары закончились</span><span></span>`;
+    }
     curProgWrap?.classList.add("hidden");
   }
 
+  // Блок: СЛЕДУЮЩАЯ ПАРА (с секундами)
   const nextTitle = document.getElementById("live-next-title");
   const nextTimer = document.getElementById("live-next-timer");
   const nextRoom = document.getElementById("live-next-room");
   const nextRange = document.getElementById("live-next-time-range");
 
-  if (nextClass && nextTitle && nextTimer && nextRoom && nextRange) {
-    nextTitle.textContent = nextClass.subject;
-    nextRoom.textContent = `${nextClass.room} (${nextClass.type})`;
-    nextRange.textContent = `${nextClass.startTime}–${nextClass.endTime}`;
+  if (nextClassAny && nextTitle && nextTimer && nextRoom && nextRange) {
+    nextTitle.textContent = nextClassAny.subject;
+    nextRoom.textContent = `${nextClassAny.room} (${nextClassAny.type})`;
+    nextRange.textContent = `${nextClassAny.startTime}–${nextClassAny.endTime}`;
 
-    if (nextClass.date === todayISO) {
-      const startSec = timeToMinutes(nextClass.startTime) * 60;
-      const diffMin = Math.ceil((startSec - nowSec) / 60);
-      const h = Math.floor(diffMin / 60);
-      const m = diffMin % 60;
-      nextTimer.textContent = h > 0 ? `Через ${h}ч ${m}м` : `Через ${m}м`;
+    if (nextClassAny.date === todayISO) {
+      const startSec = timeToMinutes(nextClassAny.startTime) * 60;
+      const diffSec = Math.max(0, startSec - nowSec);
+      nextTimer.textContent = `Через ${formatDurationWithSeconds(diffSec)}`;
     } else {
-      const dLabel = parseDateISO(nextClass.date).toLocaleDateString("ru-RU", { weekday: "short", day: "numeric", month: "short" });
+      const dLabel = parseDateISO(nextClassAny.date).toLocaleDateString("ru-RU", { weekday: "short", day: "numeric", month: "short" });
       nextTimer.textContent = dLabel;
     }
   } else if (nextTitle) {
@@ -946,10 +1008,190 @@ function updateLiveWidget() {
     if (nextRange) nextRange.textContent = "";
     if (nextTimer) nextTimer.textContent = "—";
   }
+
+  // Обновляем линию текущего времени в сетке недели, если она открыта
+  updateWeekGridNowLine();
 }
 
 // ============================================================================
-// 11. РЕНДЕРИНГ РАСПИСАНИЯ (7 ДНЕЙ С ВОСКРЕСЕНЬЕМ + Ч/Б ТЕМА)
+// 11. ТАБЛИЦА РАСПИСАНИЯ НА ВСЮ НЕДЕЛЮ В СТИЛЕ GOOGLE КАЛЕНДАРЯ
+// ============================================================================
+function toggleWeekGridView(forceState) {
+  state.weekGridMode = typeof forceState === "boolean" ? forceState : !state.weekGridMode;
+  document.body.classList.toggle("week-grid-open", state.weekGridMode);
+
+  const gridView = document.getElementById("week-grid-view");
+  const dayView = document.getElementById("day-schedule-view");
+  const btnText = document.getElementById("week-grid-toggle-text");
+  const btnToggle = document.getElementById("btn-week-grid-toggle");
+
+  if (gridView && dayView) {
+    gridView.classList.toggle("hidden", !state.weekGridMode);
+    dayView.classList.toggle("hidden", state.weekGridMode);
+  }
+  if (btnText) {
+    btnText.textContent = state.weekGridMode ? "День" : "Неделя";
+  }
+  if (btnToggle) {
+    btnToggle.classList.toggle("ios-active-orange", state.weekGridMode);
+  }
+
+  if (state.weekGridMode) {
+    renderWeekGridTable();
+  }
+}
+
+function renderWeekGridTable() {
+  const wrapper = document.getElementById("week-grid-table-wrapper");
+  if (!wrapper) return;
+
+  const todayISO = getTodayISO();
+  const monday = getMondayOfDate(state.selectedDate);
+  const visibleSchedule = getVisibleSchedule();
+
+  // Проверяем, есть ли пары или события в воскресенье на этой неделе
+  const sundayDate = new Date(monday);
+  sundayDate.setDate(monday.getDate() + 6);
+  const sundayISO = formatDateISO(sundayDate);
+  const hasSundayItems =
+    visibleSchedule.some((s) => s.date === sundayISO) ||
+    (state.showEvents && state.events.some((e) => e.date === sundayISO));
+
+  const daysCount = hasSundayItems ? 7 : 6;
+  const dayLabels = ["ПН", "ВТ", "СР", "ЧТ", "ПТ", "СБ", "ВС"];
+  const weekDates = [];
+
+  for (let i = 0; i < daysCount; i++) {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    weekDates.push({
+      dateObj: d,
+      iso: formatDateISO(d),
+      dayName: dayLabels[i],
+      dayNum: d.getDate()
+    });
+  }
+
+  // Строки таблицы: 1..3 пара, Обед 12:50-13:20, 4..6 пара (и 7 если есть)
+  const hasSeventhSlot = visibleSchedule.some(
+    (s) => weekDates.some((wd) => wd.iso === s.date) && Number(s.number) === 7
+  );
+
+  const slots = [
+    { type: "class", number: 1, label: "1 пара", time: "08:00–09:30", startMin: 480, endMin: 570 },
+    { type: "class", number: 2, label: "2 пара", time: "09:40–11:10", startMin: 580, endMin: 670 },
+    { type: "class", number: 3, label: "3 пара", time: "11:20–12:50", startMin: 680, endMin: 770 },
+    { type: "lunch", label: "Обед", time: "12:50–13:20", startMin: 770, endMin: 800 },
+    { type: "class", number: 4, label: "4 пара", time: "13:20–14:50", startMin: 800, endMin: 890 },
+    { type: "class", number: 5, label: "5 пара", time: "15:00–16:30", startMin: 900, endMin: 990 },
+    { type: "class", number: 6, label: "6 пара", time: "16:40–18:10", startMin: 1000, endMin: 1090 }
+  ];
+  if (hasSeventhSlot) {
+    slots.push({ type: "class", number: 7, label: "7 пара", time: "18:20–19:50", startMin: 1100, endMin: 1190 });
+  }
+
+  let html = `<div class="gcal-grid-table ${daysCount === 7 ? "cols-7" : ""} rounded-2xl overflow-hidden">`;
+
+  // Шапка таблицы (Дни недели и крупные числа месяца как в Google Календаре)
+  html += `<div class="gcal-cell p-2 flex items-center justify-center text-[10px] font-bold text-ios-gray bg-black/20">Пара</div>`;
+  for (const wd of weekDates) {
+    const isToday = wd.iso === todayISO;
+    const isSelected = wd.iso === state.selectedDate;
+    html += `
+      <div data-grid-pick-date="${wd.iso}" class="gcal-cell py-2.5 px-2 text-center cursor-pointer hover:bg-white/[0.04] transition-colors bg-black/20">
+        <div class="text-[10px] font-bold uppercase tracking-wider ${isToday ? "text-ios-blue" : "text-ios-gray"}">${wd.dayName}</div>
+        <div class="mt-1 inline-flex items-center justify-center w-8 h-8 rounded-full text-base font-extrabold ${
+          isToday
+            ? "bg-ios-blue text-white shadow"
+            : isSelected
+            ? "bg-white/15 text-white"
+            : "text-white"
+        }">${wd.dayNum}</div>
+      </div>
+    `;
+  }
+
+  // Строки звонков
+  for (const slot of slots) {
+    if (slot.type === "lunch") {
+      html += `
+        <div class="gcal-cell px-1.5 py-1.5 flex flex-col items-center justify-center text-center bg-white/[0.02]">
+          <span class="text-[10px] font-extrabold text-ios-green">Обед</span>
+          <span class="text-[9px] text-ios-gray">12:50</span>
+        </div>
+      `;
+      for (const wd of weekDates) {
+        html += `
+          <div class="gcal-cell px-2 py-1.5 flex items-center justify-center bg-white/[0.02]" data-grid-slot-cell="${wd.iso}:${slot.startMin}:${slot.endMin}">
+            <span class="text-[10px] text-ios-gray/70 font-medium">Обеденный перерыв (12:50–13:20)</span>
+          </div>
+        `;
+      }
+      continue;
+    }
+
+    html += `
+      <div class="gcal-cell p-1.5 flex flex-col items-center justify-center text-center bg-black/10">
+        <span class="text-[11px] font-extrabold text-white">${slot.number} пара</span>
+        <span class="text-[9px] text-ios-gray leading-tight mt-0.5">${slot.time.replace("–", "<br/>")}</span>
+      </div>
+    `;
+
+    for (const wd of weekDates) {
+      const cellClasses = visibleSchedule.filter(
+        (s) => s.date === wd.iso && Number(s.number) === slot.number
+      );
+
+      html += `
+        <div class="gcal-cell p-1.5 min-h-[78px] space-y-1" data-grid-slot-cell="${wd.iso}:${slot.startMin}:${slot.endMin}">
+          ${cellClasses
+            .map(
+              (cls) => `
+            <div data-grid-open-class="${cls.id}" data-grid-pick-date="${wd.iso}" class="gcal-event-card">
+              <div class="font-extrabold truncate">[Пара ${escapeHtml(cls.number)}, ${escapeHtml(cls.startTime)}-${escapeHtml(cls.endTime)}] ${escapeHtml(cls.subject)}</div>
+              <div class="opacity-90 truncate text-[10px] mt-0.5">${escapeHtml(cls.type)}${cls.teacher ? ` • ${escapeHtml(cls.teacher)}` : ""}</div>
+              <div class="font-bold text-[10px] mt-0.5 truncate">${escapeHtml(cls.room)}</div>
+            </div>
+          `
+            )
+            .join("")}
+        </div>
+      `;
+    }
+  }
+
+  html += `</div>`;
+  wrapper.innerHTML = html;
+  updateWeekGridNowLine();
+}
+
+// Отрисовка красной линии текущего времени в сетке недели (как в Google Календаре)
+function updateWeekGridNowLine() {
+  if (!state.weekGridMode) return;
+  document.querySelectorAll(".gcal-now-line").forEach((el) => el.remove());
+
+  const now = new Date();
+  const todayISO = formatDateISO(now);
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+
+  const cells = document.querySelectorAll(`[data-grid-slot-cell^="${todayISO}:"]`);
+  cells.forEach((cell) => {
+    const [, startStr, endStr] = cell.dataset.gridSlotCell.split(":");
+    const startMin = Number(startStr);
+    const endMin = Number(endStr);
+    if (nowMin >= startMin && nowMin <= endMin) {
+      const pct = Math.min(100, Math.max(0, ((nowMin - startMin) / (endMin - startMin)) * 100));
+      const line = document.createElement("div");
+      line.className = "gcal-now-line";
+      line.style.top = `${pct}%`;
+      line.innerHTML = `<span class="gcal-now-dot"></span>`;
+      cell.appendChild(line);
+    }
+  });
+}
+
+// ============================================================================
+// 12. РЕНДЕРИНГ РАСПИСАНИЯ
 // ============================================================================
 function renderAll() {
   renderScheduleSection();
@@ -1013,7 +1255,11 @@ function renderScheduleSection() {
     bannerHidden.classList.toggle("hidden", hiddenCount === 0);
   }
 
-  // Сетка 7 дней недели (ПН, ВТ, СР, ЧТ, ПТ, СБ, ВС)
+  // Если включен режим сетки на неделю — обновляем также таблицу
+  if (state.weekGridMode) {
+    renderWeekGridTable();
+  }
+
   const visibleSchedule = getVisibleSchedule();
   const dayNames = ["ПН", "ВТ", "СР", "ЧТ", "ПТ", "СБ", "ВС"];
   const daySelector = document.getElementById("day-selector");
@@ -1074,7 +1320,7 @@ function renderScheduleSection() {
   }
   if (daySelector) daySelector.innerHTML = buttonsHtml.join("");
 
-  // Рендеринг блока Мероприятий (включая Воскресенье)
+  // Рендеринг блока Мероприятий
   const eventsWrapper = document.getElementById("events-section-wrapper");
   const eventsListEl = document.getElementById("events-list");
   const eventsCountEl = document.getElementById("events-day-count");
@@ -1121,7 +1367,7 @@ function renderScheduleSection() {
     }
   }
 
-  // Рендеринг учебных пар
+  // Рендеринг учебных пар выбранного дня
   const listEl = document.getElementById("schedule-list");
   if (!listEl) return;
 
@@ -1337,7 +1583,7 @@ function getBadgeStyle(type) {
 }
 
 // ============================================================================
-// 12. РЕНДЕРИНГ ТРЕКЕРА ДЗ
+// 13. РЕНДЕРИНГ ТРЕКЕРА ДЗ
 // ============================================================================
 function renderTasks() {
   const container = document.getElementById("tasks-list");
@@ -1419,7 +1665,7 @@ function renderTasks() {
 }
 
 // ============================================================================
-// 13. РЕНДЕРИНГ РАЗДЕЛА ЗАМЕТОК
+// 14. РЕНДЕРИНГ РАЗДЕЛА ЗАМЕТОК
 // ============================================================================
 function renderNotes() {
   const container = document.getElementById("notes-list");
@@ -1517,7 +1763,7 @@ function renderNotes() {
 }
 
 // ============================================================================
-// 14. СКРЫТЫЕ ПАРЫ И DATALIST
+// 15. СКРЫТЫЕ ПАРЫ И DATALIST
 // ============================================================================
 function renderHiddenClassesModal() {
   const container = document.getElementById("hidden-classes-list");
@@ -1553,9 +1799,6 @@ function updateSubjectsDatalist() {
   dl.innerHTML = subjects.map((s) => `<option value="${escapeHtml(s)}"></option>`).join("");
 }
 
-// ============================================================================
-// 15. УМНОЕ РАСПРЕДЕЛЕНИЕ ДАТЫ
-// ============================================================================
 function applyTaskTargetMode(mode) {
   state.taskTargetMode = mode;
   document.querySelectorAll(".task-target-btn").forEach((btn) => {
@@ -1663,9 +1906,20 @@ function resetKeepComposer() {
 }
 
 // ============================================================================
-// 16. ОБРАБОТЧИКИ СОБЫТИЙ (ПОЛНОСТЬЮ ЗАЩИЩЕННЫЕ ОТ NULL)
+// 16. ОБРАБОТЧИКИ СОБЫТИЙ
 // ============================================================================
 function initUIListeners() {
+  // Кнопка показа расписания на всю неделю (как в Google Календаре)
+  document.getElementById("btn-week-grid-toggle")?.addEventListener("click", () => {
+    if (state.activeTab !== "schedule") {
+      document.querySelector('[data-tab="schedule"]')?.click();
+    }
+    toggleWeekGridView();
+  });
+  document.getElementById("btn-close-week-grid")?.addEventListener("click", () => {
+    toggleWeekGridView(false);
+  });
+
   // Загрузка своего фона из галереи
   document.getElementById("custom-bg-input")?.addEventListener("change", async (e) => {
     const file = e.target.files?.[0];
@@ -1698,6 +1952,7 @@ function initUIListeners() {
 
   // Модальное окно уведомлений
   document.getElementById("btn-notifications")?.addEventListener("click", () => {
+    closeModal("modal-tools");
     updateNotifPermissionStatusUI();
     openModal("modal-notifications");
   });
@@ -1954,15 +2209,13 @@ function initUIListeners() {
   document.getElementById("btn-new-task-top")?.addEventListener("click", () => openTaskModalFor(null));
 
   const openHiddenModal = () => {
+    closeModal("modal-tools");
     renderHiddenClassesModal();
     openModal("modal-hidden-classes");
   };
   document.getElementById("btn-hidden-classes")?.addEventListener("click", openHiddenModal);
   document.getElementById("btn-open-hidden-inline")?.addEventListener("click", openHiddenModal);
-  document.getElementById("btn-open-hidden-from-tools")?.addEventListener("click", () => {
-    closeModal("modal-tools");
-    openHiddenModal();
-  });
+  document.getElementById("btn-open-hidden-from-tools")?.addEventListener("click", openHiddenModal);
 
   document.getElementById("btn-restore-all-hidden")?.addEventListener("click", async () => {
     const ids = state.hiddenRules.map((r) => r.id);
@@ -2214,6 +2467,9 @@ function initUIListeners() {
   document.querySelectorAll(".nav-tab").forEach((btn) => {
     btn.addEventListener("click", () => {
       state.activeTab = btn.dataset.tab;
+      if (state.activeTab !== "schedule" && state.weekGridMode) {
+        toggleWeekGridView(false);
+      }
       const titles = { schedule: "Расписание", tasks: "ДЗ и Задачи", notes: "Заметки" };
       const hTitle = document.getElementById("header-title");
       if (hTitle) hTitle.textContent = titles[state.activeTab];
@@ -2257,6 +2513,15 @@ function initUIListeners() {
   });
 
   document.addEventListener("click", async (e) => {
+    // Клик по дню или карточке пары в сетке на всю неделю -> переход к этому дню
+    const gridPick = e.target.closest("[data-grid-pick-date]");
+    if (gridPick) {
+      state.selectedDate = gridPick.dataset.gridPickDate;
+      toggleWeekGridView(false);
+      renderScheduleSection();
+      return;
+    }
+
     const photoEl = e.target.closest("[data-view-photo]");
     if (photoEl) {
       const img = document.getElementById("photo-viewer-img");
