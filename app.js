@@ -395,8 +395,22 @@ window.addEventListener("diary-appearance-changed", () => {
   refreshIcons();
 });
 
+let liquidGLRefreshTimer = null;
+
 function refreshIcons() {
   if (window.lucide) window.lucide.createIcons();
+
+  if (state.theme === "liquid-gl" && typeof window.liquidGL === "function") {
+    clearTimeout(liquidGLRefreshTimer);
+    liquidGLRefreshTimer = setTimeout(() => {
+      try {
+        if (typeof window.liquidGL.registerDynamic === "function") {
+          window.liquidGL.registerDynamic("#main-container");
+        }
+        window.dispatchEvent(new Event("scroll"));
+      } catch {}
+    }, 80);
+  }
 }
 
 function initNetworkListeners() {
@@ -1039,6 +1053,7 @@ function toggleWeekGridView(forceState) {
   if (state.weekGridMode) {
     renderWeekGridTable();
   }
+  refreshIcons();
 }
 
 function renderWeekGridTable() {
@@ -2423,7 +2438,6 @@ function initUIListeners() {
   });
 
   document.getElementById("btn-tools")?.addEventListener("click", () => {
-    if (window.__applyDiaryAppearance) window.__applyDiaryAppearance();
     openModal("modal-tools");
   });
 
@@ -2483,6 +2497,8 @@ function initUIListeners() {
         b.classList.toggle("text-ios-orange", active);
         b.classList.toggle("text-ios-gray", !active);
       });
+
+      refreshIcons();
     });
   });
 
