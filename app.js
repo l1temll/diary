@@ -190,7 +190,8 @@ const state = {
   rimStyle: localStorage.getItem("diary_rim_style_v5") || "normal",
 
   activeTab: "schedule",
-  weekGridMode: false, // Режим сетки расписания на неделю (как в Google Календаре)
+  weekGridMode: false, // Режим обзора расписания на всю неделю
+  weekLayout: localStorage.getItem("diary_week_layout_v1") || "cards", // "cards" | "list" | "table"
   selectedDate: getTodayISO(),
   addScope: "date",
   taskFilter: "active",
@@ -1018,7 +1019,7 @@ function updateLiveWidget() {
 // ============================================================================
 function toggleWeekGridView(forceState) {
   state.weekGridMode = typeof forceState === "boolean" ? forceState : !state.weekGridMode;
-  document.body.classList.toggle("week-grid-open", state.weekGridMode);
+  document.body.classList.toggle("week-grid-open", state.weekGridMode && state.weekLayout === "table");
 
   const gridView = document.getElementById("week-grid-view");
   const dayView = document.getElementById("day-schedule-view");
@@ -1046,11 +1047,19 @@ function renderWeekGridTable() {
   const wrapper = document.getElementById("week-grid-table-wrapper");
   if (!wrapper) return;
 
+  document.body.classList.toggle("week-grid-open", state.weekGridMode && state.weekLayout === "table");
+
+  document.querySelectorAll(".week-layout-btn").forEach((btn) => {
+    const active = btn.dataset.weekLayout === state.weekLayout;
+    btn.className = `week-layout-btn ios-press px-2.5 py-1 rounded-full text-[11px] font-bold transition-all ${
+      active ? "ios-active-orange" : "text-ios-gray hover:text-white"
+    }`;
+  });
+
   const todayISO = getTodayISO();
   const monday = getMondayOfDate(state.selectedDate);
   const visibleSchedule = getVisibleSchedule();
 
-  // Проверяем, есть ли пары или события в воскресенье на этой неделе
   const sundayDate = new Date(monday);
   sundayDate.setDate(monday.getDate() + 6);
   const sundayISO = formatDateISO(sundayDate);
@@ -1060,6 +1069,7 @@ function renderWeekGridTable() {
 
   const daysCount = hasSundayItems ? 7 : 6;
   const dayLabels = ["ПН", "ВТ", "СР", "ЧТ", "ПТ", "СБ", "ВС"];
+  const dayFullNames = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"];
   const weekDates = [];
 
   for (let i = 0; i < daysCount; i++) {
@@ -1069,11 +1079,182 @@ function renderWeekGridTable() {
       dateObj: d,
       iso: formatDateISO(d),
       dayName: dayLabels[i],
-      dayNum: d.getDate()
+      dayFull: dayFullNames[i],
+      dayNum: d.getDate(),
+      shortLabel: d.toLocaleDateString("ru-RU", { day: "numeric", month: "short" })
     });
   }
 
-  // Строки таблицы: 1..3 пара, Обед 12:50-13:20, 4..6 пара (и 7 если есть)
+  // ВАРИАНТ 1: НАГЛЯДНЫЕ ПЛИТКИ (2 КОЛОНКИ НА ТЕЛЕФОНЕ — ВСЯ НЕДЕЛЯ БЕЗ СКРОЛЛА ВБОК)
+  if (state.weekLayout === "cards") {
+    let cardsHtml = `<div class="grid grid-cols-2 sm:grid-cols-3 gap-2">`;
+
+    for (const wd of weekDates) {
+      const isToday = wd.iso === todayISO;
+      const isSelected = wd.iso === state.selectedDate;
+      const dayClasses = visibleSchedule
+        .filter((s) => s.date === wd.iso)
+        .sort((a, b) => Number(a.number || 0) - Number(b.number || 0) || timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
+      const dayEvents = state.showEvents ? state.events.filter((e) => e.date === wd.iso) : [];
+
+      const borderClass = isToday
+        ? "border-ios-orange/60 bg-ios-orange/[0.06]"
+        : isSelected
+        ? "border-white/30 bg-white/[0.05]"
+        : "border-white/10 bg-black/25";
+
+      cardsHtml += `
+        <div data-grid-pick-date="${wd.iso}" class="rounded-2xl border ${borderClass} p-2.5 flex flex-col justify-between cursor-pointer active:scale-[0.98] transition-all min-w-0">
+          <div>
+            <div class="flex items-center justify-between gap-1 pb-1.5 mb-2 border-b border-white/10">
+              <div class="flex items-center gap-1.5 min-w-0">
+                <span class="w-6 h-6 rounded-full text-xs font-extrabold flex items-center justify-center shrink-0 ${
+                  isToday ? "ios-active-orange text-black" : "bg-white/10 text-white"
+                }">${wd.dayName}</span>
+                <span class="text-[11px] font-bold text-gray-300 truncate">${escapeHtml(wd.shortLabel)}</span>
+              </div>
+              <span class="text-[10px] font-bold text-ios-gray shrink-0">${dayClasses.length > 0 ? `${dayClasses.length} п.` : "Вых."}</span>
+            </div>
+
+            ${
+              dayEvents.length > 0
+                ? `<div class="mb-1.5 space-y-1">
+                    ${dayEvents
+                      .map(
+                        (ev) => `
+                      <div class="px-2 py-1 rounded-lg bg-ios-purple/20 border border-ios-purple/40 text-[10px] font-bold text-white truncate">
+                        ✦ ${escapeHtml(ev.title)}
+                      </div>`
+                      )
+                      .join("")}
+                  </div>`
+                : ""
+            }
+
+            ${
+              dayClasses.length > 0
+                ? `<div class="space-y-1.5">
+                    ${dayClasses
+                      .map((cls) => {
+                        const hasHw = state.tasks.some(
+                          (t) =>
+                            !t.completed &&
+                            t.deadline === wd.iso &&
+                            String(t.subject).trim().toLowerCase() === String(cls.subject).trim().toLowerCase()
+                        );
+                        return `
+                        <div class="rounded-xl bg-white/[0.05] border border-white/10 p-1.5 space-y-0.5">
+                          <div class="flex items-center justify-between gap-1 text-[9px] font-bold">
+                            <span class="text-ios-orange">${escapeHtml(cls.number)} пара • ${escapeHtml(cls.startTime)}</span>
+                            ${hasHw ? `<span class="px-1 rounded bg-ios-orange text-black font-extrabold">ДЗ</span>` : ""}
+                          </div>
+                          <div class="text-[11px] font-extrabold text-white leading-tight line-clamp-2 break-words">${escapeHtml(cls.subject)}</div>
+                          <div class="flex items-center justify-between gap-1 text-[9px] text-gray-300 pt-0.5">
+                            <span class="truncate text-ios-gray">${escapeHtml(cls.type)}</span>
+                            <span class="font-bold text-white shrink-0">${escapeHtml(cls.room)}</span>
+                          </div>
+                        </div>
+                      `;
+                      })
+                      .join("")}
+                  </div>`
+                : `<div class="py-5 text-center text-[11px] text-ios-gray italic">Пар нет</div>`
+            }
+          </div>
+        </div>
+      `;
+    }
+
+    cardsHtml += `</div>`;
+    wrapper.innerHTML = cardsHtml;
+    return;
+  }
+
+  // ВАРИАНТ 2: ПОДРОБНЫЙ СПИСОК ВСЕЙ НЕДЕЛИ СВЕРХУ ВНИЗ
+  if (state.weekLayout === "list") {
+    let listHtml = `<div class="space-y-2.5">`;
+
+    for (const wd of weekDates) {
+      const isToday = wd.iso === todayISO;
+      const dayClasses = visibleSchedule
+        .filter((s) => s.date === wd.iso)
+        .sort((a, b) => Number(a.number || 0) - Number(b.number || 0) || timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
+      const dayEvents = state.showEvents ? state.events.filter((e) => e.date === wd.iso) : [];
+
+      listHtml += `
+        <div data-grid-pick-date="${wd.iso}" class="rounded-2xl border ${
+          isToday ? "border-ios-orange/60 bg-ios-orange/[0.06]" : "border-white/10 bg-black/25"
+        } p-3 space-y-2 cursor-pointer transition-all">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="px-2 py-0.5 rounded-lg text-xs font-extrabold ${
+                isToday ? "ios-active-orange text-black" : "bg-white/10 text-white"
+              }">${wd.dayName}</span>
+              <span class="text-xs font-extrabold text-white">${escapeHtml(wd.dayFull)}, ${escapeHtml(wd.shortLabel)}</span>
+            </div>
+            <span class="text-[11px] font-semibold text-ios-gray">${dayClasses.length > 0 ? `${dayClasses.length} пар(ы)` : "Выходной"}</span>
+          </div>
+
+          ${
+            dayEvents.length > 0
+              ? `<div class="space-y-1">
+                  ${dayEvents
+                    .map(
+                      (ev) => `
+                    <div class="px-2.5 py-1.5 rounded-xl bg-ios-purple/20 border border-ios-purple/40 text-xs font-bold text-white flex items-center justify-between gap-2">
+                      <span class="truncate">✦ ${escapeHtml(ev.title)}</span>
+                      <span class="text-[10px] text-ios-purple shrink-0">${escapeHtml(ev.startTime || "Весь день")}</span>
+                    </div>`
+                    )
+                    .join("")}
+                </div>`
+              : ""
+          }
+
+          ${
+            dayClasses.length > 0
+              ? `<div class="space-y-1.5">
+                  ${dayClasses
+                    .map((cls) => {
+                      const hasHw = state.tasks.some(
+                        (t) =>
+                          !t.completed &&
+                          t.deadline === wd.iso &&
+                          String(t.subject).trim().toLowerCase() === String(cls.subject).trim().toLowerCase()
+                      );
+                      return `
+                      <div class="flex items-center gap-2.5 rounded-xl bg-white/[0.04] border border-white/10 px-2.5 py-2">
+                        <div class="text-center min-w-[52px] shrink-0">
+                          <div class="text-[10px] font-extrabold text-ios-orange">${escapeHtml(cls.number)} пара</div>
+                          <div class="text-[10px] font-bold text-gray-300">${escapeHtml(cls.startTime)}</div>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                          <div class="text-xs font-extrabold text-white truncate">${escapeHtml(cls.subject)}</div>
+                          <div class="text-[10px] text-gray-300 truncate mt-0.5">
+                            ${escapeHtml(cls.type)}${cls.teacher ? ` • ${escapeHtml(cls.teacher)}` : ""}
+                          </div>
+                        </div>
+                        <div class="flex flex-col items-end gap-1 shrink-0">
+                          <span class="text-[11px] font-extrabold text-white bg-white/10 px-2 py-0.5 rounded-lg">${escapeHtml(cls.room)}</span>
+                          ${hasHw ? `<span class="text-[9px] px-1.5 py-0.2 rounded bg-ios-orange text-black font-extrabold">Есть ДЗ</span>` : ""}
+                        </div>
+                      </div>
+                    `;
+                    })
+                    .join("")}
+                </div>`
+              : `<p class="text-xs text-ios-gray italic">Учебных пар нет</p>`
+          }
+        </div>
+      `;
+    }
+
+    listHtml += `</div>`;
+    wrapper.innerHTML = listHtml;
+    return;
+  }
+
+  // ВАРИАНТ 3: ТАБЛИЦА КАЛЕНДАРЯ (С ИСПРАВЛЕННОЙ ШИРИНОЙ БЕЗ ОБРЕЗКИ СУББОТЫ)
   const hasSeventhSlot = visibleSchedule.some(
     (s) => weekDates.some((wd) => wd.iso === s.date) && Number(s.number) === 7
   );
@@ -1093,7 +1274,6 @@ function renderWeekGridTable() {
 
   let html = `<div class="gcal-grid-table ${daysCount === 7 ? "cols-7" : ""} rounded-2xl overflow-hidden">`;
 
-  // Шапка таблицы (Дни недели и крупные числа месяца как в Google Календаре)
   html += `<div class="gcal-cell p-2 flex items-center justify-center text-[10px] font-bold text-ios-gray bg-black/20">Пара</div>`;
   for (const wd of weekDates) {
     const isToday = wd.iso === todayISO;
@@ -1112,7 +1292,6 @@ function renderWeekGridTable() {
     `;
   }
 
-  // Строки звонков
   for (const slot of slots) {
     if (slot.type === "lunch") {
       html += `
@@ -1932,6 +2111,14 @@ function initUIListeners() {
   });
   document.getElementById("btn-close-week-grid")?.addEventListener("click", () => {
     toggleWeekGridView(false);
+  });
+
+  document.querySelectorAll(".week-layout-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      state.weekLayout = btn.dataset.weekLayout || "cards";
+      localStorage.setItem("diary_week_layout_v1", state.weekLayout);
+      renderWeekGridTable();
+    });
   });
 
   // Загрузка своего фона из галереи
