@@ -1,12 +1,11 @@
-const CACHE_NAME = "student-diary-v11";
+const CACHE_NAME = "student-diary-v12";
 const ASSETS = [
   "./",
   "./index.html",
   "./app.js",
   "./manifest.webmanifest",
   "https://cdn.tailwindcss.com",
-  "https://unpkg.com/lucide@latest",
-  "https://cdn.jsdelivr.net/gh/naughtyduk/liquidGL@main/scripts/liquidGL.js"
+  "https://unpkg.com/lucide@latest"
 ];
 
 self.addEventListener("install", (event) => {
@@ -37,7 +36,6 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
   if (event.request.method !== "GET" || url.hostname.includes("googleapis.com")) return;
 
-  // Стратегия Network-First: сначала свежая версия из сети, а при оффлайне — из кэша
   event.respondWith(
     fetch(event.request)
       .then((res) => {
