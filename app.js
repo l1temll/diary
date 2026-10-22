@@ -395,22 +395,8 @@ window.addEventListener("diary-appearance-changed", () => {
   refreshIcons();
 });
 
-let liquidGLRefreshTimer = null;
-
 function refreshIcons() {
   if (window.lucide) window.lucide.createIcons();
-
-  if (state.theme === "liquid-gl" && typeof window.liquidGL === "function") {
-    clearTimeout(liquidGLRefreshTimer);
-    liquidGLRefreshTimer = setTimeout(() => {
-      try {
-        if (typeof window.liquidGL.registerDynamic === "function") {
-          window.liquidGL.registerDynamic("#main-container");
-        }
-        window.dispatchEvent(new Event("scroll"));
-      } catch {}
-    }, 80);
-  }
 }
 
 function initNetworkListeners() {
@@ -470,9 +456,9 @@ function loadLocalDataOrSeed() {
       id: ev.id,
       title: ev.title || ev.subject || "Мероприятие",
       date: ev.date,
-      startTime: ev.startTime || "10:00",
-      endTime: ev.endTime || "12:00",
-      location: ev.location || ev.room || "Мероприятие"
+      startTime: ev.startTime || "",
+      endTime: ev.endTime || "",
+      location: ev.location || ev.room || ""
     });
   });
   state.events = [...eventMap.values()];
@@ -1341,27 +1327,40 @@ function renderScheduleSection() {
   const eventsCountEl = document.getElementById("events-day-count");
   const dayEvents = state.events
     .filter((ev) => ev.date === state.selectedDate)
-    .sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
+    .sort((a, b) => timeToMinutes(a.startTime || "00:00") - timeToMinutes(b.startTime || "00:00"));
 
   if (eventsWrapper && eventsListEl) {
     if (state.showEvents && dayEvents.length > 0) {
       eventsWrapper.classList.remove("hidden");
       if (eventsCountEl) eventsCountEl.textContent = dayEvents.length;
       eventsListEl.innerHTML = dayEvents
-        .map(
-          (ev) => `
+        .map((ev) => {
+          const timeLabel =
+            ev.startTime && ev.endTime
+              ? `${escapeHtml(ev.startTime)}–${escapeHtml(ev.endTime)}`
+              : ev.startTime
+              ? `в ${escapeHtml(ev.startTime)}`
+              : ev.endTime
+              ? `до ${escapeHtml(ev.endTime)}`
+              : "Весь день";
+
+          return `
         <div class="ios26-card rounded-2xl p-3 border border-ios-purple/40 flex items-center justify-between gap-2.5">
           <div class="flex items-center gap-2.5 min-w-0 flex-1">
-            <div class="px-2 py-1.5 rounded-xl bg-ios-purple/20 border border-ios-purple/40 text-center shrink-0">
+            <div class="px-2.5 py-1.5 rounded-xl bg-ios-purple/20 border border-ios-purple/40 text-center shrink-0 min-w-[68px]">
               <span class="block text-[9px] font-extrabold uppercase text-ios-purple">Событие</span>
-              <span class="block text-[11px] font-bold text-white">${escapeHtml(ev.startTime)}–${escapeHtml(ev.endTime)}</span>
+              <span class="block text-[11px] font-bold text-white">${timeLabel}</span>
             </div>
             <div class="min-w-0 flex-1">
               <h4 class="text-sm font-extrabold text-white truncate">${escapeHtml(ev.title)}</h4>
-              <p class="text-xs text-gray-300 flex items-center gap-1 truncate mt-0.5">
-                <i data-lucide="map-pin" class="w-3 h-3 text-ios-purple shrink-0"></i>
-                <span class="truncate">${escapeHtml(ev.location || "Мероприятие")}</span>
-              </p>
+              ${
+                ev.location
+                  ? `<p class="text-xs text-gray-300 flex items-center gap-1 truncate mt-0.5">
+                      <i data-lucide="map-pin" class="w-3 h-3 text-ios-purple shrink-0"></i>
+                      <span class="truncate">${escapeHtml(ev.location)}</span>
+                    </p>`
+                  : ""
+              }
             </div>
           </div>
           <div class="flex items-center gap-1 shrink-0">
@@ -1373,8 +1372,8 @@ function renderScheduleSection() {
             </button>
           </div>
         </div>
-      `
-        )
+      `;
+        })
         .join("");
     } else {
       eventsWrapper.classList.add("hidden");
@@ -2006,7 +2005,7 @@ function initUIListeners() {
     sendAppNotification("Тестовое уведомление", "Уведомления работают отлично!");
   });
 
-  // Навигация по неделям
+  // Навигация по неделям и дням
   document.getElementById("btn-prev-week")?.addEventListener("click", () => {
     state.selectedDate = addDaysISO(state.selectedDate, -7);
     renderScheduleSection();
@@ -2019,9 +2018,13 @@ function initUIListeners() {
     state.selectedDate = getInitialStudyDate();
     renderScheduleSection();
   });
-  document.getElementById("btn-jump-next-week")?.addEventListener("click", () => {
-    state.selectedDate = addDaysISO(getInitialStudyDate(), 7);
-    renderScheduleSection();
+  document.getElementById("btn-date-picker-trigger")?.addEventListener("click", () => {
+    const picker = document.getElementById("date-jump-picker");
+    if (picker && typeof picker.showPicker === "function") {
+      try {
+        picker.showPicker();
+      } catch {}
+    }
   });
   document.getElementById("date-jump-picker")?.addEventListener("change", (e) => {
     if (e.target.value) {
@@ -2036,6 +2039,48 @@ function initUIListeners() {
       renderScheduleSection();
     }
   });
+
+  // Свайпы влево и вправо для переключения дней в неделе
+  let touchStartX = 0;
+  let touchStartY = 0;
+  const dayScheduleEl = document.getElementById("day-schedule-view");
+  dayScheduleEl?.addEventListener(
+    "touchstart",
+    (e) => {
+      if (e.touches.length !== 1) return;
+      const tag = e.target.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || e.target.closest("[data-view-photo]")) {
+        touchStartX = 0;
+        return;
+      }
+      touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
+    },
+    { passive: true }
+  );
+
+  dayScheduleEl?.addEventListener(
+    "touchend",
+    (e) => {
+      if (!touchStartX || e.changedTouches.length !== 1) return;
+      const dx = e.changedTouches[0].clientX - touchStartX;
+      const dy = e.changedTouches[0].clientY - touchStartY;
+      touchStartX = 0;
+
+      // Горизонтальный свайп (минимум 55px и заметно горизонтальнее вертикального скролла)
+      if (Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy) * 1.6) {
+        if (dx < 0) {
+          // Свайп влево -> следующий день
+          state.selectedDate = addDaysISO(state.selectedDate, 1);
+        } else {
+          // Свайп вправо -> предыдущий день
+          state.selectedDate = addDaysISO(state.selectedDate, -1);
+        }
+        renderScheduleSection();
+      }
+    },
+    { passive: true }
+  );
 
   // Скрытие / показ мероприятий
   const toggleEventsVisibility = () => {
@@ -2052,10 +2097,14 @@ function initUIListeners() {
     const title = document.getElementById("modal-event-title");
     const df = document.getElementById("event-date-from");
     const dt = document.getElementById("event-date-to");
+    const st = document.getElementById("event-start");
+    const et = document.getElementById("event-end");
     if (editId) editId.value = "";
     if (title) title.textContent = "Новое мероприятие";
     if (df) df.value = state.selectedDate;
-    if (dt) dt.value = state.selectedDate;
+    if (dt) dt.value = "";
+    if (st) st.value = "";
+    if (et) et.value = "";
     openModal("modal-event");
   });
 
@@ -2064,10 +2113,11 @@ function initUIListeners() {
     const editId = document.getElementById("event-edit-id")?.value || "";
     const title = document.getElementById("event-title")?.value.trim() || "Мероприятие";
     const fromStr = document.getElementById("event-date-from")?.value || state.selectedDate;
-    const toStr = document.getElementById("event-date-to")?.value || fromStr;
-    const startTime = document.getElementById("event-start")?.value || "10:00";
-    const endTime = document.getElementById("event-end")?.value || "12:00";
-    const location = document.getElementById("event-location")?.value.trim() || "Мероприятие";
+    const rawToStr = document.getElementById("event-date-to")?.value || "";
+    const toStr = rawToStr && rawToStr >= fromStr ? rawToStr : fromStr;
+    const startTime = document.getElementById("event-start")?.value || "";
+    const endTime = document.getElementById("event-end")?.value || "";
+    const location = document.getElementById("event-location")?.value.trim() || "";
 
     if (editId) {
       await saveEventItems([{ id: editId, title, date: fromStr, startTime, endTime, location }]);
