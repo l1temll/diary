@@ -646,11 +646,13 @@
     .gcal-grid-table {
       display: grid;
       grid-template-columns: 56px repeat(6, minmax(135px, 1fr));
+      min-width: 866px;
       border-top: 1px solid rgba(128, 128, 128, 0.2);
       border-left: 1px solid rgba(128, 128, 128, 0.2);
     }
     .gcal-grid-table.cols-7 {
       grid-template-columns: 56px repeat(7, minmax(130px, 1fr));
+      min-width: 966px;
     }
     .gcal-cell {
       border-right: 1px solid rgba(128, 128, 128, 0.2);
@@ -914,19 +916,28 @@
       </div>
 
       <!-- ====================================================================
-           РЕЖИМ 1: СЕТКА РАСПИСАНИЯ НА ВСЮ НЕДЕЛЮ (КАК В GOOGLE КАЛЕНДАРЕ)
+           РЕЖИМ 1: ОБЗОР ВСЕЙ НЕДЕЛИ (ПЛИТКИ / СПИСОК / ТАБЛИЦА)
            ==================================================================== -->
-      <div id="week-grid-view" class="hidden ios26-card rounded-3xl p-3 overflow-x-auto">
-        <div class="flex items-center justify-between mb-2.5 px-1">
-          <div class="flex items-center gap-2">
-            <i data-lucide="calendar-range" class="w-4 h-4 text-ios-orange"></i>
-            <span class="text-xs font-extrabold text-white">Расписание на всю неделю (нажмите на пару или день для перехода)</span>
+      <div id="week-grid-view" class="hidden ios26-card rounded-3xl p-3 space-y-2.5">
+        <div class="flex items-center justify-between gap-1.5 flex-wrap">
+          <div class="flex items-center gap-1 bg-black/35 border border-white/10 p-0.5 rounded-full">
+            <button type="button" data-week-layout="cards" class="week-layout-btn ios-press px-2.5 py-1 rounded-full text-[11px] font-bold ios-active-orange">
+              Плитки
+            </button>
+            <button type="button" data-week-layout="list" class="week-layout-btn ios-press px-2.5 py-1 rounded-full text-[11px] font-bold text-ios-gray">
+              Список
+            </button>
+            <button type="button" data-week-layout="table" class="week-layout-btn ios-press px-2.5 py-1 rounded-full text-[11px] font-bold text-ios-gray">
+              Таблица
+            </button>
           </div>
-          <button type="button" id="btn-close-week-grid" class="ios-press px-2.5 py-1 rounded-full ios26-pill text-[11px] font-bold">
-            К списку дня
+
+          <button type="button" id="btn-close-week-grid" class="ios-press px-2.5 py-1 rounded-full ios26-pill text-[11px] font-bold shrink-0">
+            К дню
           </button>
         </div>
-        <div id="week-grid-table-wrapper" class="min-w-[820px]"></div>
+
+        <div id="week-grid-table-wrapper" class="overflow-x-auto pb-1"></div>
       </div>
 
       <!-- ====================================================================
@@ -1794,13 +1805,13 @@
   <!-- КОНТРОЛЛЕР DYNAMIC ISLAND И ТЕМ ОФОРМЛЕНИЯ -->
   <script>
     (function () {
-      if ("caches" in window && localStorage.getItem("diary_sw_cleaned_v12") !== "1") {
+      if ("caches" in window && localStorage.getItem("diary_sw_cleaned_v13") !== "1") {
         caches.keys().then(function (keys) {
           keys.forEach(function (k) {
-            if (k !== "student-diary-v12") caches.delete(k);
+            if (k !== "student-diary-v13") caches.delete(k);
           });
         });
-        localStorage.setItem("diary_sw_cleaned_v12", "1");
+        localStorage.setItem("diary_sw_cleaned_v13", "1");
       }
 
       window.__toggleDynamicIsland = function (forceMode) {
@@ -2011,6 +2022,6 @@
     })();
   </script>
 
-  <script type="module" src="./app.js?v=12"></script>
+  <script type="module" src="./app.js?v=13"></script>
 </body>
 </html>
