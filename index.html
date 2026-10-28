@@ -720,6 +720,28 @@
 
     .no-scrollbar::-webkit-scrollbar { display: none; }
     .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+    /* Просмотрщик фото: всегда белый контрастный текст на темных кнопках и поддержка зума пальцами */
+    #modal-photo-viewer,
+    #modal-photo-viewer .photo-viewer-btn {
+      color: #FFFFFF !important;
+    }
+    #modal-photo-viewer .photo-viewer-btn {
+      background: rgba(38, 38, 44, 0.88) !important;
+      border: 1px solid rgba(255, 255, 255, 0.28) !important;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.65);
+    }
+    .pt-safe-viewer {
+      padding-top: calc(env(safe-area-inset-top, 0px) + 0.75rem);
+    }
+    .pb-safe-viewer {
+      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 1rem);
+    }
+    #photo-viewer-stage {
+      touch-action: none;
+    }
   </style>
 </head>
 <body class="mode-dark theme-classic btn-matte bg-mode-black rim-normal min-h-screen flex flex-col text-white antialiased relative">
@@ -1794,12 +1816,46 @@
     </div>
   </div>
 
-  <!-- МОДАЛЬНОЕ ОКНО 9: ПРОСМОТР ФОТО НА ВЕСЬ ЭКРАН -->
-  <div id="modal-photo-viewer" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/90 backdrop-blur-xl p-4">
-    <button type="button" data-close-modal="modal-photo-viewer" class="ios-press fixed top-6 right-6 w-10 h-10 rounded-full ios26-pill text-white flex items-center justify-center">
-      <i data-lucide="x" class="w-5 h-5"></i>
-    </button>
-    <img id="photo-viewer-img" src="" alt="Фото" class="max-w-full max-h-[85vh] rounded-2xl object-contain shadow-2xl border border-white/15" />
+  <!-- МОДАЛЬНОЕ ОКНО 9: ПРОСМОТР ФОТО НА ВЕСЬ ЭКРАН С ЗУМОМ И СОХРАНЕНИЕМ -->
+  <div id="modal-photo-viewer" class="fixed inset-0 z-[80] hidden flex-col justify-between bg-black/95 backdrop-blur-xl select-none overflow-hidden">
+    <!-- Верхняя панель (строго ниже челки и статус-бара iPhone) -->
+    <div class="relative z-20 flex items-center justify-between gap-2 px-4 pt-safe-viewer pb-2 pointer-events-auto">
+      <button type="button" id="btn-save-photo" class="photo-viewer-btn ios-press px-3.5 h-10 rounded-full font-bold text-xs flex items-center gap-1.5">
+        <i data-lucide="download" class="w-4 h-4 text-ios-orange shrink-0"></i>
+        <span>Сохранить</span>
+      </button>
+
+      <button type="button" data-close-modal="modal-photo-viewer" class="photo-viewer-btn ios-press px-3.5 h-10 rounded-full font-bold text-xs flex items-center gap-1.5">
+        <span>Закрыть</span>
+        <i data-lucide="x" class="w-4 h-4"></i>
+      </button>
+    </div>
+
+    <!-- Область картинки с поддержкой щипка двумя пальцами (Pinch-to-Zoom) и перетаскивания -->
+    <div id="photo-viewer-stage" class="relative z-10 flex-1 w-full h-full flex items-center justify-center overflow-hidden p-2">
+      <img
+        id="photo-viewer-img"
+        src=""
+        alt="Фото"
+        draggable="false"
+        class="max-w-full max-h-[76vh] rounded-xl object-contain shadow-2xl transition-transform duration-75 ease-out will-change-transform"
+      />
+    </div>
+
+    <!-- Нижняя панель управления масштабом -->
+    <div class="relative z-20 flex items-center justify-center gap-2 px-4 pt-2 pb-safe-viewer pointer-events-auto">
+      <div class="photo-viewer-btn rounded-full p-1 flex items-center gap-1">
+        <button type="button" id="btn-zoom-out" class="ios-press w-9 h-9 rounded-full flex items-center justify-center font-extrabold text-base" title="Уменьшить">
+          <i data-lucide="minus" class="w-4 h-4"></i>
+        </button>
+        <button type="button" id="btn-zoom-reset" class="ios-press px-3 h-9 rounded-full text-xs font-extrabold tabular-nums" title="Сбросить масштаб">
+          100%
+        </button>
+        <button type="button" id="btn-zoom-in" class="ios-press w-9 h-9 rounded-full flex items-center justify-center font-extrabold text-base" title="Приблизить">
+          <i data-lucide="plus" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </div>
   </div>
 
   <!-- КОНТРОЛЛЕР DYNAMIC ISLAND И ТЕМ ОФОРМЛЕНИЯ -->
