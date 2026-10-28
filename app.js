@@ -2102,6 +2102,8 @@ function resetKeepComposer() {
 // 16. ОБРАБОТЧИКИ СОБЫТИЙ
 // ============================================================================
 function initUIListeners() {
+  initPhotoViewerGestures();
+
   // Кнопка показа расписания на всю неделю (как в Google Календаре)
   document.getElementById("btn-week-grid-toggle")?.addEventListener("click", () => {
     if (state.activeTab !== "schedule") {
@@ -2779,7 +2781,9 @@ function initUIListeners() {
     if (photoEl) {
       const img = document.getElementById("photo-viewer-img");
       if (img) img.src = photoEl.dataset.viewPhoto;
+      resetPhotoViewerZoom();
       openModal("modal-photo-viewer");
+      refreshIcons();
       return;
     }
 
@@ -3147,6 +3151,189 @@ function parseICSFile(icsText) {
   return events;
 }
 
+// Состояние зума и перемещения для полноэкранного просмотра фото
+const photoZoomState = {
+  scale: 1,
+  panX: 0,
+  panY: 0,
+  isDragging: false,
+  startX: 0,
+  startY: 0,
+  initialPinchDist: 0,
+  initialPinchScale: 1,
+  lastTapTime: 0
+};
+
+function applyPhotoViewerTransform() {
+  const img = document.getElementById("photo-viewer-img");
+  const resetBtn = document.getElementById("btn-zoom-reset");
+  if (!img) return;
+
+  if (photoZoomState.scale <= 1.01) {
+    photoZoomState.scale = 1;
+    photoZoomState.panX = 0;
+    photoZoomState.panY = 0;
+  }
+
+  img.style.transform = `translate3d(${photoZoomState.panX}px, ${photoZoomState.panY}px, 0) scale(${photoZoomState.scale})`;
+  if (resetBtn) {
+    resetBtn.textContent = `${Math.round(photoZoomState.scale * 100)}%`;
+  }
+}
+
+function resetPhotoViewerZoom() {
+  photoZoomState.scale = 1;
+  photoZoomState.panX = 0;
+  photoZoomState.panY = 0;
+  photoZoomState.isDragging = false;
+  photoZoomState.initialPinchDist = 0;
+  applyPhotoViewerTransform();
+}
+
+function setPhotoViewerZoom(newScale) {
+  photoZoomState.scale = Math.min(5, Math.max(1, newScale));
+  applyPhotoViewerTransform();
+}
+
+async function saveOrShareCurrentPhoto() {
+  const img = document.getElementById("photo-viewer-img");
+  const src = img?.getAttribute("src") || "";
+  if (!src) return;
+
+  const fileName = `diary_photo_${formatDateISO(new Date())}_${Date.now().toString().slice(-4)}.jpg`;
+
+  try {
+    const res = await fetch(src);
+    const blob = await res.blob();
+    const file = new File([blob], fileName, { type: blob.type || "image/jpeg" });
+
+    // На iPhone / Android вызываем системное меню («Сохранить изображение» в Фотопленку)
+    const isMobile = window.matchMedia("(pointer: coarse)").matches || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    if (isMobile && navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({
+        files: [file],
+        title: "Фото из дневника"
+      });
+      return;
+    }
+
+    // Фоллбек для ПК и браузеров — прямое скачивание файла
+    const blobUrl = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = blobUrl;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 3000);
+    showInAppToast("Фото сохранено", "Изображение загружено на устройство.");
+  } catch (err) {
+    if (err && err.name === "AbortError") return; // Пользователь сам закрыл меню «Поделиться»
+    const a = document.createElement("a");
+    a.href = src;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+}
+
+function initPhotoViewerGestures() {
+  const stage = document.getElementById("photo-viewer-stage");
+  if (!stage) return;
+
+  document.getElementById("btn-zoom-in")?.addEventListener("click", () => {
+    setPhotoViewerZoom(photoZoomState.scale + 0.6);
+  });
+  document.getElementById("btn-zoom-out")?.addEventListener("click", () => {
+    setPhotoViewerZoom(photoZoomState.scale - 0.6);
+  });
+  document.getElementById("btn-zoom-reset")?.addEventListener("click", () => {
+    resetPhotoViewerZoom();
+  });
+  document.getElementById("btn-save-photo")?.addEventListener("click", () => {
+    saveOrShareCurrentPhoto();
+  });
+
+  // Колесико мыши на ПК для зума
+  stage.addEventListener(
+    "wheel",
+    (e) => {
+      e.preventDefault();
+      const delta = e.deltaY < 0 ? 0.35 : -0.35;
+      setPhotoViewerZoom(photoZoomState.scale + delta);
+    },
+    { passive: false }
+  );
+
+  // Мультитач на iPhone: щипок двумя пальцами (Pinch-to-Zoom), перетаскивание и двойной тап
+  stage.addEventListener(
+    "touchstart",
+    (e) => {
+      if (e.touches.length === 2) {
+        photoZoomState.isDragging = false;
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        photoZoomState.initialPinchDist = Math.hypot(dx, dy);
+        photoZoomState.initialPinchScale = photoZoomState.scale;
+      } else if (e.touches.length === 1) {
+        const now = Date.now();
+        if (now - photoZoomState.lastTapTime < 280) {
+          // Двойной тап: приблизить до 2.6x или сбросить до 1x
+          if (photoZoomState.scale > 1.1) {
+            resetPhotoViewerZoom();
+          } else {
+            setPhotoViewerZoom(2.6);
+          }
+          photoZoomState.lastTapTime = 0;
+          return;
+        }
+        photoZoomState.lastTapTime = now;
+
+        if (photoZoomState.scale > 1.01) {
+          photoZoomState.isDragging = true;
+          photoZoomState.startX = e.touches[0].clientX - photoZoomState.panX;
+          photoZoomState.startY = e.touches[0].clientY - photoZoomState.panY;
+        }
+      }
+    },
+    { passive: true }
+  );
+
+  stage.addEventListener(
+    "touchmove",
+    (e) => {
+      if (e.touches.length === 2 && photoZoomState.initialPinchDist > 0) {
+        e.preventDefault();
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const dist = Math.hypot(dx, dy);
+        const ratio = dist / photoZoomState.initialPinchDist;
+        setPhotoViewerZoom(photoZoomState.initialPinchScale * ratio);
+      } else if (e.touches.length === 1 && photoZoomState.isDragging && photoZoomState.scale > 1.01) {
+        e.preventDefault();
+        photoZoomState.panX = e.touches[0].clientX - photoZoomState.startX;
+        photoZoomState.panY = e.touches[0].clientY - photoZoomState.startY;
+        applyPhotoViewerTransform();
+      }
+    },
+    { passive: false }
+  );
+
+  stage.addEventListener(
+    "touchend",
+    (e) => {
+      if (e.touches.length < 2) {
+        photoZoomState.initialPinchDist = 0;
+      }
+      if (e.touches.length === 0) {
+        photoZoomState.isDragging = false;
+      }
+    },
+    { passive: true }
+  );
+}
+
 function openModal(id) {
   const el = document.getElementById(id);
   if (el) {
@@ -3154,7 +3341,6 @@ function openModal(id) {
     el.classList.add("flex");
   }
 }
-
 function closeModal(id) {
   const el = document.getElementById(id);
   if (el) {
