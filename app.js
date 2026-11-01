@@ -193,6 +193,7 @@ const state = {
   weekGridMode: false, // Режим обзора расписания на всю неделю
   weekLayout: localStorage.getItem("diary_week_layout_v1") || "cards", // "cards" | "list" | "table"
   selectedDate: getTodayISO(),
+  daySlideDir: 0, // -1 (влево/назад), 1 (вправо/вперед), 0 (без сдвига)
   addScope: "date",
   taskFilter: "active",
   noteFilter: "all",
@@ -273,6 +274,36 @@ function addDaysISO(dateStr, days) {
   const d = parseDateISO(dateStr);
   d.setDate(d.getDate() + days);
   return formatDateISO(d);
+}
+
+// Плавное переключение дня с горизонтальной инерцией как в Telegram iOS
+function selectDateWithSlide(newDateISO, isFromRealtimeSwipe = false) {
+  if (!newDateISO || newDateISO === state.selectedDate) return;
+  const dir = newDateISO > state.selectedDate ? 1 : -1;
+  state.daySlideDir = dir;
+  state.selectedDate = newDateISO;
+
+  const listEl = document.getElementById("schedule-list");
+  const evWrapEl = document.getElementById("events-section-wrapper");
+
+  if (listEl) {
+    listEl.style.transition = "none";
+    listEl.style.transform = "translate3d(0, 0, 0)";
+    listEl.style.opacity = "1";
+    listEl.classList.remove("slide-in-from-right", "slide-in-from-left");
+    void listEl.offsetWidth;
+    listEl.classList.add(dir > 0 ? "slide-in-from-right" : "slide-in-from-left");
+  }
+  if (evWrapEl) {
+    evWrapEl.style.transition = "none";
+    evWrapEl.style.transform = "translate3d(0, 0, 0)";
+    evWrapEl.style.opacity = "1";
+    evWrapEl.classList.remove("slide-in-from-right", "slide-in-from-left");
+    void evWrapEl.offsetWidth;
+    evWrapEl.classList.add(dir > 0 ? "slide-in-from-right" : "slide-in-from-left");
+  }
+
+  renderScheduleSection();
 }
 
 function formatShortDate(dateStr) {
@@ -2194,18 +2225,15 @@ function initUIListeners() {
     sendAppNotification("Тестовое уведомление", "Уведомления работают отлично!");
   });
 
-  // Навигация по неделям и дням
+  // Навигация по неделям и дням с плавным перелистыванием
   document.getElementById("btn-prev-week")?.addEventListener("click", () => {
-    state.selectedDate = addDaysISO(state.selectedDate, -7);
-    renderScheduleSection();
+    selectDateWithSlide(addDaysISO(state.selectedDate, -7));
   });
   document.getElementById("btn-next-week")?.addEventListener("click", () => {
-    state.selectedDate = addDaysISO(state.selectedDate, 7);
-    renderScheduleSection();
+    selectDateWithSlide(addDaysISO(state.selectedDate, 7));
   });
   document.getElementById("btn-today")?.addEventListener("click", () => {
-    state.selectedDate = getInitialStudyDate();
-    renderScheduleSection();
+    selectDateWithSlide(getInitialStudyDate());
   });
   document.getElementById("btn-date-picker-trigger")?.addEventListener("click", () => {
     const picker = document.getElementById("date-jump-picker");
@@ -2217,59 +2245,172 @@ function initUIListeners() {
   });
   document.getElementById("date-jump-picker")?.addEventListener("change", (e) => {
     if (e.target.value) {
-      state.selectedDate = e.target.value;
-      renderScheduleSection();
+      selectDateWithSlide(e.target.value);
     }
   });
   document.getElementById("day-selector")?.addEventListener("click", (e) => {
     const btn = e.target.closest("[data-select-date]");
     if (btn) {
-      state.selectedDate = btn.dataset.selectDate;
-      renderScheduleSection();
+      selectDateWithSlide(btn.dataset.selectDate);
     }
   });
 
-  // Свайпы влево и вправо для переключения дней в неделе
-  let touchStartX = 0;
-  let touchStartY = 0;
+  // Переключение дней недели на ПК стрелками клавиатуры (← / →, а с Shift — целая неделя)
+  document.addEventListener("keydown", (e) => {
+    if (state.activeTab !== "schedule") return;
+    const tag = document.activeElement?.tagName;
+    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+    const anyModalOpen = document.querySelector('div[id^="modal-"].fixed:not(.hidden)');
+    if (anyModalOpen) return;
+
+    if (e.key === "ArrowLeft") {
+      e.preventDefault();
+      selectDateWithSlide(addDaysISO(state.selectedDate, e.shiftKey ? -7 : -1));
+    } else if (e.key === "ArrowRight") {
+      e.preventDefault();
+      selectDateWithSlide(addDaysISO(state.selectedDate, e.shiftKey ? 7 : 1));
+    }
+  });
+
+  // Интерактивный живой свайп (пальцем на iPhone и мышкой на ПК) в стиле Telegram iOS
+  let swipeStartX = 0;
+  let swipeStartY = 0;
+  let currentSwipeDx = 0;
+  let isHorizontalSwipeLocked = false;
+  let isSwipeIgnored = false;
+  let isPointerDown = false;
+
   const dayScheduleEl = document.getElementById("day-schedule-view");
+
+  const setSwipeElementsTransform = (dx, withTransition = false) => {
+    const listEl = document.getElementById("schedule-list");
+    const evWrapEl = document.getElementById("events-section-wrapper");
+    const transitionStr = withTransition
+      ? "transform 0.22s cubic-bezier(0.22, 1.12, 0.36, 1), opacity 0.2s ease"
+      : "none";
+    const opacityVal = String(Math.max(0.35, 1 - Math.abs(dx) / 360));
+    const scaleVal = Math.max(0.965, 1 - Math.abs(dx) / 2200);
+    const transformStr = dx === 0 ? "translate3d(0, 0, 0)" : `translate3d(${dx}px, 0, 0) scale(${scaleVal})`;
+
+    if (listEl) {
+      listEl.style.transition = transitionStr;
+      listEl.style.transform = transformStr;
+      listEl.style.opacity = dx === 0 ? "1" : opacityVal;
+    }
+    if (evWrapEl && !evWrapEl.classList.contains("hidden")) {
+      evWrapEl.style.transition = transitionStr;
+      evWrapEl.style.transform = transformStr;
+      evWrapEl.style.opacity = dx === 0 ? "1" : opacityVal;
+    }
+  };
+
+  const handleSwipeStart = (clientX, clientY, target) => {
+    const tag = target?.tagName;
+    if (
+      tag === "INPUT" ||
+      tag === "TEXTAREA" ||
+      tag === "SELECT" ||
+      tag === "BUTTON" ||
+      target?.closest("button, a, input, textarea, select, [data-view-photo]")
+    ) {
+      isSwipeIgnored = true;
+      return;
+    }
+    isSwipeIgnored = false;
+    isHorizontalSwipeLocked = false;
+    isPointerDown = true;
+    swipeStartX = clientX;
+    swipeStartY = clientY;
+    currentSwipeDx = 0;
+  };
+
+  const handleSwipeMove = (clientX, clientY, eventObj) => {
+    if (!isPointerDown || isSwipeIgnored) return;
+    const dx = clientX - swipeStartX;
+    const dy = clientY - swipeStartY;
+
+    if (!isHorizontalSwipeLocked) {
+      if (Math.abs(dy) > 14 && Math.abs(dy) > Math.abs(dx)) {
+        // Пользователь скроллит страницу вертикально — отключаем горизонтальный свайп
+        isSwipeIgnored = true;
+        return;
+      }
+      if (Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy) * 1.25) {
+        isHorizontalSwipeLocked = true;
+      }
+    }
+
+    if (isHorizontalSwipeLocked) {
+      if (eventObj && eventObj.cancelable) eventObj.preventDefault();
+      // Мягкое сопротивление (rubber-band), как в Telegram
+      currentSwipeDx = dx * 0.78;
+      setSwipeElementsTransform(currentSwipeDx, false);
+    }
+  };
+
+  const handleSwipeEnd = () => {
+    if (!isPointerDown) return;
+    isPointerDown = false;
+    if (isSwipeIgnored || !isHorizontalSwipeLocked) {
+      currentSwipeDx = 0;
+      return;
+    }
+
+    const dx = currentSwipeDx;
+    currentSwipeDx = 0;
+    isHorizontalSwipeLocked = false;
+
+    if (Math.abs(dx) > 42) {
+      const dir = dx < 0 ? 1 : -1;
+      const flyOutX = dir > 0 ? -window.innerWidth * 0.65 : window.innerWidth * 0.65;
+      setSwipeElementsTransform(flyOutX, true);
+
+      setTimeout(() => {
+        selectDateWithSlide(addDaysISO(state.selectedDate, dir), true);
+      }, 135);
+    } else {
+      // Пружинный возврат карточек на место, если свайп не дотянули
+      setSwipeElementsTransform(0, true);
+    }
+  };
+
   dayScheduleEl?.addEventListener(
     "touchstart",
     (e) => {
       if (e.touches.length !== 1) return;
-      const tag = e.target.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || e.target.closest("[data-view-photo]")) {
-        touchStartX = 0;
-        return;
-      }
-      touchStartX = e.touches[0].clientX;
-      touchStartY = e.touches[0].clientY;
+      handleSwipeStart(e.touches[0].clientX, e.touches[0].clientY, e.target);
     },
     { passive: true }
   );
 
   dayScheduleEl?.addEventListener(
-    "touchend",
+    "touchmove",
     (e) => {
-      if (!touchStartX || e.changedTouches.length !== 1) return;
-      const dx = e.changedTouches[0].clientX - touchStartX;
-      const dy = e.changedTouches[0].clientY - touchStartY;
-      touchStartX = 0;
-
-      // Горизонтальный свайп (минимум 55px и заметно горизонтальнее вертикального скролла)
-      if (Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy) * 1.6) {
-        if (dx < 0) {
-          // Свайп влево -> следующий день
-          state.selectedDate = addDaysISO(state.selectedDate, 1);
-        } else {
-          // Свайп вправо -> предыдущий день
-          state.selectedDate = addDaysISO(state.selectedDate, -1);
-        }
-        renderScheduleSection();
-      }
+      if (e.touches.length !== 1) return;
+      handleSwipeMove(e.touches[0].clientX, e.touches[0].clientY, e);
     },
-    { passive: true }
+    { passive: false }
   );
+
+  dayScheduleEl?.addEventListener("touchend", handleSwipeEnd, { passive: true });
+  dayScheduleEl?.addEventListener("touchcancel", () => {
+    isPointerDown = false;
+    setSwipeElementsTransform(0, true);
+  });
+
+  // Поддержка перетаскивания мышкой на ПК
+  dayScheduleEl?.addEventListener("mousedown", (e) => {
+    if (e.button !== 0) return;
+    handleSwipeStart(e.clientX, e.clientY, e.target);
+  });
+  window.addEventListener("mousemove", (e) => {
+    if (!isPointerDown) return;
+    handleSwipeMove(e.clientX, e.clientY, e);
+  });
+  window.addEventListener("mouseup", () => {
+    if (!isPointerDown) return;
+    handleSwipeEnd();
+  });
 
   // Скрытие / показ мероприятий
   const toggleEventsVisibility = () => {
@@ -2729,6 +2870,13 @@ function initUIListeners() {
       document.getElementById("view-schedule")?.classList.toggle("hidden", state.activeTab !== "schedule");
       document.getElementById("view-tasks")?.classList.toggle("hidden", state.activeTab !== "tasks");
       document.getElementById("view-notes")?.classList.toggle("hidden", state.activeTab !== "notes");
+
+      const tabOrder = ["schedule", "tasks", "notes"];
+      const tabIdx = Math.max(0, tabOrder.indexOf(state.activeTab));
+      const glider = document.getElementById("tg-nav-glider");
+      if (glider) {
+        glider.style.transform = `translate3d(calc(${tabIdx * 100}% + ${tabIdx * 0.25}rem), 0, 0)`;
+      }
 
       document.querySelectorAll(".nav-tab").forEach((b) => {
         const active = b.dataset.tab === state.activeTab;
