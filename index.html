@@ -1816,6 +1816,28 @@
     </div>
   </div>
 
+  <!-- ========================================================================
+       МОДАЛЬНОЕ ОКНО 10: ПОДРОБНЫЙ ПРОСМОТР ПАРЫ ИЛИ МЕРОПРИЯТИЯ
+       ======================================================================== -->
+  <div id="modal-item-details" class="fixed inset-0 z-50 hidden items-end sm:items-center justify-center bg-black/75 backdrop-blur-md">
+    <div class="ios26-card w-full max-w-lg rounded-t-3xl sm:rounded-3xl p-5 pb-safe-nav space-y-4 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between gap-2">
+        <div class="flex items-center gap-2 min-w-0">
+          <span id="details-modal-icon" class="w-8 h-8 rounded-2xl bg-ios-orange/20 text-ios-orange flex items-center justify-center shrink-0">
+            <i data-lucide="info" class="w-4 h-4"></i>
+          </span>
+          <h2 id="details-modal-header" class="text-base font-extrabold text-white truncate">Подробности</h2>
+        </div>
+        <button type="button" data-close-modal="modal-item-details" class="ios-press w-8 h-8 rounded-full ios26-pill text-ios-gray flex items-center justify-center shrink-0">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <!-- Контент пары или мероприятия (рендерится динамически) -->
+      <div id="details-modal-body" class="space-y-3.5 text-sm"></div>
+    </div>
+  </div>
+
   <!-- МОДАЛЬНОЕ ОКНО 9: ПРОСМОТР ФОТО НА ВЕСЬ ЭКРАН С ЗУМОМ И СОХРАНЕНИЕМ -->
   <div id="modal-photo-viewer" class="fixed inset-0 z-[80] hidden flex-col justify-between bg-black/95 backdrop-blur-xl select-none overflow-hidden">
     <!-- Верхняя панель (строго ниже челки и статус-бара iPhone) -->
@@ -2078,6 +2100,6 @@
     })();
   </script>
 
-  <script type="module" src="./app.js?v=13"></script>
+  <script type="module" src="./app.js?v=15"></script>
 </body>
 </html>
