@@ -1525,7 +1525,7 @@ function renderScheduleSection() {
 
           return `
         <div class="ios26-card rounded-2xl p-3 border border-ios-purple/40 flex items-center justify-between gap-2.5">
-          <div class="flex items-center gap-2.5 min-w-0 flex-1">
+          <div data-open-event-details="${ev.id}" class="flex items-center gap-2.5 min-w-0 flex-1 cursor-pointer active:opacity-80 transition-opacity" title="Нажмите, чтобы открыть полностью">
             <div class="px-2.5 py-1.5 rounded-xl bg-ios-purple/20 border border-ios-purple/40 text-center shrink-0 min-w-[68px]">
               <span class="block text-[9px] font-extrabold uppercase text-ios-purple">Событие</span>
               <span class="block text-[11px] font-bold text-white">${timeLabel}</span>
@@ -1538,7 +1538,7 @@ function renderScheduleSection() {
                       <i data-lucide="map-pin" class="w-3 h-3 text-ios-purple shrink-0"></i>
                       <span class="truncate">${escapeHtml(ev.location)}</span>
                     </p>`
-                  : ""
+                  : `<p class="text-[11px] text-ios-purple/80 mt-0.5">Нажмите для подробностей →</p>`
               }
             </div>
           </div>
@@ -1610,13 +1610,13 @@ function renderScheduleSection() {
       return `
       <article class="${isLiveNow ? "ios26-card-orange" : "ios26-card"} rounded-3xl p-3.5 space-y-3 transition-all">
         <div class="flex gap-3 items-start">
-          <div class="flex flex-col items-center justify-center ${isLiveNow ? "ios-active-orange" : "bg-white/[0.07] border border-white/15"} rounded-2xl px-2 py-2 min-w-[68px] text-center shrink-0">
+          <div data-open-class-details="${item.id}" class="cursor-pointer active:scale-95 flex flex-col items-center justify-center ${isLiveNow ? "ios-active-orange" : "bg-white/[0.07] border border-white/15"} rounded-2xl px-2 py-2 min-w-[68px] text-center shrink-0 transition-transform" title="Открыть карточку пары">
             <span class="text-[11px] font-extrabold ${isLiveNow ? "text-black" : "text-ios-orange"}">${escapeHtml(item.number)} пара</span>
             <span class="text-xs font-extrabold ${isLiveNow ? "text-black" : "text-white"} mt-0.5">${escapeHtml(item.startTime)}</span>
             <span class="text-[10px] ${isLiveNow ? "text-black/80" : "text-gray-300"}">${escapeHtml(item.endTime)}</span>
           </div>
 
-          <div class="flex-1 min-w-0">
+          <div data-open-class-details="${item.id}" class="flex-1 min-w-0 cursor-pointer active:opacity-80 transition-opacity" title="Открыть карточку пары">
             <div class="flex items-center gap-1.5 flex-wrap mb-1">
               ${isLiveNow ? `<span class="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-ios-orange text-black">Сейчас</span>` : ""}
               <span class="text-[11px] font-bold px-2 py-0.5 rounded-full border ${getBadgeStyle(item.type)}">${escapeHtml(item.type)}</span>
@@ -2768,6 +2768,27 @@ function initUIListeners() {
   });
 
   document.addEventListener("click", async (e) => {
+    // Открытие подробного окна МЕРОПРИЯТИЯ
+    const openEvDetails = e.target.closest("[data-open-event-details]");
+    if (openEvDetails) {
+      openEventDetailsModal(openEvDetails.dataset.openEventDetails);
+      return;
+    }
+
+    // Открытие подробного окна ПАРЫ
+    const openClsDetails = e.target.closest("[data-open-class-details]");
+    if (openClsDetails) {
+      openClassDetailsModal(openClsDetails.dataset.openClassDetails);
+      return;
+    }
+
+    // Клик по карточке пары в сетке недели -> открыть подробности пары
+    const gridOpenClass = e.target.closest("[data-grid-open-class]");
+    if (gridOpenClass) {
+      openClassDetailsModal(gridOpenClass.dataset.gridOpenClass);
+      return;
+    }
+
     // Клик по дню или карточке пары в сетке на всю неделю -> переход к этому дню
     const gridPick = e.target.closest("[data-grid-pick-date]");
     if (gridPick) {
@@ -2806,12 +2827,14 @@ function initUIListeners() {
 
     const delEventBtn = e.target.closest("[data-delete-event]");
     if (delEventBtn) {
+      closeModal("modal-item-details");
       await deleteEventById(delEventBtn.dataset.deleteEvent);
       return;
     }
 
     const editEventBtn = e.target.closest("[data-edit-event]");
     if (editEventBtn) {
+      closeModal("modal-item-details");
       const ev = state.events.find((x) => x.id === editEventBtn.dataset.editEvent);
       if (!ev) return;
       document.getElementById("event-edit-id").value = ev.id;
@@ -3086,7 +3109,246 @@ function initUIListeners() {
   });
 }
 
+function openEventDetailsModal(eventId) {
+  const ev = state.events.find((x) => x.id === eventId);
+  if (!ev) return;
+
+  const headerEl = document.getElementById("details-modal-header");
+  const iconEl = document.getElementById("details-modal-icon");
+  const bodyEl = document.getElementById("details-modal-body");
+  if (!bodyEl) return;
+
+  if (headerEl) headerEl.textContent = "Мероприятие";
+  if (iconEl) {
+    iconEl.className = "w-8 h-8 rounded-2xl bg-ios-purple/20 text-ios-purple flex items-center justify-center shrink-0";
+    iconEl.innerHTML = `<i data-lucide="sparkles" class="w-4 h-4"></i>`;
+  }
+
+  const fullDate = parseDateISO(ev.date).toLocaleDateString("ru-RU", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric"
+  });
+
+  const timeLabel =
+    ev.startTime && ev.endTime
+      ? `${escapeHtml(ev.startTime)} – ${escapeHtml(ev.endTime)}`
+      : ev.startTime
+      ? `Начало в ${escapeHtml(ev.startTime)}`
+      : ev.endTime
+      ? `До ${escapeHtml(ev.endTime)}`
+      : "Весь день";
+
+  bodyEl.innerHTML = `
+    <div class="rounded-2xl bg-ios-purple/15 border border-ios-purple/35 p-4 space-y-2">
+      <div class="flex items-center gap-2 flex-wrap">
+        <span class="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-ios-purple text-white">Событие</span>
+        <span class="text-xs font-bold text-ios-purple">${timeLabel}</span>
+      </div>
+      <h3 class="text-base sm:text-lg font-extrabold text-white leading-snug break-words whitespace-pre-wrap">${escapeHtml(ev.title)}</h3>
+    </div>
+
+    <div class="bg-ios-elevated rounded-2xl p-3.5 space-y-2.5 text-xs">
+      <div class="flex items-start gap-2.5">
+        <i data-lucide="calendar" class="w-4 h-4 text-ios-purple shrink-0 mt-0.5"></i>
+        <div>
+          <span class="text-ios-gray block text-[10px] uppercase font-bold">Дата проведения</span>
+          <span class="text-white font-bold capitalize">${escapeHtml(fullDate)}</span>
+        </div>
+      </div>
+
+      <div class="flex items-start gap-2.5 pt-2 border-t border-white/10">
+        <i data-lucide="clock" class="w-4 h-4 text-ios-purple shrink-0 mt-0.5"></i>
+        <div>
+          <span class="text-ios-gray block text-[10px] uppercase font-bold">Время</span>
+          <span class="text-white font-bold">${timeLabel}</span>
+        </div>
+      </div>
+
+      <div class="flex items-start gap-2.5 pt-2 border-t border-white/10">
+        <i data-lucide="map-pin" class="w-4 h-4 text-ios-purple shrink-0 mt-0.5"></i>
+        <div class="min-w-0 flex-1">
+          <span class="text-ios-gray block text-[10px] uppercase font-bold">Место проведения / Описание</span>
+          <p class="text-white font-medium break-words whitespace-pre-wrap mt-0.5">${escapeHtml(ev.location || "Не указано")}</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-2 gap-2 pt-1">
+      <button type="button" data-edit-event="${ev.id}" class="ios-press py-2.5 px-3 rounded-2xl ios26-pill text-xs font-extrabold text-white flex items-center justify-center gap-1.5">
+        <i data-lucide="pencil" class="w-3.5 h-3.5 text-ios-purple"></i>
+        <span>Изменить</span>
+      </button>
+      <button type="button" data-delete-event="${ev.id}" class="ios-press py-2.5 px-3 rounded-2xl bg-ios-red/20 border border-ios-red/40 text-xs font-extrabold text-ios-red flex items-center justify-center gap-1.5">
+        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+        <span>Удалить</span>
+      </button>
+    </div>
+  `;
+
+  openModal("modal-item-details");
+  refreshIcons();
+}
+
+function openClassDetailsModal(classId) {
+  const item = state.schedule.find((s) => s.id === classId);
+  if (!item) return;
+
+  const headerEl = document.getElementById("details-modal-header");
+  const iconEl = document.getElementById("details-modal-icon");
+  const bodyEl = document.getElementById("details-modal-body");
+  if (!bodyEl) return;
+
+  if (headerEl) headerEl.textContent = `${item.number} пара • ${item.startTime}–${item.endTime}`;
+  if (iconEl) {
+    iconEl.className = "w-8 h-8 rounded-2xl bg-ios-orange/20 text-ios-orange flex items-center justify-center shrink-0";
+    iconEl.innerHTML = `<i data-lucide="graduation-cap" class="w-4 h-4"></i>`;
+  }
+
+  const fullDate = parseDateISO(item.date).toLocaleDateString("ru-RU", {
+    weekday: "long",
+    day: "numeric",
+    month: "long"
+  });
+
+  const subjectTasks = state.tasks.filter(
+    (t) =>
+      String(t.subject).trim().toLowerCase() === String(item.subject).trim().toLowerCase() &&
+      (t.deadline === item.date || (!t.completed && t.deadline >= item.date))
+  );
+
+  const classNotes = state.notes.filter(
+    (n) =>
+      n.subject &&
+      String(n.subject).trim().toLowerCase() === String(item.subject).trim().toLowerCase() &&
+      (!n.date || n.date === item.date)
+  );
+
+  bodyEl.innerHTML = `
+    <div class="rounded-2xl bg-white/[0.05] border border-white/15 p-4 space-y-2">
+      <div class="flex items-center gap-1.5 flex-wrap">
+        <span class="text-[11px] font-extrabold px-2.5 py-0.5 rounded-full ios-active-orange text-black">${escapeHtml(item.number)} пара</span>
+        <span class="text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${getBadgeStyle(item.type)}">${escapeHtml(item.type)}</span>
+        <span class="text-xs font-bold text-gray-300 ml-auto">${escapeHtml(item.startTime)} – ${escapeHtml(item.endTime)}</span>
+      </div>
+      <h3 class="text-base sm:text-lg font-extrabold text-white leading-snug break-words whitespace-pre-wrap">${escapeHtml(item.subject)}</h3>
+    </div>
+
+    <div class="bg-ios-elevated rounded-2xl p-3.5 space-y-2.5 text-xs">
+      <div class="flex items-start gap-2.5">
+        <i data-lucide="calendar" class="w-4 h-4 text-ios-orange shrink-0 mt-0.5"></i>
+        <div>
+          <span class="text-ios-gray block text-[10px] uppercase font-bold">Дата занятия</span>
+          <span class="text-white font-bold capitalize">${escapeHtml(fullDate)}</span>
+        </div>
+      </div>
+
+      <div class="flex items-start gap-2.5 pt-2 border-t border-white/10">
+        <i data-lucide="map-pin" class="w-4 h-4 text-ios-orange shrink-0 mt-0.5"></i>
+        <div class="min-w-0 flex-1">
+          <span class="text-ios-gray block text-[10px] uppercase font-bold">Аудитория / Место</span>
+          <span class="text-white font-bold break-words">${escapeHtml(item.room || "Не указана")}</span>
+        </div>
+      </div>
+
+      <div class="flex items-start gap-2.5 pt-2 border-t border-white/10">
+        <i data-lucide="user" class="w-4 h-4 text-ios-orange shrink-0 mt-0.5"></i>
+        <div class="min-w-0 flex-1">
+          <span class="text-ios-gray block text-[10px] uppercase font-bold">Преподаватель</span>
+          <span class="text-white font-bold break-words">${escapeHtml(item.teacher || "Не указан")}</span>
+        </div>
+      </div>
+
+      <div class="flex items-start justify-between gap-2 pt-2 border-t border-white/10">
+        <div class="flex items-start gap-2.5 min-w-0 flex-1">
+          <i data-lucide="bookmark" class="w-4 h-4 text-ios-orange shrink-0 mt-0.5"></i>
+          <div class="min-w-0 flex-1">
+            <span class="text-ios-gray block text-[10px] uppercase font-bold">Тема пары</span>
+            <p class="text-white font-medium break-words whitespace-pre-wrap mt-0.5">${escapeHtml(item.topic || "Не указана")}</p>
+          </div>
+        </div>
+        <button type="button" data-quick-topic="${item.id}" class="ios-press px-2.5 py-1 rounded-xl ios26-pill text-[11px] font-bold text-ios-orange shrink-0">
+          ${item.topic ? "Изм." : "+ Тема"}
+        </button>
+      </div>
+    </div>
+
+    <!-- ДЗ по предмету -->
+    <div class="bg-ios-elevated rounded-2xl p-3.5 space-y-2">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-extrabold text-white flex items-center gap-1.5">
+          <i data-lucide="check-circle-2" class="w-4 h-4 text-ios-orange"></i>
+          Домашние задания (${subjectTasks.length})
+        </span>
+        <button type="button" data-quick-add-task="${item.id}" class="ios-press text-xs font-bold text-ios-orange">+ Добавить ДЗ</button>
+      </div>
+      ${
+        subjectTasks.length > 0
+          ? `<div class="space-y-1.5 pt-1">
+              ${subjectTasks
+                .map(
+                  (t) => `
+                <div class="rounded-xl bg-black/35 border border-white/10 p-2.5 space-y-1">
+                  <div class="flex items-center justify-between gap-2">
+                    <span class="text-[10px] font-bold text-ios-orange">Дедлайн: ${escapeHtml(formatShortDate(t.deadline))}</span>
+                    <span class="text-[10px] font-bold ${t.completed ? "text-ios-green" : "text-ios-gray"}">${t.completed ? "Выполнено ✓" : "Активно"}</span>
+                  </div>
+                  <p class="text-xs text-white whitespace-pre-wrap break-words">${escapeHtml(t.text)}</p>
+                  ${renderPhotosRow(t.photos)}
+                </div>`
+                )
+                .join("")}
+            </div>`
+          : `<p class="text-xs text-ios-gray italic">Активных заданий нет</p>`
+      }
+    </div>
+
+    <!-- Заметки к паре -->
+    <div class="bg-ios-elevated rounded-2xl p-3.5 space-y-2">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-extrabold text-white flex items-center gap-1.5">
+          <i data-lucide="notebook-pen" class="w-4 h-4 text-ios-blue"></i>
+          Заметки к паре (${classNotes.length})
+        </span>
+        <button type="button" data-quick-add-note="${item.id}" class="ios-press text-xs font-bold text-ios-blue">+ Заметка</button>
+      </div>
+      ${
+        classNotes.length > 0
+          ? `<div class="space-y-1.5 pt-1">
+              ${classNotes
+                .map(
+                  (n) => `
+                <div class="rounded-xl bg-black/35 border border-white/10 p-2.5 space-y-1">
+                  <div class="text-xs font-extrabold text-white break-words">${escapeHtml(n.title || "Заметка")}</div>
+                  <p class="text-xs text-gray-200 whitespace-pre-wrap break-words">${escapeHtml(n.content)}</p>
+                  ${renderPhotosRow(n.photos)}
+                </div>`
+                )
+                .join("")}
+            </div>`
+          : `<p class="text-xs text-ios-gray italic">Заметок к этой паре пока нет</p>`
+      }
+    </div>
+
+    <div class="grid grid-cols-2 gap-2 pt-1">
+      <button type="button" data-edit-schedule="${item.id}" data-close-modal="modal-item-details" class="ios-press py-2.5 px-3 rounded-2xl ios26-pill text-xs font-extrabold text-white flex items-center justify-center gap-1.5">
+        <i data-lucide="pencil" class="w-3.5 h-3.5 text-ios-orange"></i>
+        <span>Изменить пару</span>
+      </button>
+      <button type="button" data-ask-delete-schedule="${item.id}" data-close-modal="modal-item-details" class="ios-press py-2.5 px-3 rounded-2xl bg-ios-red/20 border border-ios-red/40 text-xs font-extrabold text-ios-red flex items-center justify-center gap-1.5">
+        <i data-lucide="eye-off" class="w-3.5 h-3.5"></i>
+        <span>Скрыть / Удалить</span>
+      </button>
+    </div>
+  `;
+
+  openModal("modal-item-details");
+  refreshIcons();
+}
+
 function openTaskModalFor(classItem) {
+  closeModal("modal-item-details");
   state.contextClassItem = classItem;
   state.draftTaskPhotos = [];
   document.getElementById("form-task")?.reset();
@@ -3100,6 +3362,7 @@ function openTaskModalFor(classItem) {
 }
 
 function openNoteModalFor(classItem) {
+  closeModal("modal-item-details");
   state.contextClassItem = classItem;
   state.draftNotePhotos = [];
   document.getElementById("form-note")?.reset();
