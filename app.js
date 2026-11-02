@@ -1,28 +1,5 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
-import {
-  getAuth,
-  GoogleAuthProvider,
-  signInWithPopup,
-  signInWithRedirect,
-  getRedirectResult,
-  onAuthStateChanged,
-  signOut
-} from "https://www.gstatic.com/firebasejs/10.13.1/firebase-auth.js";
-import {
-  initializeFirestore,
-  persistentLocalCache,
-  persistentMultipleTabManager,
-  collection,
-  doc,
-  setDoc,
-  updateDoc,
-  deleteDoc,
-  onSnapshot,
-  writeBatch
-} from "https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js";
-
 // ============================================================================
-// 1. КОНФИГУРАЦИЯ FIREBASE
+// 1. КОНФИГУРАЦИЯ FIREBASE (НЕБЛОКИРУЮЩАЯ ФОНОВАЯ ЗАГРУЗКА)
 // ============================================================================
 const firebaseConfig = {
   apiKey: "AIzaSyDwVDsV2-mbp0mHxZhyTCIP3-ym9UAjrWc",
@@ -44,19 +21,46 @@ let auth = null;
 let db = null;
 let googleProvider = null;
 
-try {
-  if (isFirebaseConfigured) {
-    app = initializeApp(firebaseConfig);
-    auth = getAuth(app);
-    googleProvider = new GoogleAuthProvider();
-    db = initializeFirestore(app, {
-      localCache: persistentLocalCache({
-        tabManager: persistentMultipleTabManager()
+// Ссылки на методы Firebase (подгружаются асинхронно после отрисовки UI)
+let signInWithPopup, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut;
+let collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot, writeBatch;
+
+async function initFirebaseInBackground() {
+  if (!isFirebaseConfigured) return;
+  try {
+    const [appMod, authMod, fsMod] = await Promise.all([
+      import("https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js"),
+      import("https://www.gstatic.com/firebasejs/10.13.1/firebase-auth.js"),
+      import("https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js")
+    ]);
+
+    signInWithPopup = authMod.signInWithPopup;
+    signInWithRedirect = authMod.signInWithRedirect;
+    getRedirectResult = authMod.getRedirectResult;
+    onAuthStateChanged = authMod.onAuthStateChanged;
+    signOut = authMod.signOut;
+
+    collection = fsMod.collection;
+    doc = fsMod.doc;
+    setDoc = fsMod.setDoc;
+    updateDoc = fsMod.updateDoc;
+    deleteDoc = fsMod.deleteDoc;
+    onSnapshot = fsMod.onSnapshot;
+    writeBatch = fsMod.writeBatch;
+
+    app = appMod.initializeApp(firebaseConfig);
+    auth = authMod.getAuth(app);
+    googleProvider = new authMod.GoogleAuthProvider();
+    db = fsMod.initializeFirestore(app, {
+      localCache: fsMod.persistentLocalCache({
+        tabManager: fsMod.persistentMultipleTabManager()
       })
     });
+
+    initFirebaseAuth();
+  } catch (err) {
+    console.warn("Firebase background init warning:", err);
   }
-} catch (err) {
-  console.warn("Firebase init warning:", err);
 }
 
 // ============================================================================
@@ -369,19 +373,9 @@ function getVisibleSchedule() {
 // 6. СТАРТ ПРИЛОЖЕНИЯ
 // ============================================================================
 function bootstrapApp() {
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker
-      .register("./sw.js")
-      .then((reg) => reg.update().catch(() => {}))
-      .catch(() => {});
-  }
-
+  // 1. Мгновенно читаем локальную базу и рисуем интерфейс до любых сетевых запросов
   loadLocalDataOrSeed();
   syncStateFromStorage();
-  if (typeof window.__applyDiaryAppearance === "function") {
-    window.__applyDiaryAppearance();
-  }
-
   renderAll();
   updateLiveWidget();
   setInterval(updateLiveWidget, 1000);
@@ -390,12 +384,22 @@ function bootstrapApp() {
   initUIListeners();
   initNotificationUI();
 
+  // 2. В фоне регистрируем Service Worker и подключаем облако Firebase
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker
+        .register("./sw.js")
+        .then((reg) => reg.update().catch(() => {}))
+        .catch(() => {});
+    });
+  }
+
+  setTimeout(() => {
+    initFirebaseInBackground();
+  }, 50);
+
   setInterval(checkScheduledNotifications, 25000);
   setTimeout(checkScheduledNotifications, 3000);
-
-  if (isFirebaseConfigured && auth) {
-    initFirebaseAuth();
-  }
 }
 
 if (document.readyState === "loading") {
