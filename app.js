@@ -265,6 +265,18 @@ function spring(from, to, options = {}, onUpdate, onDone) {
 
   let lastTime = performance.now();
 
+  // Страховка: если rAF замерзает на iOS (страница свёрнута/заморожена посреди анимации),
+  // пружина гарантированно доезжает до цели по таймеру, а DOM не остаётcя застрявшим
+  let settleTimer = setTimeout(() => {
+    if (stopped) return;
+    stopped = true;
+    if (rafId) cancelAnimationFrame(rafId);
+    pos = to;
+    vel = 0;
+    if (onUpdate) onUpdate(to, 0);
+    if (onDone) onDone();
+  }, options.maxDurationMs ?? 1400);
+
   const tick = (now) => {
     if (stopped) return;
     let rem = Math.min((now - lastTime) / 1000, 0.064);
@@ -282,6 +294,7 @@ function spring(from, to, options = {}, onUpdate, onDone) {
 
     if (Math.abs(to - pos) <= precision && Math.abs(vel) <= precision * 6) {
       stopped = true;
+      clearTimeout(settleTimer);
       pos = to;
       vel = 0;
       if (onUpdate) onUpdate(to, 0);
@@ -298,6 +311,7 @@ function spring(from, to, options = {}, onUpdate, onDone) {
   return {
     stop() {
       stopped = true;
+      clearTimeout(settleTimer);
       if (rafId) cancelAnimationFrame(rafId);
     },
     getCurrent() {
