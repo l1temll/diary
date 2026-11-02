@@ -247,7 +247,7 @@ function spring(from, to, options = {}, onUpdate, onDone) {
   const stiffness = options.stiffness ?? SPRING_SHEET.stiffness;
   const damping = options.damping ?? SPRING_SHEET.damping;
   const mass = options.mass ?? SPRING_SHEET.mass;
-  const precision = options.precision ?? 0.35;
+  const precision = options.precision ?? 1.2;
 
   let pos = from;
   let vel = options.velocity ?? 0;
@@ -265,17 +265,20 @@ function spring(from, to, options = {}, onUpdate, onDone) {
 
   let lastTime = performance.now();
 
-  // Страховка: если rAF замерзает на iOS (страница свёрнута/заморожена посреди анимации),
-  // пружина гарантированно доезжает до цели по таймеру, а DOM не остаётcя застрявшим
-  let settleTimer = setTimeout(() => {
+  const finishNow = () => {
     if (stopped) return;
     stopped = true;
+    clearTimeout(settleTimer);
     if (rafId) cancelAnimationFrame(rafId);
     pos = to;
     vel = 0;
     if (onUpdate) onUpdate(to, 0);
     if (onDone) onDone();
-  }, options.maxDurationMs ?? 1400);
+  };
+
+  // Страховка: если rAF замерзает (страница свёрнута/заморожена посреди анимации),
+  // пружина гарантированно доезжает до цели по таймеру, а DOM не остаётcя застрявшим
+  let settleTimer = setTimeout(finishNow, options.maxDurationMs ?? 1400);
 
   const tick = (now) => {
     if (stopped) return;
@@ -292,7 +295,7 @@ function spring(from, to, options = {}, onUpdate, onDone) {
       rem -= step;
     }
 
-    if (Math.abs(to - pos) <= precision && Math.abs(vel) <= precision * 6) {
+    if (Math.abs(to - pos) <= precision && Math.abs(vel) <= precision * 14) {
       stopped = true;
       clearTimeout(settleTimer);
       pos = to;
@@ -516,11 +519,12 @@ function forceFinishDaySwipe() {
   stopTrackedSpring("day-swipe-track");
   const { viewport, track } = ensureDaySwipeViewport();
   if (track) {
-    track.style.transform = "translate3d(0, 0, 0)";
+    track.style.transform = "";
     track.style.willChange = "";
   }
   cleanupDayGhostLayer();
   if (viewport) {
+    viewport.style.minHeight = "";
     viewport.querySelectorAll(":scope > div:not(#day-swipe-track)").forEach((el) => el.remove());
   }
 }
@@ -533,22 +537,29 @@ if (typeof document !== "undefined") {
 
 // Двухпанельное переключение дня (старый и новый день на экране одновременно)
 function selectDateWithSlide(newDateISO, options = {}) {
-  if (!newDateISO || newDateISO === state.selectedDate) return;
+  if (!newDateISO || newDateISO === state.selectedDate) {
+    forceFinishDaySwipe();
+    return;
+  }
 
   const { viewport, track } = ensureDaySwipeViewport();
   if (!viewport || !track || state.weekGridMode || isReducedMotion()) {
+    forceFinishDaySwipe();
     state.selectedDate = newDateISO;
     renderScheduleSection();
     return;
   }
 
+  stopTrackedSpring("day-swipe-track");
+
   const dir = newDateISO > state.selectedDate ? 1 : -1;
   const width = viewport.clientWidth || window.innerWidth || 375;
+  const oldHeight = track.offsetHeight || 0;
 
-  // Если переход вызван кликом/стрелкой или продолжается после свайпа:
-  // Клонируем текущий (уходящий) день в соседний слой, если он ещё не создан жестом
+  // Удаляем любые старые клоны перед созданием нового
   if (!options.existingGhost) {
     cleanupDayGhostLayer();
+    viewport.querySelectorAll(":scope > div:not(#day-swipe-track)").forEach((el) => el.remove());
     dayGhostLayer = track.cloneNode(true);
     dayGhostLayer.removeAttribute("id");
     dayGhostLayer.querySelectorAll("[id]").forEach((el) => el.removeAttribute("id"));
@@ -559,6 +570,9 @@ function selectDateWithSlide(newDateISO, options = {}) {
     dayGhostLayer.style.pointerEvents = "none";
     viewport.appendChild(dayGhostLayer);
   } else {
+    if (dayGhostLayer && dayGhostLayer !== options.existingGhost) {
+      dayGhostLayer.remove();
+    }
     dayGhostLayer = options.existingGhost;
   }
 
@@ -570,8 +584,19 @@ function selectDateWithSlide(newDateISO, options = {}) {
   state.animateNextCascade = false;
   renderScheduleSection();
 
+  const newHeight = track.offsetHeight || 0;
+  if (oldHeight > newHeight) {
+    viewport.style.minHeight = `${oldHeight}px`;
+  }
+
   track.style.willChange = "transform";
-  if (dayGhostLayer) dayGhostLayer.style.willChange = "transform";
+  if (dayGhostLayer) dayGhostLayer.style.willChange = "transform, opacity";
+
+  // Сразу ставим начальную позицию до первого кадра rAF, чтобы исключить мигание
+  track.style.transform = `translate3d(${startOffset}px, 0, 0)`;
+  if (dayGhostLayer) {
+    dayGhostLayer.style.transform = `translate3d(${startOffset - dir * width}px, 0, 0)`;
+  }
 
   animateTrackedSpring(
     "day-swipe-track",
@@ -582,12 +607,16 @@ function selectDateWithSlide(newDateISO, options = {}) {
       track.style.transform = `translate3d(${pos}px, 0, 0)`;
       if (dayGhostLayer) {
         dayGhostLayer.style.transform = `translate3d(${pos - dir * width}px, 0, 0)`;
+        const progress = Math.min(1, Math.max(0, 1 - Math.abs(pos) / width));
+        dayGhostLayer.style.opacity = String(Math.max(0, 1 - progress * 0.85));
       }
     },
     () => {
-      track.style.transform = "translate3d(0, 0, 0)";
+      track.style.transform = "";
       track.style.willChange = "";
+      viewport.style.minHeight = "";
       cleanupDayGhostLayer();
+      viewport.querySelectorAll(":scope > div:not(#day-swipe-track)").forEach((el) => el.remove());
     }
   );
 }
@@ -4057,6 +4086,24 @@ function initPhotoViewerGestures() {
 // ============================================================================
 // 17. ИНТЕРАКТИВНЫЕ ВКЛАДКИ, ДВУХПАНЕЛЬНЫЙ СВАЙП ДНЕЙ, ШТОРКИ И КНОПКИ
 // ============================================================================
+function resetAllTabViewsToCleanState(activeTabName) {
+  const tabOrder = ["schedule", "tasks", "notes"];
+  tabOrder.forEach((t) => {
+    const v = document.getElementById(`view-${t}`);
+    if (!v) return;
+    v.classList.toggle("hidden", t !== activeTabName);
+    v.style.transform = "";
+    v.style.opacity = "";
+    v.style.position = "";
+    v.style.top = "";
+    v.style.left = "";
+    v.style.right = "";
+    v.style.width = "";
+    v.style.pointerEvents = "";
+    v.style.willChange = "";
+  });
+}
+
 function switchTabWithSpring(newTab, options = {}) {
   const tabOrder = ["schedule", "tasks", "notes"];
   const oldIdx = tabOrder.indexOf(state.activeTab);
@@ -4106,7 +4153,11 @@ function switchTabWithSpring(newTab, options = {}) {
 
   if (oldIdx === newIdx && !options.fromDrag) return;
 
+  // Если предыдущая анимация вкладки еще шла — мгновенно приводим все вкладки в чистое состояние
+  stopTrackedSpring("tab_switch");
   const oldTab = state.activeTab;
+  resetAllTabViewsToCleanState(oldTab);
+
   state.activeTab = newTab;
 
   if (newTab !== "schedule" && state.weekGridMode) {
@@ -4122,15 +4173,7 @@ function switchTabWithSpring(newTab, options = {}) {
   const newView = document.getElementById(`view-${newTab}`);
 
   if (!mainContainer || !oldView || !newView || isReducedMotion() || oldIdx === newIdx) {
-    tabOrder.forEach((t) => {
-      const v = document.getElementById(`view-${t}`);
-      if (v) {
-        v.classList.toggle("hidden", t !== newTab);
-        v.style.transform = "";
-        v.style.position = "";
-        v.style.width = "";
-      }
-    });
+    resetAllTabViewsToCleanState(newTab);
     refreshIcons();
     return;
   }
@@ -4150,58 +4193,177 @@ function switchTabWithSpring(newTab, options = {}) {
   oldView.style.willChange = "transform, opacity";
   newView.style.willChange = "transform, opacity";
 
+  newView.style.transform = `translate3d(${startOffset}px, 0, 0)`;
+  oldView.style.transform = `translate3d(${startOffset - dir * width}px, 0, 0)`;
+
   animateTrackedSpring(
     "tab_switch",
     startOffset,
     0,
     { ...SPRING_PAGE, velocity: options.velocity ?? 0 },
     (pos) => {
+      const progress = Math.min(1, Math.max(0, 1 - Math.abs(pos) / width));
       newView.style.transform = `translate3d(${pos}px, 0, 0)`;
       oldView.style.transform = `translate3d(${pos - dir * width}px, 0, 0)`;
+      oldView.style.opacity = String(Math.max(0, 1 - progress * 1.25));
     },
     () => {
-      tabOrder.forEach((t) => {
-        const v = document.getElementById(`view-${t}`);
-        if (!v) return;
-        v.classList.toggle("hidden", t !== state.activeTab);
-        v.style.transform = "";
-        v.style.position = "";
-        v.style.top = "";
-        v.style.left = "";
-        v.style.right = "";
-        v.style.pointerEvents = "";
-        v.style.willChange = "";
-      });
+      resetAllTabViewsToCleanState(state.activeTab);
     }
   );
 
   refreshIcons();
 }
 
-function renderPreviewDayHTML(dateISO) {
-  const prevSelected = state.selectedDate;
-  const { viewport, track } = ensureDaySwipeViewport();
-  if (!viewport || !track) return null;
+// Чистая генерация превью соседнего дня В ПАМЯТИ (НЕ трогает живой DOM и НЕ сбивает touch-таргет в iOS Safari!)
+function buildDetachedDayPreviewNode(dateISO) {
+  const previewWrap = document.createElement("div");
+  previewWrap.className = "space-y-3";
+  previewWrap.style.position = "absolute";
+  previewWrap.style.top = "0";
+  previewWrap.style.left = "0";
+  previewWrap.style.width = "100%";
+  previewWrap.style.pointerEvents = "none";
 
-  // Временно рендерим целевой день в клон без мигания основного дерева
-  const savedHTML = track.innerHTML;
-  state.selectedDate = dateISO;
-  state.animateNextCascade = false;
-  renderScheduleSection();
-  const previewNode = track.cloneNode(true);
-  previewNode.removeAttribute("id");
-  previewNode.querySelectorAll("[id]").forEach((el) => el.removeAttribute("id"));
-  previewNode.style.position = "absolute";
-  previewNode.style.top = "0";
-  previewNode.style.left = "0";
-  previewNode.style.width = "100%";
-  previewNode.style.pointerEvents = "none";
+  const todayISO = getTodayISO();
+  const mono = isMonoMode();
+  const visibleSchedule = getVisibleSchedule();
 
-  state.selectedDate = prevSelected;
-  track.innerHTML = savedHTML;
-  renderScheduleSection();
+  const dayEvents = state.events
+    .filter((ev) => ev.date === dateISO)
+    .sort((a, b) => timeToMinutes(a.startTime || "00:00") - timeToMinutes(b.startTime || "00:00"));
 
-  return previewNode;
+  let html = "";
+
+  if (state.showEvents && dayEvents.length > 0) {
+    html += `
+      <div class="space-y-2">
+        <div class="flex items-center justify-between px-1">
+          <span class="text-[11px] font-extrabold uppercase tracking-wider text-ios-purple flex items-center gap-1.5">
+            <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+            Мероприятия (${dayEvents.length})
+          </span>
+        </div>
+        <div class="space-y-2">
+          ${dayEvents
+            .map((ev) => {
+              const timeLabel =
+                ev.startTime && ev.endTime
+                  ? `${escapeHtml(ev.startTime)}–${escapeHtml(ev.endTime)}`
+                  : ev.startTime
+                  ? `в ${escapeHtml(ev.startTime)}`
+                  : ev.endTime
+                  ? `до ${escapeHtml(ev.endTime)}`
+                  : "Весь день";
+              return `
+                <div class="ios26-card rounded-2xl p-3 border border-ios-purple/40 flex items-center justify-between gap-2.5">
+                  <div class="flex items-center gap-2.5 min-w-0 flex-1">
+                    <div class="px-2.5 py-1.5 rounded-xl bg-ios-purple/20 border border-ios-purple/40 text-center shrink-0 min-w-[68px]">
+                      <span class="block text-[9px] font-extrabold uppercase text-ios-purple">Событие</span>
+                      <span class="block text-[11px] font-bold text-white">${timeLabel}</span>
+                    </div>
+                    <div class="min-w-0 flex-1">
+                      <h4 class="text-sm font-extrabold text-white truncate">${escapeHtml(ev.title)}</h4>
+                      ${
+                        ev.location
+                          ? `<p class="text-xs text-gray-300 flex items-center gap-1 truncate mt-0.5">
+                              <span class="truncate">${escapeHtml(ev.location)}</span>
+                            </p>`
+                          : `<p class="text-[11px] text-ios-purple/80 mt-0.5">Нажмите для подробностей →</p>`
+                      }
+                    </div>
+                  </div>
+                </div>`;
+            })
+            .join("")}
+        </div>
+      </div>`;
+  }
+
+  const dayClasses = visibleSchedule
+    .filter((item) => item.date === dateISO)
+    .sort(
+      (a, b) =>
+        Number(a.number || 0) - Number(b.number || 0) ||
+        timeToMinutes(a.startTime) - timeToMinutes(b.startTime)
+    );
+
+  if (dayClasses.length === 0) {
+    const readableDate = parseDateISO(dateISO).toLocaleDateString("ru-RU", {
+      weekday: "long",
+      day: "numeric",
+      month: "long"
+    });
+    html += `
+      <div class="ios26-card rounded-3xl p-7 text-center space-y-2">
+        <div class="w-11 h-11 rounded-2xl bg-ios-orange/15 text-ios-orange flex items-center justify-center mx-auto">
+          <i data-lucide="coffee" class="w-5 h-5"></i>
+        </div>
+        <p class="font-extrabold text-base capitalize">${escapeHtml(readableDate)}</p>
+        <p class="text-xs text-gray-300">Учебных пар в этот день нет. Нажмите «+» сверху, чтобы добавить пару или событие.</p>
+      </div>`;
+  } else {
+    const now = new Date();
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+
+    html += `<div class="space-y-3">${dayClasses
+      .map((item) => {
+        const isLiveNow =
+          !mono &&
+          item.date === todayISO &&
+          nowMinutes >= timeToMinutes(item.startTime) &&
+          nowMinutes < timeToMinutes(item.endTime);
+
+        const subjectTasks = state.tasks.filter(
+          (t) =>
+            String(t.subject).trim().toLowerCase() === String(item.subject).trim().toLowerCase() &&
+            (t.deadline === item.date || (!t.completed && t.deadline >= item.date))
+        );
+
+        return `
+        <article class="${isLiveNow ? "ios26-card-orange" : "ios26-card"} rounded-3xl p-3.5 space-y-3">
+          <div class="flex gap-3 items-start">
+            <div class="flex flex-col items-center justify-center ${
+              isLiveNow ? "ios-active-orange" : "bg-white/[0.07] border border-white/15"
+            } rounded-2xl px-2 py-2 min-w-[68px] text-center shrink-0">
+              <span class="text-[11px] font-extrabold ${isLiveNow ? "text-black" : "text-ios-orange"}">${escapeHtml(
+          item.number
+        )} пара</span>
+              <span class="text-xs font-extrabold ${isLiveNow ? "text-black" : "text-white"} mt-0.5">${escapeHtml(
+          item.startTime
+        )}</span>
+              <span class="text-[10px] ${isLiveNow ? "text-black/80" : "text-gray-300"}">${escapeHtml(
+          item.endTime
+        )}</span>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-1.5 flex-wrap mb-1">
+                <span class="text-[11px] font-bold px-2 py-0.5 rounded-full border ${getBadgeStyle(
+                  item.type
+                )}">${escapeHtml(item.type)}</span>
+                <span class="text-xs text-gray-200 truncate">${escapeHtml(item.room)}</span>
+              </div>
+              <h3 class="font-extrabold text-sm sm:text-base leading-snug text-white break-words">${escapeHtml(
+                item.subject
+              )}</h3>
+              ${
+                item.teacher
+                  ? `<p class="text-xs text-gray-300 mt-1 truncate">${escapeHtml(item.teacher)}</p>`
+                  : ""
+              }
+            </div>
+          </div>
+          <div class="pt-2.5 border-t border-white/10 flex items-center justify-between text-[11px] text-gray-300">
+            <span class="font-bold uppercase">ДЗ (${subjectTasks.length})</span>
+            <span class="text-ios-orange font-bold">+ ДЗ</span>
+          </div>
+        </article>`;
+      })
+      .join("")}</div>`;
+  }
+
+  previewWrap.innerHTML = html;
+  return previewWrap;
 }
 
 function initInteractiveDayAndTabSwipes() {
@@ -4218,6 +4380,7 @@ function initInteractiveDayAndTabSwipes() {
   let currentDx = 0;
   let activePreviewDir = 0;
   let previewNode = null;
+  let lastTouchTimestamp = 0;
 
   const clearPreview = () => {
     if (previewNode) {
@@ -4250,17 +4413,19 @@ function initInteractiveDayAndTabSwipes() {
     vTracker.reset();
     vTracker.add(x, y);
 
-    const isEdge = x <= SWIPE_CONFIG.EDGE_TAB_ZONE_PX || x >= window.innerWidth - SWIPE_CONFIG.EDGE_TAB_ZONE_PX;
+    const isEdge =
+      x <= SWIPE_CONFIG.EDGE_TAB_ZONE_PX || x >= window.innerWidth - SWIPE_CONFIG.EDGE_TAB_ZONE_PX;
     mode = state.activeTab === "schedule" && !state.weekGridMode && !isEdge ? "day" : "tab";
 
     if (mode === "day") {
-      // Если пользователь перехватил незавершенную анимацию дня в полёте
-      const running = stopTrackedSpring("day-swipe-track");
-      cleanupDayGhostLayer();
-      if (running && Math.abs(running.pos) > 2) {
-        startX = x - running.pos;
-        currentDx = running.pos;
-        isLocked = true;
+      // Если предыдущая анимация дня еще шла — аккуратно завершаем ее в точку 0 перед новым жестом
+      if (activeSpringsMap.has("day-swipe-track")) {
+        forceFinishDaySwipe();
+      }
+    } else if (mode === "tab") {
+      if (activeSpringsMap.has("tab_switch")) {
+        stopTrackedSpring("tab_switch");
+        resetAllTabViewsToCleanState(state.activeTab);
       }
     }
   };
@@ -4275,7 +4440,7 @@ function initInteractiveDayAndTabSwipes() {
         isIgnored = true;
         return;
       }
-      if (Math.abs(rawDx) > 10 && Math.abs(rawDx) > Math.abs(rawDy) * 1.2) {
+      if (Math.abs(rawDx) > 10 && Math.abs(rawDx) > Math.abs(rawDy) * 1.15) {
         isLocked = true;
       }
     }
@@ -4294,7 +4459,7 @@ function initInteractiveDayAndTabSwipes() {
       if (neededDir !== activePreviewDir) {
         clearPreview();
         activePreviewDir = neededDir;
-        previewNode = renderPreviewDayHTML(addDaysISO(state.selectedDate, neededDir));
+        previewNode = buildDetachedDayPreviewNode(addDaysISO(state.selectedDate, neededDir));
         if (previewNode) {
           viewport.appendChild(previewNode);
           if (window.lucide) window.lucide.createIcons();
@@ -4338,14 +4503,19 @@ function initInteractiveDayAndTabSwipes() {
       const { viewport, track } = ensureDaySwipeViewport();
       const width = viewport?.clientWidth || window.innerWidth || 375;
       const projectedX = projectPosition(currentDx, vx);
-      const dir = currentDx < 0 ? 1 : -1;
+      const dir = activePreviewDir || (currentDx < 0 ? 1 : -1);
 
       const shouldCommit =
-        (dir > 0 && (projectedX < -width * SWIPE_CONFIG.DAY_COMMIT_RATIO || vx < -SWIPE_CONFIG.DAY_VELOCITY_THRESHOLD)) ||
-        (dir < 0 && (projectedX > width * SWIPE_CONFIG.DAY_COMMIT_RATIO || vx > SWIPE_CONFIG.DAY_VELOCITY_THRESHOLD));
+        (dir > 0 &&
+          (projectedX < -width * SWIPE_CONFIG.DAY_COMMIT_RATIO ||
+            vx < -SWIPE_CONFIG.DAY_VELOCITY_THRESHOLD ||
+            currentDx < -width * 0.28)) ||
+        (dir < 0 &&
+          (projectedX > width * SWIPE_CONFIG.DAY_COMMIT_RATIO ||
+            vx > SWIPE_CONFIG.DAY_VELOCITY_THRESHOLD ||
+            currentDx > width * 0.28));
 
       if (shouldCommit) {
-        // Текущий трек превращаем в уходящий клон, а на место трека встаёт новый день
         clearPreview();
         const ghost = track.cloneNode(true);
         ghost.removeAttribute("id");
@@ -4363,7 +4533,6 @@ function initInteractiveDayAndTabSwipes() {
           velocity: vx
         });
       } else {
-        // Возврат пружиной обратно на текущий день
         const ghost = previewNode;
         previewNode = null;
         activePreviewDir = 0;
@@ -4379,7 +4548,7 @@ function initInteractiveDayAndTabSwipes() {
           },
           () => {
             if (track) {
-              track.style.transform = "translate3d(0, 0, 0)";
+              track.style.transform = "";
               track.style.willChange = "";
             }
             if (ghost) ghost.remove();
@@ -4398,8 +4567,8 @@ function initInteractiveDayAndTabSwipes() {
       const canSwitch = nextIdx >= 0 && nextIdx < tabOrder.length;
       const shouldCommit =
         canSwitch &&
-        ((dir > 0 && (projectedX < -width * 0.35 || vx < -420)) ||
-          (dir < 0 && (projectedX > width * 0.35 || vx > 420)));
+        ((dir > 0 && (projectedX < -width * 0.32 || vx < -400)) ||
+          (dir < 0 && (projectedX > width * 0.32 || vx > 400)));
 
       if (shouldCommit) {
         if (curView) curView.style.transform = "";
@@ -4426,47 +4595,58 @@ function initInteractiveDayAndTabSwipes() {
     }
   };
 
+  // Слушаем touchmove и touchend на window, чтобы жест никогда не терялся в iOS Safari
   mainEl.addEventListener(
     "touchstart",
     (e) => {
+      lastTouchTimestamp = performance.now();
       if (e.touches.length !== 1) return;
       onStart(e.touches[0].clientX, e.touches[0].clientY, e.target);
     },
     { passive: true }
   );
 
-  mainEl.addEventListener(
+  window.addEventListener(
     "touchmove",
     (e) => {
-      if (e.touches.length !== 1) return;
+      if (!isPointerDown || e.touches.length !== 1) return;
       onMove(e.touches[0].clientX, e.touches[0].clientY, e);
     },
     { passive: false }
   );
 
-  mainEl.addEventListener("touchend", onEnd, { passive: true });
-  mainEl.addEventListener(
-    "touchcancel",
+  window.addEventListener(
+    "touchend",
     () => {
-      isPointerDown = false;
-      clearPreview();
-      const { track } = ensureDaySwipeViewport();
-      if (track) track.style.transform = "translate3d(0, 0, 0)";
+      lastTouchTimestamp = performance.now();
+      if (!isPointerDown) return;
+      onEnd();
     },
     { passive: true }
   );
 
-  // Поддержка перетаскивания мышью на ПК
+  window.addEventListener(
+    "touchcancel",
+    () => {
+      isPointerDown = false;
+      isLocked = false;
+      clearPreview();
+      forceFinishDaySwipe();
+    },
+    { passive: true }
+  );
+
+  // Поддержка мыши на ПК (игнорируем синтетические mouse-события после тача на мобильных)
   mainEl.addEventListener("mousedown", (e) => {
-    if (e.button !== 0) return;
+    if (e.button !== 0 || performance.now() - lastTouchTimestamp < 650) return;
     onStart(e.clientX, e.clientY, e.target);
   });
   window.addEventListener("mousemove", (e) => {
-    if (!isPointerDown) return;
+    if (!isPointerDown || performance.now() - lastTouchTimestamp < 650) return;
     onMove(e.clientX, e.clientY, e);
   });
   window.addEventListener("mouseup", () => {
-    if (!isPointerDown) return;
+    if (!isPointerDown || performance.now() - lastTouchTimestamp < 650) return;
     onEnd();
   });
 }
