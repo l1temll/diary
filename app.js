@@ -180,10 +180,190 @@ function buildDefaultSchedule() {
 const SEMESTER_START_MONDAY = "2026-08-31";
 
 // ============================================================================
+// 2.5. ФИЗИЧЕСКИЙ ДВИЖОК ПРУЖИН И ЖЕСТОВ (TELEGRAM iOS / WWDC 2018)
+// ============================================================================
+const SPRING_SHEET = { stiffness: 380, damping: 38, mass: 1 };   // Без отскока (damping ratio ≈ 0.98)
+const SPRING_SNAPPY = { stiffness: 540, damping: 34, mass: 1 };  // Упругий отклик с лёгким отскоком (ratio ≈ 0.73)
+const SPRING_PAGE = { stiffness: 420, damping: 41, mass: 1 };    // Перелистывание дней и вкладок (ratio ≈ 1.0)
+
+const SWIPE_CONFIG = {
+  DECELERATION_RATE: 0.998,      // Коэффициент инерции iOS UIScrollView
+  RUBBER_CONSTANT: 0.55,         // Коэффициент натяжения Apple
+  DAY_COMMIT_RATIO: 0.36,        // Доля ширины экрана для переключения дня
+  DAY_VELOCITY_THRESHOLD: 420,   // Порог скорости пальца (px/s) для смены дня
+  SHEET_DISMISS_RATIO: 0.38,     // Доля высоты шторки для закрытия
+  SHEET_VELOCITY_THRESHOLD: 520, // Порог скорости пальца (px/s) для смахивания шторки
+  EDGE_TAB_ZONE_PX: 28           // Зона у края экрана для свайпа вкладок поверх расписания
+};
+
+const reducedMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+function isReducedMotion() {
+  return Boolean(reducedMotionQuery && reducedMotionQuery.matches);
+}
+
+// Формула Apple rubber-band: (1 - 1 / ((x * 0.55 / d) + 1)) * d
+function rubberBand(offset, dimension, constant = SWIPE_CONFIG.RUBBER_CONSTANT) {
+  if (dimension <= 0 || offset === 0) return 0;
+  const sign = offset < 0 ? -1 : 1;
+  const abs = Math.abs(offset);
+  return sign * (1 - 1 / ((abs * constant) / dimension + 1)) * dimension;
+}
+
+// Проекция конечной точки по скорости (WWDC 2018 Designing Fluid Interfaces)
+function projectPosition(position, velocity, rate = SWIPE_CONFIG.DECELERATION_RATE) {
+  return position + (velocity / 1000) * (rate / (1 - rate));
+}
+
+// Кольцевой трекер скорости пальца за последние 90 мс (возвращает px/sec)
+function createVelocityTracker() {
+  const pts = [];
+  return {
+    add(x, y, t = performance.now()) {
+      pts.push({ x, y, t });
+      const cutoff = t - 105;
+      while (pts.length > 2 && pts[0].t < cutoff) pts.shift();
+    },
+    getVelocity(now = performance.now()) {
+      const cutoff = now - 95;
+      while (pts.length > 1 && pts[0].t < cutoff) pts.shift();
+      if (pts.length < 2) return { vx: 0, vy: 0 };
+      const first = pts[0];
+      const last = pts[pts.length - 1];
+      const dt = (last.t - first.t) / 1000;
+      if (dt <= 0.003) return { vx: 0, vy: 0 };
+      return {
+        vx: (last.x - first.x) / dt,
+        vy: (last.y - first.y) / dt
+      };
+    },
+    reset() {
+      pts.length = 0;
+    }
+  };
+}
+
+// Решатель физической пружины с фиксированным подшагом 8 мс
+function spring(from, to, options = {}, onUpdate, onDone) {
+  const stiffness = options.stiffness ?? SPRING_SHEET.stiffness;
+  const damping = options.damping ?? SPRING_SHEET.damping;
+  const mass = options.mass ?? SPRING_SHEET.mass;
+  const precision = options.precision ?? 0.35;
+
+  let pos = from;
+  let vel = options.velocity ?? 0;
+  let rafId = 0;
+  let stopped = false;
+
+  if (isReducedMotion() || (Math.abs(to - from) < precision && Math.abs(vel) < precision)) {
+    if (onUpdate) onUpdate(to, 0);
+    if (onDone) onDone();
+    return {
+      stop() {},
+      getCurrent: () => ({ pos: to, vel: 0 })
+    };
+  }
+
+  let lastTime = performance.now();
+
+  const tick = (now) => {
+    if (stopped) return;
+    let rem = Math.min((now - lastTime) / 1000, 0.064);
+    lastTime = now;
+
+    while (rem > 0) {
+      const step = Math.min(rem, 0.008);
+      const fSpring = -stiffness * (pos - to);
+      const fDamper = -damping * vel;
+      const acc = (fSpring + fDamper) / mass;
+      vel += acc * step;
+      pos += vel * step;
+      rem -= step;
+    }
+
+    if (Math.abs(to - pos) <= precision && Math.abs(vel) <= precision * 6) {
+      stopped = true;
+      pos = to;
+      vel = 0;
+      if (onUpdate) onUpdate(to, 0);
+      if (onDone) onDone();
+      return;
+    }
+
+    if (onUpdate) onUpdate(pos, vel);
+    rafId = requestAnimationFrame(tick);
+  };
+
+  rafId = requestAnimationFrame(tick);
+
+  return {
+    stop() {
+      stopped = true;
+      if (rafId) cancelAnimationFrame(rafId);
+    },
+    getCurrent() {
+      return { pos, vel };
+    }
+  };
+}
+
+// Менеджер прерываемых анимаций по ключу/элементу (сохраняет скорость при перехвате)
+const activeSpringsMap = new Map();
+
+function animateTrackedSpring(key, from, to, config = {}, onUpdate, onDone) {
+  const existing = activeSpringsMap.get(key);
+  let startPos = from;
+  let startVel = config.velocity ?? 0;
+
+  if (existing) {
+    const cur = existing.getCurrent();
+    if (startPos === null || startPos === undefined) startPos = cur.pos;
+    if (config.velocity === undefined) startVel = cur.vel;
+    existing.stop();
+    activeSpringsMap.delete(key);
+  } else if (startPos === null || startPos === undefined) {
+    startPos = 0;
+  }
+
+  // let + переназначение: onDone внутри spring() может сработать синхронно
+  // (дистанция меньше precision), и обращение к const до инициализации падало бы в TDZ
+  let ctrl = null;
+  ctrl = spring(
+    startPos,
+    to,
+    { ...config, velocity: startVel },
+    onUpdate,
+    () => {
+      if (activeSpringsMap.get(key) === ctrl) {
+        activeSpringsMap.delete(key);
+      }
+      if (onDone) onDone();
+    }
+  );
+
+  activeSpringsMap.set(key, ctrl);
+  return ctrl;
+}
+
+function stopTrackedSpring(key) {
+  const existing = activeSpringsMap.get(key);
+  if (existing) {
+    const cur = existing.getCurrent();
+    existing.stop();
+    activeSpringsMap.delete(key);
+    return cur;
+  }
+  return null;
+}
+
+// Рантайм-состояние шторок (объявлено выше, чтобы не падал TDZ при раннем вызове initBottomSheetsPhysics)
+const sheetRuntimeState = new Map();
+
+// ============================================================================
 // 3. ГЛОБАЛЬНОЕ СОСТОЯНИЕ ПРИЛОЖЕНИЯ
 // ============================================================================
 const state = {
   user: null,
+  animateNextCascade: true,
   colorMode: localStorage.getItem("diary_color_mode_v6") || "dark",
   theme: localStorage.getItem("diary_theme_v6") || "classic",
   btnStyle: localStorage.getItem("diary_btn_style_v6") || "matte",
@@ -280,34 +460,100 @@ function addDaysISO(dateStr, days) {
   return formatDateISO(d);
 }
 
-// Плавное переключение дня с горизонтальной инерцией как в Telegram iOS
-function selectDateWithSlide(newDateISO, isFromRealtimeSwipe = false) {
+let dayGhostLayer = null;
+
+function ensureDaySwipeViewport() {
+  let viewport = document.getElementById("day-swipe-viewport");
+  let track = document.getElementById("day-swipe-track");
+  if (viewport && track) return { viewport, track };
+
+  const dayView = document.getElementById("day-schedule-view");
+  const evWrap = document.getElementById("events-section-wrapper");
+  const schedList = document.getElementById("schedule-list");
+  if (!dayView || !evWrap || !schedList) return { viewport: null, track: null };
+
+  viewport = document.createElement("div");
+  viewport.id = "day-swipe-viewport";
+  viewport.className = "relative overflow-hidden";
+
+  track = document.createElement("div");
+  track.id = "day-swipe-track";
+  track.className = "space-y-3";
+
+  dayView.insertBefore(viewport, evWrap);
+  track.appendChild(evWrap);
+  track.appendChild(schedList);
+  viewport.appendChild(track);
+
+  return { viewport, track };
+}
+
+function cleanupDayGhostLayer() {
+  if (dayGhostLayer) {
+    dayGhostLayer.remove();
+    dayGhostLayer = null;
+  }
+}
+
+// Двухпанельное переключение дня (старый и новый день на экране одновременно)
+function selectDateWithSlide(newDateISO, options = {}) {
   if (!newDateISO || newDateISO === state.selectedDate) return;
+
+  const { viewport, track } = ensureDaySwipeViewport();
+  if (!viewport || !track || state.weekGridMode || isReducedMotion()) {
+    state.selectedDate = newDateISO;
+    renderScheduleSection();
+    return;
+  }
+
   const dir = newDateISO > state.selectedDate ? 1 : -1;
-  state.daySlideDir = dir;
+  const width = viewport.clientWidth || window.innerWidth || 375;
+
+  // Если переход вызван кликом/стрелкой или продолжается после свайпа:
+  // Клонируем текущий (уходящий) день в соседний слой, если он ещё не создан жестом
+  if (!options.existingGhost) {
+    cleanupDayGhostLayer();
+    dayGhostLayer = track.cloneNode(true);
+    dayGhostLayer.removeAttribute("id");
+    dayGhostLayer.querySelectorAll("[id]").forEach((el) => el.removeAttribute("id"));
+    dayGhostLayer.style.position = "absolute";
+    dayGhostLayer.style.top = "0";
+    dayGhostLayer.style.left = "0";
+    dayGhostLayer.style.width = "100%";
+    dayGhostLayer.style.pointerEvents = "none";
+    viewport.appendChild(dayGhostLayer);
+  } else {
+    dayGhostLayer = options.existingGhost;
+  }
+
+  const startOffset =
+    options.startOffsetPx !== undefined ? options.startOffsetPx : dir * width;
+  const initialVelocity = options.velocity ?? 0;
+
   state.selectedDate = newDateISO;
-
-  const listEl = document.getElementById("schedule-list");
-  const evWrapEl = document.getElementById("events-section-wrapper");
-
-  if (listEl) {
-    listEl.style.transition = "none";
-    listEl.style.transform = "translate3d(0, 0, 0)";
-    listEl.style.opacity = "1";
-    listEl.classList.remove("slide-in-from-right", "slide-in-from-left");
-    void listEl.offsetWidth;
-    listEl.classList.add(dir > 0 ? "slide-in-from-right" : "slide-in-from-left");
-  }
-  if (evWrapEl) {
-    evWrapEl.style.transition = "none";
-    evWrapEl.style.transform = "translate3d(0, 0, 0)";
-    evWrapEl.style.opacity = "1";
-    evWrapEl.classList.remove("slide-in-from-right", "slide-in-from-left");
-    void evWrapEl.offsetWidth;
-    evWrapEl.classList.add(dir > 0 ? "slide-in-from-right" : "slide-in-from-left");
-  }
-
+  state.animateNextCascade = false;
   renderScheduleSection();
+
+  track.style.willChange = "transform";
+  if (dayGhostLayer) dayGhostLayer.style.willChange = "transform";
+
+  animateTrackedSpring(
+    "day-swipe-track",
+    startOffset,
+    0,
+    { ...SPRING_PAGE, velocity: initialVelocity },
+    (pos) => {
+      track.style.transform = `translate3d(${pos}px, 0, 0)`;
+      if (dayGhostLayer) {
+        dayGhostLayer.style.transform = `translate3d(${pos - dir * width}px, 0, 0)`;
+      }
+    },
+    () => {
+      track.style.transform = "translate3d(0, 0, 0)";
+      track.style.willChange = "";
+      cleanupDayGhostLayer();
+    }
+  );
 }
 
 function formatShortDate(dateStr) {
@@ -1408,11 +1654,21 @@ function updateWeekGridNowLine() {
 // ============================================================================
 // 12. РЕНДЕРИНГ РАСПИСАНИЯ
 // ============================================================================
+function triggerCascadeOnce(containerEl) {
+  if (!containerEl || isReducedMotion()) return;
+  containerEl.classList.remove("play-cascade");
+  void containerEl.offsetWidth;
+  containerEl.classList.add("play-cascade");
+  setTimeout(() => containerEl.classList.remove("play-cascade"), 420);
+}
+
 function renderAll() {
+  state.animateNextCascade = true;
   renderScheduleSection();
   renderTasks();
   renderNotes();
   updateSubjectsDatalist();
+  state.animateNextCascade = false;
 }
 
 function renderScheduleSection() {
@@ -1784,6 +2040,9 @@ function renderScheduleSection() {
     })
     .join("");
 
+  if (state.animateNextCascade) {
+    triggerCascadeOnce(listEl);
+  }
   refreshIcons();
 }
 
@@ -1817,12 +2076,22 @@ function renderTasks() {
   const container = document.getElementById("tasks-list");
   if (!container) return;
 
+  // 1. First: записываем старые координаты карточек для FLIP-анимации
+  const prevRects = new Map();
+  if (!isReducedMotion() && state.activeTab === "tasks") {
+    container.querySelectorAll("article[data-task-card-id]").forEach((el) => {
+      prevRects.set(el.dataset.taskCardId, el.getBoundingClientRect());
+    });
+  }
+
   const todayISO = getTodayISO();
   const currentWeekNum = getStudyWeekNumber(state.selectedDate);
 
   const activeTasks = state.tasks.filter((t) => !t.completed);
   const completedTasks = state.tasks.filter((t) => t.completed);
-  const weekTasks = state.tasks.filter((t) => !t.completed && getStudyWeekNumber(String(t.deadline).slice(0, 10)) === currentWeekNum);
+  const weekTasks = state.tasks.filter(
+    (t) => !t.completed && getStudyWeekNumber(String(t.deadline).slice(0, 10)) === currentWeekNum
+  );
 
   const countActiveEl = document.getElementById("count-active-tasks");
   const countWeekEl = document.getElementById("count-week-tasks");
@@ -1837,9 +2106,9 @@ function renderTasks() {
     badge.classList.toggle("hidden", activeTasks.length === 0);
   }
 
-  let list = activeTasks;
-  if (state.taskFilter === "this-week") list = weekTasks;
-  else if (state.taskFilter === "completed") list = completedTasks;
+  let list = [...activeTasks];
+  if (state.taskFilter === "this-week") list = [...weekTasks];
+  else if (state.taskFilter === "completed") list = [...completedTasks];
 
   list.sort((a, b) => String(a.deadline).localeCompare(String(b.deadline)));
 
@@ -1859,20 +2128,26 @@ function renderTasks() {
       const dateLabel = formatShortDate(deadlineDate);
 
       return `
-      <article class="ios26-card rounded-3xl p-4 space-y-2.5">
+      <article data-task-card-id="${task.id}" class="ios26-card rounded-3xl p-4 space-y-2.5">
         <div class="flex items-start gap-3">
-          <button type="button" data-toggle-task="${task.id}" class="ios-press mt-0.5 w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 ${task.completed ? "bg-ios-green border-ios-green text-black" : "border-ios-orange"}">
+          <button type="button" data-toggle-task="${task.id}" class="ios-press mt-0.5 w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 ${
+        task.completed ? "bg-ios-green border-ios-green text-black" : "border-ios-orange"
+      }">
             ${task.completed ? '<i data-lucide="check" class="w-3.5 h-3.5 stroke-[3]"></i>' : ""}
           </button>
 
           <div class="flex-1 min-w-0">
             <div class="flex items-center justify-between gap-2 mb-1 flex-wrap">
               <span class="text-xs font-extrabold text-ios-orange truncate">${escapeHtml(task.subject)}</span>
-              <span class="text-[11px] font-bold px-2.5 py-0.5 rounded-full ${overdue ? "bg-ios-red/20 text-ios-red border border-ios-red/40" : "bg-white/10 text-gray-200"}">
+              <span class="text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
+                overdue ? "bg-ios-red/20 text-ios-red border border-ios-red/40" : "bg-white/10 text-gray-200"
+              }">
                 Дедлайн: ${escapeHtml(dateLabel)}
               </span>
             </div>
-            <p class="text-sm text-white whitespace-pre-wrap break-words ${task.completed ? "line-through text-ios-gray" : ""}">${escapeHtml(task.text)}</p>
+            <p class="text-sm text-white whitespace-pre-wrap break-words ${
+              task.completed ? "line-through text-ios-gray" : ""
+            }">${escapeHtml(task.text)}</p>
             ${renderPhotosRow(task.photos)}
 
             <div class="flex items-center gap-3 mt-2 pt-2 border-t border-white/10 text-xs">
@@ -1889,6 +2164,56 @@ function renderTasks() {
     `;
     })
     .join("");
+
+  // 2. Last + Invert + Play: сдвигаем карточки со старых мест на новые пружиной
+  if (prevRects.size > 0 && !isReducedMotion() && state.activeTab === "tasks") {
+    container.querySelectorAll("article[data-task-card-id]").forEach((el) => {
+      const id = el.dataset.taskCardId;
+      const oldRect = prevRects.get(id);
+      const newRect = el.getBoundingClientRect();
+      if (oldRect) {
+        const dy = oldRect.top - newRect.top;
+        if (Math.abs(dy) > 1) {
+          el.style.willChange = "transform";
+          animateTrackedSpring(
+            `flip_task_${id}`,
+            dy,
+            0,
+            SPRING_SHEET,
+            (val) => {
+              el.style.transform = `translate3d(0, ${val}px, 0)`;
+            },
+            () => {
+              el.style.transform = "";
+              el.style.willChange = "";
+            }
+          );
+        }
+      } else {
+        // Новая карточка мягко вырастает
+        el.style.willChange = "transform, opacity";
+        animateTrackedSpring(
+          `enter_task_${id}`,
+          0,
+          1,
+          SPRING_SNAPPY,
+          (p) => {
+            el.style.opacity = String(Math.min(1, Math.max(0, p)));
+            const sc = 0.92 + 0.08 * p;
+            el.style.transform = `scale(${sc})`;
+          },
+          () => {
+            el.style.opacity = "";
+            el.style.transform = "";
+            el.style.willChange = "";
+          }
+        );
+      }
+    });
+  } else if (state.animateNextCascade) {
+    triggerCascadeOnce(container);
+  }
+
   refreshIcons();
 }
 
@@ -2276,145 +2601,11 @@ function initUIListeners() {
     }
   });
 
-  // Интерактивный живой свайп (пальцем на iPhone и мышкой на ПК) в стиле Telegram iOS
-  let swipeStartX = 0;
-  let swipeStartY = 0;
-  let currentSwipeDx = 0;
-  let isHorizontalSwipeLocked = false;
-  let isSwipeIgnored = false;
-  let isPointerDown = false;
-
-  const dayScheduleEl = document.getElementById("day-schedule-view");
-
-  const setSwipeElementsTransform = (dx, withTransition = false) => {
-    const listEl = document.getElementById("schedule-list");
-    const evWrapEl = document.getElementById("events-section-wrapper");
-    const transitionStr = withTransition
-      ? "transform 0.22s cubic-bezier(0.22, 1.12, 0.36, 1), opacity 0.2s ease"
-      : "none";
-    const opacityVal = String(Math.max(0.35, 1 - Math.abs(dx) / 360));
-    const scaleVal = Math.max(0.965, 1 - Math.abs(dx) / 2200);
-    const transformStr = dx === 0 ? "translate3d(0, 0, 0)" : `translate3d(${dx}px, 0, 0) scale(${scaleVal})`;
-
-    if (listEl) {
-      listEl.style.transition = transitionStr;
-      listEl.style.transform = transformStr;
-      listEl.style.opacity = dx === 0 ? "1" : opacityVal;
-    }
-    if (evWrapEl && !evWrapEl.classList.contains("hidden")) {
-      evWrapEl.style.transition = transitionStr;
-      evWrapEl.style.transform = transformStr;
-      evWrapEl.style.opacity = dx === 0 ? "1" : opacityVal;
-    }
-  };
-
-  const handleSwipeStart = (clientX, clientY, target) => {
-    const tag = target?.tagName;
-    if (
-      tag === "INPUT" ||
-      tag === "TEXTAREA" ||
-      tag === "SELECT" ||
-      tag === "BUTTON" ||
-      target?.closest("button, a, input, textarea, select, [data-view-photo]")
-    ) {
-      isSwipeIgnored = true;
-      return;
-    }
-    isSwipeIgnored = false;
-    isHorizontalSwipeLocked = false;
-    isPointerDown = true;
-    swipeStartX = clientX;
-    swipeStartY = clientY;
-    currentSwipeDx = 0;
-  };
-
-  const handleSwipeMove = (clientX, clientY, eventObj) => {
-    if (!isPointerDown || isSwipeIgnored) return;
-    const dx = clientX - swipeStartX;
-    const dy = clientY - swipeStartY;
-
-    if (!isHorizontalSwipeLocked) {
-      if (Math.abs(dy) > 14 && Math.abs(dy) > Math.abs(dx)) {
-        // Пользователь скроллит страницу вертикально — отключаем горизонтальный свайп
-        isSwipeIgnored = true;
-        return;
-      }
-      if (Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy) * 1.25) {
-        isHorizontalSwipeLocked = true;
-      }
-    }
-
-    if (isHorizontalSwipeLocked) {
-      if (eventObj && eventObj.cancelable) eventObj.preventDefault();
-      // Мягкое сопротивление (rubber-band), как в Telegram
-      currentSwipeDx = dx * 0.78;
-      setSwipeElementsTransform(currentSwipeDx, false);
-    }
-  };
-
-  const handleSwipeEnd = () => {
-    if (!isPointerDown) return;
-    isPointerDown = false;
-    if (isSwipeIgnored || !isHorizontalSwipeLocked) {
-      currentSwipeDx = 0;
-      return;
-    }
-
-    const dx = currentSwipeDx;
-    currentSwipeDx = 0;
-    isHorizontalSwipeLocked = false;
-
-    if (Math.abs(dx) > 42) {
-      const dir = dx < 0 ? 1 : -1;
-      const flyOutX = dir > 0 ? -window.innerWidth * 0.65 : window.innerWidth * 0.65;
-      setSwipeElementsTransform(flyOutX, true);
-
-      setTimeout(() => {
-        selectDateWithSlide(addDaysISO(state.selectedDate, dir), true);
-      }, 135);
-    } else {
-      // Пружинный возврат карточек на место, если свайп не дотянули
-      setSwipeElementsTransform(0, true);
-    }
-  };
-
-  dayScheduleEl?.addEventListener(
-    "touchstart",
-    (e) => {
-      if (e.touches.length !== 1) return;
-      handleSwipeStart(e.touches[0].clientX, e.touches[0].clientY, e.target);
-    },
-    { passive: true }
-  );
-
-  dayScheduleEl?.addEventListener(
-    "touchmove",
-    (e) => {
-      if (e.touches.length !== 1) return;
-      handleSwipeMove(e.touches[0].clientX, e.touches[0].clientY, e);
-    },
-    { passive: false }
-  );
-
-  dayScheduleEl?.addEventListener("touchend", handleSwipeEnd, { passive: true });
-  dayScheduleEl?.addEventListener("touchcancel", () => {
-    isPointerDown = false;
-    setSwipeElementsTransform(0, true);
-  });
-
-  // Поддержка перетаскивания мышкой на ПК
-  dayScheduleEl?.addEventListener("mousedown", (e) => {
-    if (e.button !== 0) return;
-    handleSwipeStart(e.clientX, e.clientY, e.target);
-  });
-  window.addEventListener("mousemove", (e) => {
-    if (!isPointerDown) return;
-    handleSwipeMove(e.clientX, e.clientY, e);
-  });
-  window.addEventListener("mouseup", () => {
-    if (!isPointerDown) return;
-    handleSwipeEnd();
-  });
+  // Двухпанельный интерактивный свайп дней (и свайп вкладок) с трекером скорости пальца
+  ensureDaySwipeViewport();
+  initInteractiveDayAndTabSwipes();
+  initPressAndIslandPhysics();
+  initBottomSheetsPhysics();
 
   // Скрытие / показ мероприятий
   const toggleEventsVisibility = () => {
@@ -2864,32 +3055,7 @@ function initUIListeners() {
 
   document.querySelectorAll(".nav-tab").forEach((btn) => {
     btn.addEventListener("click", () => {
-      state.activeTab = btn.dataset.tab;
-      if (state.activeTab !== "schedule" && state.weekGridMode) {
-        toggleWeekGridView(false);
-      }
-      const titles = { schedule: "Расписание", tasks: "ДЗ и Задачи", notes: "Заметки" };
-      const hTitle = document.getElementById("header-title");
-      if (hTitle) hTitle.textContent = titles[state.activeTab];
-      document.getElementById("view-schedule")?.classList.toggle("hidden", state.activeTab !== "schedule");
-      document.getElementById("view-tasks")?.classList.toggle("hidden", state.activeTab !== "tasks");
-      document.getElementById("view-notes")?.classList.toggle("hidden", state.activeTab !== "notes");
-
-      const tabOrder = ["schedule", "tasks", "notes"];
-      const tabIdx = Math.max(0, tabOrder.indexOf(state.activeTab));
-      const glider = document.getElementById("tg-nav-glider");
-      if (glider) {
-        glider.style.transform = `translate3d(calc(${tabIdx * 100}% + ${tabIdx * 0.25}rem), 0, 0)`;
-      }
-
-      document.querySelectorAll(".nav-tab").forEach((b) => {
-        const active = b.dataset.tab === state.activeTab;
-        b.classList.toggle("active-tg-pill", active);
-        b.classList.toggle("text-ios-orange", active);
-        b.classList.toggle("text-ios-gray", !active);
-      });
-
-      refreshIcons();
+      switchTabWithSpring(btn.dataset.tab);
     });
   });
 
@@ -3159,11 +3325,37 @@ function initUIListeners() {
       return;
     }
 
+    const collapseTaskCardIfInList = (taskId) =>
+      new Promise((resolve) => {
+        const card = document.querySelector(`#tasks-list article[data-task-card-id="${taskId}"]`);
+        if (!card || isReducedMotion() || state.activeTab !== "tasks") {
+          resolve();
+          return;
+        }
+        const h = card.offsetHeight;
+        card.style.overflow = "hidden";
+        card.style.willChange = "transform, opacity";
+        animateTrackedSpring(
+          `collapse_${taskId}`,
+          1,
+          0,
+          SPRING_SHEET,
+          (p) => {
+            const clamped = Math.max(0, p);
+            card.style.opacity = String(clamped);
+            card.style.transform = `scale(${0.92 + 0.08 * clamped})`;
+            card.style.marginBottom = `${(clamped - 1) * (h + 12)}px`;
+          },
+          () => resolve()
+        );
+      });
+
     const toggleTaskBtn = e.target.closest("[data-toggle-task]");
     if (toggleTaskBtn) {
       const id = toggleTaskBtn.dataset.toggleTask;
       const task = state.tasks.find((t) => t.id === id);
       if (!task) return;
+      await collapseTaskCardIfInList(id);
       task.completed = !task.completed;
       if (state.user && db) await updateDoc(doc(db, "users", state.user.uid, "tasks", id), { completed: task.completed });
       else {
@@ -3177,6 +3369,7 @@ function initUIListeners() {
     const delTaskBtn = e.target.closest("[data-delete-task]");
     if (delTaskBtn) {
       const id = delTaskBtn.dataset.deleteTask;
+      await collapseTaskCardIfInList(id);
       if (state.user && db) await deleteDoc(doc(db, "users", state.user.uid, "tasks", id));
       else {
         state.tasks = state.tasks.filter((t) => t.id !== id);
@@ -3654,8 +3847,16 @@ async function saveOrShareCurrentPhoto() {
 }
 
 function initPhotoViewerGestures() {
+  const modal = document.getElementById("modal-photo-viewer");
   const stage = document.getElementById("photo-viewer-stage");
-  if (!stage) return;
+  const img = document.getElementById("photo-viewer-img");
+  if (!stage || !modal || !img) return;
+
+  const vTracker = createVelocityTracker();
+  let isDismissSwipe = false;
+  let dismissStartY = 0;
+  let dismissStartX = 0;
+  let dismissDy = 0;
 
   document.getElementById("btn-zoom-in")?.addEventListener("click", () => {
     setPhotoViewerZoom(photoZoomState.scale + 0.6);
@@ -3670,7 +3871,6 @@ function initPhotoViewerGestures() {
     saveOrShareCurrentPhoto();
   });
 
-  // Колесико мыши на ПК для зума
   stage.addEventListener(
     "wheel",
     (e) => {
@@ -3681,25 +3881,23 @@ function initPhotoViewerGestures() {
     { passive: false }
   );
 
-  // Мультитач на iPhone: щипок двумя пальцами (Pinch-to-Zoom), перетаскивание и двойной тап
   stage.addEventListener(
     "touchstart",
     (e) => {
+      stopTrackedSpring("photo_dismiss");
       if (e.touches.length === 2) {
         photoZoomState.isDragging = false;
+        isDismissSwipe = false;
         const dx = e.touches[0].clientX - e.touches[1].clientX;
         const dy = e.touches[0].clientY - e.touches[1].clientY;
         photoZoomState.initialPinchDist = Math.hypot(dx, dy);
         photoZoomState.initialPinchScale = photoZoomState.scale;
       } else if (e.touches.length === 1) {
-        const now = Date.now();
+        const t = e.touches[0];
+        const now = performance.now();
         if (now - photoZoomState.lastTapTime < 280) {
-          // Двойной тап: приблизить до 2.6x или сбросить до 1x
-          if (photoZoomState.scale > 1.1) {
-            resetPhotoViewerZoom();
-          } else {
-            setPhotoViewerZoom(2.6);
-          }
+          if (photoZoomState.scale > 1.1) resetPhotoViewerZoom();
+          else setPhotoViewerZoom(2.6);
           photoZoomState.lastTapTime = 0;
           return;
         }
@@ -3707,8 +3905,15 @@ function initPhotoViewerGestures() {
 
         if (photoZoomState.scale > 1.01) {
           photoZoomState.isDragging = true;
-          photoZoomState.startX = e.touches[0].clientX - photoZoomState.panX;
-          photoZoomState.startY = e.touches[0].clientY - photoZoomState.panY;
+          isDismissSwipe = false;
+          photoZoomState.startX = t.clientX - photoZoomState.panX;
+          photoZoomState.startY = t.clientY - photoZoomState.panY;
+        } else {
+          isDismissSwipe = true;
+          dismissStartX = t.clientX;
+          dismissStartY = t.clientY - dismissDy;
+          vTracker.reset();
+          vTracker.add(t.clientX, t.clientY, now);
         }
       }
     },
@@ -3720,48 +3925,818 @@ function initPhotoViewerGestures() {
     (e) => {
       if (e.touches.length === 2 && photoZoomState.initialPinchDist > 0) {
         e.preventDefault();
+        isDismissSwipe = false;
         const dx = e.touches[0].clientX - e.touches[1].clientX;
         const dy = e.touches[0].clientY - e.touches[1].clientY;
         const dist = Math.hypot(dx, dy);
-        const ratio = dist / photoZoomState.initialPinchDist;
-        setPhotoViewerZoom(photoZoomState.initialPinchScale * ratio);
+        setPhotoViewerZoom(photoZoomState.initialPinchScale * (dist / photoZoomState.initialPinchDist));
       } else if (e.touches.length === 1 && photoZoomState.isDragging && photoZoomState.scale > 1.01) {
         e.preventDefault();
         photoZoomState.panX = e.touches[0].clientX - photoZoomState.startX;
         photoZoomState.panY = e.touches[0].clientY - photoZoomState.startY;
         applyPhotoViewerTransform();
+      } else if (e.touches.length === 1 && isDismissSwipe && photoZoomState.scale <= 1.01) {
+        e.preventDefault();
+        const t = e.touches[0];
+        vTracker.add(t.clientX, t.clientY);
+        dismissDy = t.clientY - dismissStartY;
+        const dismissDx = (t.clientX - dismissStartX) * 0.35;
+        const progress = Math.min(1, Math.abs(dismissDy) / 380);
+        const sc = Math.max(0.76, 1 - progress * 0.22);
+        const bgAlpha = Math.max(0.15, 0.95 - progress * 0.8);
+
+        img.style.transition = "none";
+        img.style.transform = `translate3d(${dismissDx}px, ${dismissDy}px, 0) scale(${sc})`;
+        modal.style.backgroundColor = `rgba(0, 0, 0, ${bgAlpha})`;
       }
     },
     { passive: false }
   );
 
-  stage.addEventListener(
-    "touchend",
+  const finishPhotoGesture = () => {
+    photoZoomState.initialPinchDist = 0;
+    photoZoomState.isDragging = false;
+    if (!isDismissSwipe) return;
+    isDismissSwipe = false;
+
+    const { vy } = vTracker.getVelocity();
+    const projectedY = projectPosition(dismissDy, vy);
+
+    if (Math.abs(projectedY) > 170 || Math.abs(vy) > SWIPE_CONFIG.SHEET_VELOCITY_THRESHOLD) {
+      const targetY = (dismissDy >= 0 ? 1 : -1) * (window.innerHeight * 0.85);
+      animateTrackedSpring(
+        "photo_dismiss",
+        dismissDy,
+        targetY,
+        { ...SPRING_SHEET, velocity: vy },
+        (y) => {
+          const p = Math.min(1, Math.abs(y) / 380);
+          img.style.transform = `translate3d(0, ${y}px, 0) scale(${Math.max(0.72, 1 - p * 0.25)})`;
+          modal.style.backgroundColor = `rgba(0, 0, 0, ${Math.max(0, 0.95 * (1 - p))})`;
+        },
+        () => {
+          dismissDy = 0;
+          modal.style.backgroundColor = "";
+          img.style.transform = "";
+          modal.classList.add("hidden");
+          modal.classList.remove("flex");
+        }
+      );
+    } else {
+      animateTrackedSpring(
+        "photo_dismiss",
+        dismissDy,
+        0,
+        { ...SPRING_SHEET, velocity: vy },
+        (y) => {
+          dismissDy = y;
+          const p = Math.min(1, Math.abs(y) / 380);
+          img.style.transform = `translate3d(0, ${y}px, 0) scale(${1 - p * 0.22})`;
+          modal.style.backgroundColor = `rgba(0, 0, 0, ${0.95 - p * 0.8})`;
+        },
+        () => {
+          dismissDy = 0;
+          modal.style.backgroundColor = "";
+          applyPhotoViewerTransform();
+        }
+      );
+    }
+  };
+
+  stage.addEventListener("touchend", finishPhotoGesture, { passive: true });
+  stage.addEventListener("touchcancel", finishPhotoGesture, { passive: true });
+}
+
+// ============================================================================
+// 17. ИНТЕРАКТИВНЫЕ ВКЛАДКИ, ДВУХПАНЕЛЬНЫЙ СВАЙП ДНЕЙ, ШТОРКИ И КНОПКИ
+// ============================================================================
+function switchTabWithSpring(newTab, options = {}) {
+  const tabOrder = ["schedule", "tasks", "notes"];
+  const oldIdx = tabOrder.indexOf(state.activeTab);
+  const newIdx = tabOrder.indexOf(newTab);
+  if (newIdx === -1) return;
+
+  const glider = document.getElementById("tg-nav-glider");
+  if (glider) {
+    const btnWidth = glider.offsetWidth || 110;
+    const gapPx = 4;
+    const targetX = newIdx * (btnWidth + gapPx);
+    animateTrackedSpring(
+      "nav_glider",
+      null,
+      targetX,
+      SPRING_SNAPPY,
+      (x) => {
+        glider.style.transform = `translate3d(${x}px, 0, 0)`;
+      }
+    );
+  }
+
+  document.querySelectorAll(".nav-tab").forEach((b) => {
+    const active = b.dataset.tab === newTab;
+    b.classList.toggle("active-tg-pill", active);
+    b.classList.toggle("text-ios-orange", active);
+    b.classList.toggle("text-ios-gray", !active);
+
+    if (active && !isReducedMotion()) {
+      const icon = b.querySelector("svg, i");
+      if (icon) {
+        animateTrackedSpring(
+          `nav_icon_${newTab}`,
+          0.78,
+          1,
+          { ...SPRING_SNAPPY, velocity: 3.5 },
+          (sc) => {
+            icon.style.transform = `scale(${sc}) translateY(${(1 - sc) * 6}px)`;
+          },
+          () => {
+            icon.style.transform = "";
+          }
+        );
+      }
+    }
+  });
+
+  if (oldIdx === newIdx && !options.fromDrag) return;
+
+  const oldTab = state.activeTab;
+  state.activeTab = newTab;
+
+  if (newTab !== "schedule" && state.weekGridMode) {
+    toggleWeekGridView(false);
+  }
+
+  const titles = { schedule: "Расписание", tasks: "ДЗ и Задачи", notes: "Заметки" };
+  const hTitle = document.getElementById("header-title");
+  if (hTitle) hTitle.textContent = titles[newTab];
+
+  const mainContainer = document.getElementById("main-container");
+  const oldView = document.getElementById(`view-${oldTab}`);
+  const newView = document.getElementById(`view-${newTab}`);
+
+  if (!mainContainer || !oldView || !newView || isReducedMotion() || oldIdx === newIdx) {
+    tabOrder.forEach((t) => {
+      const v = document.getElementById(`view-${t}`);
+      if (v) {
+        v.classList.toggle("hidden", t !== newTab);
+        v.style.transform = "";
+        v.style.position = "";
+        v.style.width = "";
+      }
+    });
+    refreshIcons();
+    return;
+  }
+
+  const dir = newIdx > oldIdx ? 1 : -1;
+  const width = mainContainer.clientWidth || window.innerWidth || 375;
+  const startOffset = options.startOffsetPx !== undefined ? options.startOffsetPx : dir * width;
+
+  newView.classList.remove("hidden");
+  oldView.classList.remove("hidden");
+
+  oldView.style.position = "absolute";
+  oldView.style.top = "0.625rem";
+  oldView.style.left = "0.875rem";
+  oldView.style.right = "0.875rem";
+  oldView.style.pointerEvents = "none";
+  oldView.style.willChange = "transform, opacity";
+  newView.style.willChange = "transform, opacity";
+
+  animateTrackedSpring(
+    "tab_switch",
+    startOffset,
+    0,
+    { ...SPRING_PAGE, velocity: options.velocity ?? 0 },
+    (pos) => {
+      newView.style.transform = `translate3d(${pos}px, 0, 0)`;
+      oldView.style.transform = `translate3d(${pos - dir * width}px, 0, 0)`;
+    },
+    () => {
+      tabOrder.forEach((t) => {
+        const v = document.getElementById(`view-${t}`);
+        if (!v) return;
+        v.classList.toggle("hidden", t !== state.activeTab);
+        v.style.transform = "";
+        v.style.position = "";
+        v.style.top = "";
+        v.style.left = "";
+        v.style.right = "";
+        v.style.pointerEvents = "";
+        v.style.willChange = "";
+      });
+    }
+  );
+
+  refreshIcons();
+}
+
+function renderPreviewDayHTML(dateISO) {
+  const prevSelected = state.selectedDate;
+  const { viewport, track } = ensureDaySwipeViewport();
+  if (!viewport || !track) return null;
+
+  // Временно рендерим целевой день в клон без мигания основного дерева
+  const savedHTML = track.innerHTML;
+  state.selectedDate = dateISO;
+  state.animateNextCascade = false;
+  renderScheduleSection();
+  const previewNode = track.cloneNode(true);
+  previewNode.removeAttribute("id");
+  previewNode.querySelectorAll("[id]").forEach((el) => el.removeAttribute("id"));
+  previewNode.style.position = "absolute";
+  previewNode.style.top = "0";
+  previewNode.style.left = "0";
+  previewNode.style.width = "100%";
+  previewNode.style.pointerEvents = "none";
+
+  state.selectedDate = prevSelected;
+  track.innerHTML = savedHTML;
+  renderScheduleSection();
+
+  return previewNode;
+}
+
+function initInteractiveDayAndTabSwipes() {
+  const mainEl = document.getElementById("main-container");
+  if (!mainEl) return;
+
+  const vTracker = createVelocityTracker();
+  let mode = null; // "day" | "tab" | null
+  let isPointerDown = false;
+  let isLocked = false;
+  let isIgnored = false;
+  let startX = 0;
+  let startY = 0;
+  let currentDx = 0;
+  let activePreviewDir = 0;
+  let previewNode = null;
+
+  const clearPreview = () => {
+    if (previewNode) {
+      previewNode.remove();
+      previewNode = null;
+    }
+    activePreviewDir = 0;
+  };
+
+  const onStart = (x, y, target) => {
+    if (
+      target?.closest(
+        "input, textarea, select, button, a, label, #week-grid-view, #dynamic-island-capsule, [data-view-photo]"
+      )
+    ) {
+      isIgnored = true;
+      return;
+    }
+    if (document.querySelector('div[id^="modal-"].fixed:not(.hidden)')) {
+      isIgnored = true;
+      return;
+    }
+
+    isIgnored = false;
+    isLocked = false;
+    isPointerDown = true;
+    startX = x;
+    startY = y;
+    currentDx = 0;
+    vTracker.reset();
+    vTracker.add(x, y);
+
+    const isEdge = x <= SWIPE_CONFIG.EDGE_TAB_ZONE_PX || x >= window.innerWidth - SWIPE_CONFIG.EDGE_TAB_ZONE_PX;
+    mode = state.activeTab === "schedule" && !state.weekGridMode && !isEdge ? "day" : "tab";
+
+    if (mode === "day") {
+      // Если пользователь перехватил незавершенную анимацию дня в полёте
+      const running = stopTrackedSpring("day-swipe-track");
+      cleanupDayGhostLayer();
+      if (running && Math.abs(running.pos) > 2) {
+        startX = x - running.pos;
+        currentDx = running.pos;
+        isLocked = true;
+      }
+    }
+  };
+
+  const onMove = (x, y, ev) => {
+    if (!isPointerDown || isIgnored) return;
+    const rawDx = x - startX;
+    const rawDy = y - startY;
+
+    if (!isLocked) {
+      if (Math.abs(rawDy) > 12 && Math.abs(rawDy) > Math.abs(rawDx)) {
+        isIgnored = true;
+        return;
+      }
+      if (Math.abs(rawDx) > 10 && Math.abs(rawDx) > Math.abs(rawDy) * 1.2) {
+        isLocked = true;
+      }
+    }
+
+    if (!isLocked) return;
+    if (ev && ev.cancelable) ev.preventDefault();
+    vTracker.add(x, y);
+
+    if (mode === "day") {
+      const { viewport, track } = ensureDaySwipeViewport();
+      if (!viewport || !track) return;
+      const width = viewport.clientWidth || window.innerWidth || 375;
+      currentDx = rawDx;
+      const neededDir = currentDx < 0 ? 1 : -1;
+
+      if (neededDir !== activePreviewDir) {
+        clearPreview();
+        activePreviewDir = neededDir;
+        previewNode = renderPreviewDayHTML(addDaysISO(state.selectedDate, neededDir));
+        if (previewNode) {
+          viewport.appendChild(previewNode);
+          if (window.lucide) window.lucide.createIcons();
+        }
+      }
+
+      track.style.willChange = "transform";
+      track.style.transform = `translate3d(${currentDx}px, 0, 0)`;
+      if (previewNode) {
+        previewNode.style.willChange = "transform";
+        previewNode.style.transform = `translate3d(${currentDx + neededDir * width}px, 0, 0)`;
+      }
+    } else if (mode === "tab") {
+      const tabOrder = ["schedule", "tasks", "notes"];
+      const curIdx = tabOrder.indexOf(state.activeTab);
+      const width = mainEl.clientWidth || window.innerWidth || 375;
+      const atLeftBound = curIdx === 0 && rawDx > 0;
+      const atRightBound = curIdx === tabOrder.length - 1 && rawDx < 0;
+
+      currentDx = atLeftBound || atRightBound ? rubberBand(rawDx, width * 0.45) : rawDx;
+      const curView = document.getElementById(`view-${state.activeTab}`);
+      if (curView) {
+        curView.style.willChange = "transform";
+        curView.style.transform = `translate3d(${currentDx}px, 0, 0)`;
+      }
+    }
+  };
+
+  const onEnd = () => {
+    if (!isPointerDown) return;
+    isPointerDown = false;
+    if (isIgnored || !isLocked) {
+      clearPreview();
+      return;
+    }
+    isLocked = false;
+
+    const { vx } = vTracker.getVelocity();
+
+    if (mode === "day") {
+      const { viewport, track } = ensureDaySwipeViewport();
+      const width = viewport?.clientWidth || window.innerWidth || 375;
+      const projectedX = projectPosition(currentDx, vx);
+      const dir = currentDx < 0 ? 1 : -1;
+
+      const shouldCommit =
+        (dir > 0 && (projectedX < -width * SWIPE_CONFIG.DAY_COMMIT_RATIO || vx < -SWIPE_CONFIG.DAY_VELOCITY_THRESHOLD)) ||
+        (dir < 0 && (projectedX > width * SWIPE_CONFIG.DAY_COMMIT_RATIO || vx > SWIPE_CONFIG.DAY_VELOCITY_THRESHOLD));
+
+      if (shouldCommit) {
+        // Текущий трек превращаем в уходящий клон, а на место трека встаёт новый день
+        clearPreview();
+        const ghost = track.cloneNode(true);
+        ghost.removeAttribute("id");
+        ghost.querySelectorAll("[id]").forEach((el) => el.removeAttribute("id"));
+        ghost.style.position = "absolute";
+        ghost.style.top = "0";
+        ghost.style.left = "0";
+        ghost.style.width = "100%";
+        ghost.style.pointerEvents = "none";
+        viewport.appendChild(ghost);
+
+        selectDateWithSlide(addDaysISO(state.selectedDate, dir), {
+          existingGhost: ghost,
+          startOffsetPx: currentDx + dir * width,
+          velocity: vx
+        });
+      } else {
+        // Возврат пружиной обратно на текущий день
+        const ghost = previewNode;
+        previewNode = null;
+        activePreviewDir = 0;
+
+        animateTrackedSpring(
+          "day-swipe-track",
+          currentDx,
+          0,
+          { ...SPRING_PAGE, velocity: vx },
+          (pos) => {
+            if (track) track.style.transform = `translate3d(${pos}px, 0, 0)`;
+            if (ghost) ghost.style.transform = `translate3d(${pos + dir * width}px, 0, 0)`;
+          },
+          () => {
+            if (track) {
+              track.style.transform = "translate3d(0, 0, 0)";
+              track.style.willChange = "";
+            }
+            if (ghost) ghost.remove();
+          }
+        );
+      }
+    } else if (mode === "tab") {
+      const tabOrder = ["schedule", "tasks", "notes"];
+      const curIdx = tabOrder.indexOf(state.activeTab);
+      const width = mainEl.clientWidth || window.innerWidth || 375;
+      const projectedX = projectPosition(currentDx, vx);
+      const dir = currentDx < 0 ? 1 : -1;
+      const nextIdx = curIdx + dir;
+      const curView = document.getElementById(`view-${state.activeTab}`);
+
+      const canSwitch = nextIdx >= 0 && nextIdx < tabOrder.length;
+      const shouldCommit =
+        canSwitch &&
+        ((dir > 0 && (projectedX < -width * 0.35 || vx < -420)) ||
+          (dir < 0 && (projectedX > width * 0.35 || vx > 420)));
+
+      if (shouldCommit) {
+        if (curView) curView.style.transform = "";
+        switchTabWithSpring(tabOrder[nextIdx], {
+          fromDrag: true,
+          startOffsetPx: currentDx + dir * width,
+          velocity: vx
+        });
+      } else if (curView) {
+        animateTrackedSpring(
+          "tab_switch",
+          currentDx,
+          0,
+          { ...SPRING_PAGE, velocity: vx },
+          (pos) => {
+            curView.style.transform = `translate3d(${pos}px, 0, 0)`;
+          },
+          () => {
+            curView.style.transform = "";
+            curView.style.willChange = "";
+          }
+        );
+      }
+    }
+  };
+
+  mainEl.addEventListener(
+    "touchstart",
     (e) => {
-      if (e.touches.length < 2) {
-        photoZoomState.initialPinchDist = 0;
-      }
-      if (e.touches.length === 0) {
-        photoZoomState.isDragging = false;
-      }
+      if (e.touches.length !== 1) return;
+      onStart(e.touches[0].clientX, e.touches[0].clientY, e.target);
     },
     { passive: true }
   );
+
+  mainEl.addEventListener(
+    "touchmove",
+    (e) => {
+      if (e.touches.length !== 1) return;
+      onMove(e.touches[0].clientX, e.touches[0].clientY, e);
+    },
+    { passive: false }
+  );
+
+  mainEl.addEventListener("touchend", onEnd, { passive: true });
+  mainEl.addEventListener(
+    "touchcancel",
+    () => {
+      isPointerDown = false;
+      clearPreview();
+      const { track } = ensureDaySwipeViewport();
+      if (track) track.style.transform = "translate3d(0, 0, 0)";
+    },
+    { passive: true }
+  );
+
+  // Поддержка перетаскивания мышью на ПК
+  mainEl.addEventListener("mousedown", (e) => {
+    if (e.button !== 0) return;
+    onStart(e.clientX, e.clientY, e.target);
+  });
+  window.addEventListener("mousemove", (e) => {
+    if (!isPointerDown) return;
+    onMove(e.clientX, e.clientY, e);
+  });
+  window.addEventListener("mouseup", () => {
+    if (!isPointerDown) return;
+    onEnd();
+  });
 }
 
-function openModal(id) {
+// Физический отклик кнопок (.ios-press) и морфинг Dynamic Island
+function initPressAndIslandPhysics() {
+  let pressedEl = null;
+
+  const releasePressed = () => {
+    if (!pressedEl) return;
+    const el = pressedEl;
+    pressedEl = null;
+    animateTrackedSpring(
+      el,
+      null,
+      1,
+      { ...SPRING_SNAPPY, velocity: 1.8 },
+      (sc) => {
+        el.style.transform = `scale(${sc})`;
+      },
+      () => {
+        el.style.transform = "";
+      }
+    );
+  };
+
+  document.addEventListener(
+    "pointerdown",
+    (e) => {
+      const btn = e.target.closest(".ios-press");
+      if (!btn || isReducedMotion()) return;
+      pressedEl = btn;
+      animateTrackedSpring(
+        btn,
+        1,
+        0.925,
+        { stiffness: 820, damping: 48, mass: 1 },
+        (sc) => {
+          btn.style.transform = `scale(${sc})`;
+        }
+      );
+    },
+    { passive: true }
+  );
+
+  window.addEventListener("pointerup", releasePressed, { passive: true });
+  window.addEventListener("pointercancel", releasePressed, { passive: true });
+  window.addEventListener("blur", releasePressed);
+
+  // Морфинг капсулы Dynamic Island на пружине SPRING_SNAPPY
+  window.__animateIslandMorph = (capsule, enteringSlide) => {
+    if (!capsule || isReducedMotion()) return;
+    capsule.style.willChange = "transform";
+    animateTrackedSpring(
+      "island_morph",
+      0,
+      1,
+      { ...SPRING_SNAPPY, velocity: 4.5 },
+      (p) => {
+        const sx = 0.95 + 0.05 * p;
+        const sy = 0.93 + 0.07 * p;
+        capsule.style.transform = `scale3d(${sx}, ${sy}, 1)`;
+      },
+      () => {
+        capsule.style.transform = "";
+        capsule.style.willChange = "";
+      }
+    );
+
+    if (enteringSlide) {
+      enteringSlide.style.willChange = "transform, opacity";
+      animateTrackedSpring(
+        "island_slide_content",
+        0,
+        1,
+        SPRING_SHEET,
+        (p) => {
+          enteringSlide.style.opacity = String(Math.min(1, Math.max(0, p)));
+          enteringSlide.style.transform = `translate3d(0, ${(1 - p) * 8}px, 0) scale(${0.96 + 0.04 * p})`;
+        },
+        () => {
+          enteringSlide.style.opacity = "";
+          enteringSlide.style.transform = "";
+          enteringSlide.style.willChange = "";
+        }
+      );
+    }
+  };
+}
+
+// ============================================================================
+// 18. ШТОРКИ (BOTTOM SHEETS) С ПРЕХВАТОМ И СМАХИВАНИЕМ ВНИЗ
+// ============================================================================
+// (sheetRuntimeState объявлен в разделе 2.5, чтобы избежать TDZ при инициализации)
+
+function ensureSheetStructure(modalEl) {
+  if (!modalEl || modalEl.id === "modal-photo-viewer") return null;
+  let st = sheetRuntimeState.get(modalEl.id);
+  if (st) return st;
+
+  const panel = modalEl.querySelector(":scope > div");
+  if (!panel) return null;
+
+  const backdrop = document.createElement("div");
+  backdrop.className = "ios-sheet-backdrop";
+  backdrop.addEventListener("click", () => closeModal(modalEl.id));
+
+  panel.classList.add("ios-sheet-panel");
+  if (!panel.querySelector(".ios-sheet-grabber")) {
+    const grabber = document.createElement("div");
+    grabber.className = "ios-sheet-grabber";
+    panel.insertBefore(grabber, panel.firstChild);
+  }
+
+  modalEl.insertBefore(backdrop, panel);
+
+  st = { modalEl, panel, backdrop, currentY: 0, height: 420 };
+  sheetRuntimeState.set(modalEl.id, st);
+  attachSheetSwipeHandlers(st);
+  return st;
+}
+
+function attachSheetSwipeHandlers(st) {
+  const { modalEl, panel, backdrop } = st;
+  const vTracker = createVelocityTracker();
+  let isDragging = false;
+  let isSheetLocked = false;
+  let startY = 0;
+  let startX = 0;
+  let baseOffsetY = 0;
+
+  panel.addEventListener(
+    "touchstart",
+    (e) => {
+      if (e.touches.length !== 1) return;
+      const t = e.touches[0];
+      const target = e.target;
+
+      // Если пользователь схватил шторку во время анимации открытия/закрытия — подхватываем!
+      const running = stopTrackedSpring(`sheet_${modalEl.id}`);
+      const isMidFlight = running && Math.abs(running.pos) > 2;
+
+      if (!isMidFlight) {
+        if (target.closest('input[type="range"]')) return;
+        const rect = panel.getBoundingClientRect();
+        const touchInTopHeader = t.clientY - rect.top <= 56;
+        if (panel.scrollTop > 0 && !touchInTopHeader) return;
+      }
+
+      isDragging = true;
+      isSheetLocked = Boolean(isMidFlight);
+      startY = t.clientY;
+      startX = t.clientX;
+      baseOffsetY = running ? running.pos : st.currentY;
+      st.height = panel.offsetHeight || 420;
+      vTracker.reset();
+      vTracker.add(t.clientX, t.clientY);
+    },
+    { passive: true }
+  );
+
+  panel.addEventListener(
+    "touchmove",
+    (e) => {
+      if (!isDragging || e.touches.length !== 1) return;
+      const t = e.touches[0];
+      const dy = t.clientY - startY;
+      const dx = t.clientX - startX;
+
+      if (!isSheetLocked) {
+        if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 10) {
+          isDragging = false;
+          return;
+        }
+        // Если контент на самом верху и тянем вниз — перехватываем жест под шторку
+        if (dy > 6 && panel.scrollTop <= 0) {
+          isSheetLocked = true;
+          startY = t.clientY;
+        } else if (dy < -6 && panel.scrollTop > 0) {
+          isDragging = false;
+          return;
+        } else {
+          return;
+        }
+      }
+
+      if (e.cancelable) e.preventDefault();
+      vTracker.add(t.clientX, t.clientY);
+
+      const rawY = baseOffsetY + (t.clientY - startY);
+      const nextY = rawY < 0 ? rubberBand(rawY, 90) : rawY;
+      st.currentY = nextY;
+
+      panel.style.willChange = "transform";
+      backdrop.style.willChange = "opacity";
+      panel.style.transform = `translate3d(0, ${nextY}px, 0)`;
+      const alpha = Math.max(0, Math.min(1, 1 - Math.max(0, nextY) / st.height));
+      backdrop.style.opacity = String(alpha);
+    },
+    { passive: false }
+  );
+
+  const onSheetTouchEnd = () => {
+    if (!isDragging) return;
+    isDragging = false;
+    if (!isSheetLocked) return;
+    isSheetLocked = false;
+
+    const { vy } = vTracker.getVelocity();
+    const projectedY = projectPosition(st.currentY, vy);
+
+    if (
+      projectedY > st.height * SWIPE_CONFIG.SHEET_DISMISS_RATIO ||
+      vy > SWIPE_CONFIG.SHEET_VELOCITY_THRESHOLD
+    ) {
+      closeModal(modalEl.id, vy);
+    } else {
+      openModal(modalEl.id, vy);
+    }
+  };
+
+  panel.addEventListener("touchend", onSheetTouchEnd, { passive: true });
+  panel.addEventListener("touchcancel", onSheetTouchEnd, { passive: true });
+}
+
+function initBottomSheetsPhysics() {
+  document.querySelectorAll('[id^="modal-"]').forEach((el) => {
+    if (el.id !== "modal-photo-viewer") {
+      ensureSheetStructure(el);
+    }
+  });
+}
+
+function openModal(id, initialVelocity = 0) {
   const el = document.getElementById(id);
-  if (el) {
+  if (!el) return;
+
+  if (id === "modal-photo-viewer") {
     el.classList.remove("hidden");
     el.classList.add("flex");
+    return;
   }
+
+  const st = ensureSheetStructure(el);
+  const wasHidden = el.classList.contains("hidden");
+  el.classList.remove("hidden");
+  el.classList.add("flex");
+
+  if (!st) return;
+
+  st.height = st.panel.offsetHeight || 420;
+  const startY = wasHidden ? st.height : st.currentY;
+
+  st.panel.style.willChange = "transform";
+  st.backdrop.style.willChange = "opacity";
+
+  animateTrackedSpring(
+    `sheet_${id}`,
+    startY,
+    0,
+    { ...SPRING_SHEET, velocity: initialVelocity },
+    (y) => {
+      st.currentY = y;
+      st.panel.style.transform = `translate3d(0, ${y}px, 0)`;
+      const alpha = Math.max(0, Math.min(1, 1 - Math.max(0, y) / st.height));
+      st.backdrop.style.opacity = String(alpha);
+    },
+    () => {
+      st.currentY = 0;
+      st.panel.style.transform = "translate3d(0, 0, 0)";
+      st.backdrop.style.opacity = "1";
+      st.panel.style.willChange = "";
+      st.backdrop.style.willChange = "";
+    }
+  );
 }
-function closeModal(id) {
+
+function closeModal(id, initialVelocity = 0) {
   const el = document.getElementById(id);
-  if (el) {
+  if (!el || el.classList.contains("hidden")) return;
+
+  if (id === "modal-photo-viewer") {
     el.classList.add("hidden");
     el.classList.remove("flex");
+    return;
   }
+
+  const st = ensureSheetStructure(el);
+  if (!st) {
+    el.classList.add("hidden");
+    el.classList.remove("flex");
+    return;
+  }
+
+  st.height = st.panel.offsetHeight || 420;
+  st.panel.style.willChange = "transform";
+  st.backdrop.style.willChange = "opacity";
+
+  animateTrackedSpring(
+    `sheet_${id}`,
+    st.currentY,
+    st.height,
+    { ...SPRING_SHEET, velocity: initialVelocity },
+    (y) => {
+      st.currentY = y;
+      st.panel.style.transform = `translate3d(0, ${Math.max(0, y)}px, 0)`;
+      const alpha = Math.max(0, Math.min(1, 1 - Math.max(0, y) / st.height));
+      st.backdrop.style.opacity = String(alpha);
+    },
+    () => {
+      st.currentY = st.height;
+      el.classList.add("hidden");
+      el.classList.remove("flex");
+      st.panel.style.willChange = "";
+      st.backdrop.style.willChange = "";
+    }
+  );
 }
 
 function escapeHtml(str) {
