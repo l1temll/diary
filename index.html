@@ -156,36 +156,10 @@
       color: #AEAEB2 !important;
     }
 
-    /* Эффект нажатия и морфинга Dynamic Island */
-    .dynamic-island-capsule:active {
-      transform: scale(0.955);
-    }
-    .dynamic-island-capsule.island-morphing {
-      animation: islandMorphBounce 0.46s var(--tg-spring);
-    }
-
-    @keyframes islandMorphBounce {
-      0% { transform: scale(0.94); }
-      45% { transform: scale(1.028, 0.985); }
-      75% { transform: scale(0.992, 1.006); }
-      100% { transform: scale(1); }
-    }
-
-    /* Анимация смены слайда внутри Dynamic Island */
-    .island-slide-enter {
-      animation: islandSlideIn 0.36s var(--tg-spring) forwards;
-    }
-    @keyframes islandSlideIn {
-      0% {
-        opacity: 0;
-        transform: translateY(8px) scale(0.97);
-        filter: blur(4px);
-      }
-      100% {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-        filter: blur(0);
-      }
+    /* Dynamic Island управляемый JS-пружиной */
+    .dynamic-island-capsule {
+      transform-origin: center top;
+      touch-action: manipulation;
     }
 
     /* Эквалайзер / волна активности в Dynamic Island */
@@ -211,75 +185,32 @@
     }
 
     /* ==========================================================================
-       АНИМАЦИИ КАК В TELEGRAM НА iOS (КАСКАД КАРТОЧЕК, ТАБЫ, МОДАЛКИ)
+       ФИЗИЧЕСКИЕ АНИМАЦИИ И ЖЕСТЫ УРОВНЯ TELEGRAM iOS
        ========================================================================== */
-    /* Пружинный отклик всех кнопок */
     .ios-press {
-      transition:
-        transform 0.28s var(--tg-spring),
-        opacity 0.18s ease,
-        background-color 0.2s ease;
-    }
-    .ios-press:active {
-      transform: scale(0.93);
-      opacity: 0.85;
-      transition: transform 0.08s ease;
-    }
-
-    /* Анимация переключения вкладок (Расписание / ДЗ / Заметки) */
-    #view-schedule:not(.hidden),
-    #view-tasks:not(.hidden),
-    #view-notes:not(.hidden) {
-      animation: tgTabReveal 0.38s cubic-bezier(0.22, 1.12, 0.36, 1) both;
-    }
-    @keyframes tgTabReveal {
-      0% {
-        opacity: 0;
-        transform: translateY(10px) scale(0.985);
-      }
-      100% {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-      }
-    }
-
-    /* Живой горизонтальный свайп и перелистывание дней как в Telegram iOS */
-    #schedule-list,
-    #events-section-wrapper {
-      will-change: transform, opacity;
+      touch-action: manipulation;
       transform: translate3d(0, 0, 0);
     }
 
-    /* Каскадный выезд карточек по умолчанию и при свайпах влево/вправо */
-    #schedule-list > article,
-    #schedule-list > div,
-    #events-list > div,
-    #tasks-list > article,
-    #notes-list > article {
-      animation: tgCardCascade 0.42s cubic-bezier(0.22, 1.15, 0.34, 1) both;
+    /* Каскад карточек проигрывается ТОЛЬКО при наличии класса .play-cascade */
+    #schedule-list.play-cascade > article,
+    #schedule-list.play-cascade > div,
+    #events-list.play-cascade > div,
+    #tasks-list.play-cascade > article,
+    #notes-list.play-cascade > article {
+      animation: tgCardCascade 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
     }
-
-    #schedule-list.slide-in-from-right > *,
-    #events-section-wrapper.slide-in-from-right #events-list > * {
-      animation: tgSlideFromRight 0.42s cubic-bezier(0.22, 1.14, 0.34, 1) both;
-    }
-
-    #schedule-list.slide-in-from-left > *,
-    #events-section-wrapper.slide-in-from-left #events-list > * {
-      animation: tgSlideFromLeft 0.42s cubic-bezier(0.22, 1.14, 0.34, 1) both;
-    }
-
-    #schedule-list > *:nth-child(1), #tasks-list > *:nth-child(1), #notes-list > *:nth-child(1) { animation-delay: 0.00s; }
-    #schedule-list > *:nth-child(2), #tasks-list > *:nth-child(2), #notes-list > *:nth-child(2) { animation-delay: 0.03s; }
-    #schedule-list > *:nth-child(3), #tasks-list > *:nth-child(3), #notes-list > *:nth-child(3) { animation-delay: 0.06s; }
-    #schedule-list > *:nth-child(4), #tasks-list > *:nth-child(4), #notes-list > *:nth-child(4) { animation-delay: 0.09s; }
-    #schedule-list > *:nth-child(5), #tasks-list > *:nth-child(5), #notes-list > *:nth-child(5) { animation-delay: 0.12s; }
-    #schedule-list > *:nth-child(6), #tasks-list > *:nth-child(6), #notes-list > *:nth-child(6) { animation-delay: 0.15s; }
+    .play-cascade > *:nth-child(1) { animation-delay: 0.00s; }
+    .play-cascade > *:nth-child(2) { animation-delay: 0.025s; }
+    .play-cascade > *:nth-child(3) { animation-delay: 0.05s; }
+    .play-cascade > *:nth-child(4) { animation-delay: 0.075s; }
+    .play-cascade > *:nth-child(5) { animation-delay: 0.10s; }
+    .play-cascade > *:nth-child(6) { animation-delay: 0.125s; }
 
     @keyframes tgCardCascade {
       0% {
         opacity: 0;
-        transform: translate3d(0, 14px, 0) scale(0.97);
+        transform: translate3d(0, 12px, 0) scale(0.975);
       }
       100% {
         opacity: 1;
@@ -287,26 +218,35 @@
       }
     }
 
-    @keyframes tgSlideFromRight {
-      0% {
-        opacity: 0;
-        transform: translate3d(44px, 0, 0) scale(0.975);
-      }
-      100% {
-        opacity: 1;
-        transform: translate3d(0, 0, 0) scale(1);
-      }
+    /* Шторки (Bottom Sheets): без тяжелого полноэкранного blur во время движения */
+    [id^="modal-"]:not(#modal-photo-viewer) {
+      background-color: transparent !important;
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
     }
-
-    @keyframes tgSlideFromLeft {
-      0% {
-        opacity: 0;
-        transform: translate3d(-44px, 0, 0) scale(0.975);
-      }
-      100% {
-        opacity: 1;
-        transform: translate3d(0, 0, 0) scale(1);
-      }
+    .ios-sheet-backdrop {
+      position: absolute;
+      inset: 0;
+      background-color: rgba(0, 0, 0, 0.74);
+      opacity: 0;
+      pointer-events: auto;
+    }
+    .ios-sheet-panel {
+      position: relative;
+      z-index: 1;
+      transform: translate3d(0, 100%, 0);
+      touch-action: pan-y;
+    }
+    .ios-sheet-grabber {
+      width: 36px;
+      height: 4px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.24);
+      margin: 0 auto 10px auto;
+      pointer-events: none;
+    }
+    body.mode-light .ios-sheet-grabber {
+      background: rgba(0, 0, 0, 0.18);
     }
 
     /* Плавающий ползунок (Glider) в нижней навигации Telegram */
@@ -318,47 +258,19 @@
       width: calc((100% - 0.75rem - 0.5rem) / 3);
       border-radius: 9999px;
       background: rgba(255, 255, 255, 0.14);
-      transition: transform 0.44s cubic-bezier(0.24, 1.14, 0.34, 1);
+      transform: translate3d(0, 0, 0);
       pointer-events: none;
       z-index: 0;
     }
     body.mode-light #tg-nav-glider {
       background: rgba(0, 0, 0, 0.08);
     }
-    body.DOCKED-GLIDER {}
 
-    /* Пружинная анимация иконок в нижней панели как в Telegram */
-    .nav-tab i, .nav-tab svg {
-      transition: transform 0.35s var(--tg-spring);
-    }
-    .nav-tab.active-tg-pill i, .nav-tab.active-tg-pill svg {
-      animation: tgNavIconBounce 0.44s var(--tg-spring);
-    }
-    @keyframes tgNavIconBounce {
-      0% { transform: scale(0.8); }
-      50% { transform: scale(1.22) translateY(-2px); }
-      100% { transform: scale(1) translateY(0); }
-    }
-
-    /* Пружинное открытие всех модальных окон (Bottom Sheets) */
-    [id^="modal-"]:not(.hidden) {
-      animation: tgBackdropFade 0.24s ease forwards;
-    }
-    [id^="modal-"]:not(.hidden) > div {
-      animation: tgSheetSpringUp 0.42s var(--tg-spring) forwards;
-    }
-    @keyframes tgBackdropFade {
-      from { opacity: 0; }
-      to { opacity: 1; }
-    }
-    @keyframes tgSheetSpringUp {
-      0% {
-        opacity: 0;
-        transform: translateY(48px) scale(0.96);
-      }
-      100% {
-        opacity: 1;
-        transform: translateY(0) scale(1);
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.12s !important;
+        animation-delay: 0s !important;
+        transition-duration: 0.12s !important;
       }
     }
 
@@ -1941,13 +1853,13 @@
   <!-- КОНТРОЛЛЕР DYNAMIC ISLAND И ТЕМ ОФОРМЛЕНИЯ -->
   <script>
     (function () {
-      if ("caches" in window && localStorage.getItem("diary_sw_cleaned_v17") !== "1") {
+      if ("caches" in window && localStorage.getItem("diary_sw_cleaned_v18") !== "1") {
         caches.keys().then(function (keys) {
           keys.forEach(function (k) {
-            if (k !== "student-diary-v17") caches.delete(k);
+            if (k !== "student-diary-v18") caches.delete(k);
           });
         });
-        localStorage.setItem("diary_sw_cleaned_v17", "1");
+        localStorage.setItem("diary_sw_cleaned_v18", "1");
       }
 
       window.__toggleDynamicIsland = function (forceMode) {
@@ -1963,9 +1875,7 @@
         var nextMode = forceMode || (curMode === "current" ? "next" : "current");
         capsule.setAttribute("data-island-mode", nextMode);
 
-        capsule.classList.remove("island-morphing");
-        void capsule.offsetWidth;
-        capsule.classList.add("island-morphing");
+        var enteringSlide = nextMode === "next" ? slideNext : slideCurrent;
 
         if (nextMode === "next") {
           slideCurrent.classList.add("hidden");
@@ -1983,6 +1893,10 @@
           if (hint) {
             hint.innerHTML = '<span>Нажмите: Следующая пара</span><i data-lucide="chevron-right" class="w-3 h-3"></i>';
           }
+        }
+
+        if (typeof window.__animateIslandMorph === "function") {
+          window.__animateIslandMorph(capsule, enteringSlide);
         }
 
         if (window.lucide) window.lucide.createIcons();
@@ -2158,6 +2072,6 @@
     })();
   </script>
 
-  <script type="module" src="./app.js?v=17"></script>
+  <script type="module" src="./app.js?v=18"></script>
 </body>
 </html>
