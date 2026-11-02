@@ -509,6 +509,28 @@ function cleanupDayGhostLayer() {
   }
 }
 
+// Мгновенное самолечение iOS: если приложение свернули/заморозили посреди свайпа,
+// rAF умирает и трек/клон дня остаются застрявшими на полдороге. При возврате
+// на страницу (показ приложения или выход из bfcache) прибираем всё насильно.
+function forceFinishDaySwipe() {
+  stopTrackedSpring("day-swipe-track");
+  const { viewport, track } = ensureDaySwipeViewport();
+  if (track) {
+    track.style.transform = "translate3d(0, 0, 0)";
+    track.style.willChange = "";
+  }
+  cleanupDayGhostLayer();
+  if (viewport) {
+    viewport.querySelectorAll(":scope > div:not(#day-swipe-track)").forEach((el) => el.remove());
+  }
+}
+if (typeof document !== "undefined") {
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") forceFinishDaySwipe();
+  });
+  window.addEventListener("pageshow", () => forceFinishDaySwipe());
+}
+
 // Двухпанельное переключение дня (старый и новый день на экране одновременно)
 function selectDateWithSlide(newDateISO, options = {}) {
   if (!newDateISO || newDateISO === state.selectedDate) return;
@@ -647,9 +669,20 @@ function bootstrapApp() {
   // 2. В фоне регистрируем Service Worker и подключаем облако Firebase
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
+      const hadController = Boolean(navigator.serviceWorker.controller);
       navigator.serviceWorker
         .register("./sw.js")
-        .then((reg) => reg.update().catch(() => {}))
+        .then((reg) => {
+          reg.update().catch(() => {});
+          // Когда новый SW активировался и перехватил управление — один раз
+          // перезагружаемся, чтобы свежий код заработал не со «второго запуска», а сразу
+          navigator.serviceWorker.addEventListener("controllerchange", () => {
+            if (hadController && !sessionStorage.getItem("diary_sw_reloaded_once")) {
+              sessionStorage.setItem("diary_sw_reloaded_once", "1");
+              location.reload();
+            }
+          });
+        })
         .catch(() => {});
     });
   }
