@@ -46,7 +46,8 @@
     };
   </script>
 
-  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin />
+  <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js" defer></script>
 
   <style>
     :root {
@@ -1940,13 +1941,13 @@
   <!-- КОНТРОЛЛЕР DYNAMIC ISLAND И ТЕМ ОФОРМЛЕНИЯ -->
   <script>
     (function () {
-      if ("caches" in window && localStorage.getItem("diary_sw_cleaned_v13") !== "1") {
+      if ("caches" in window && localStorage.getItem("diary_sw_cleaned_v17") !== "1") {
         caches.keys().then(function (keys) {
           keys.forEach(function (k) {
-            if (k !== "student-diary-v13") caches.delete(k);
+            if (k !== "student-diary-v17") caches.delete(k);
           });
         });
-        localStorage.setItem("diary_sw_cleaned_v13", "1");
+        localStorage.setItem("diary_sw_cleaned_v17", "1");
       }
 
       window.__toggleDynamicIsland = function (forceMode) {
@@ -2157,6 +2158,6 @@
     })();
   </script>
 
-  <script type="module" src="./app.js?v=16"></script>
+  <script type="module" src="./app.js?v=17"></script>
 </body>
 </html>
