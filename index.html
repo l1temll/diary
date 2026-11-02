@@ -1847,13 +1847,13 @@
   <!-- КОНТРОЛЛЕР DYNAMIC ISLAND И ТЕМ ОФОРМЛЕНИЯ -->
   <script>
     (function () {
-      if ("caches" in window && localStorage.getItem("diary_sw_cleaned_v18") !== "1") {
+      if ("caches" in window && localStorage.getItem("diary_sw_cleaned_v19") !== "1") {
         caches.keys().then(function (keys) {
           keys.forEach(function (k) {
-            if (k !== "student-diary-v18") caches.delete(k);
+            if (k !== "student-diary-v19") caches.delete(k);
           });
         });
-        localStorage.setItem("diary_sw_cleaned_v18", "1");
+        localStorage.setItem("diary_sw_cleaned_v19", "1");
       }
 
       window.__toggleDynamicIsland = function (forceMode) {
@@ -2066,6 +2066,6 @@
     })();
   </script>
 
-  <script type="module" src="./app.js?v=18"></script>
+  <script type="module" src="./app.js?v=19"></script>
 </body>
 </html>
