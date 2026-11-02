@@ -105,6 +105,7 @@
     }
     .main-scroll-area {
       padding-bottom: calc(6.5rem + env(safe-area-inset-bottom, 0px));
+      overflow-x: clip;
     }
 
     body.rim-soft { --glass-border-alpha: 0.10; --glass-specular-alpha: 0.18; }
@@ -1847,13 +1848,13 @@
   <!-- КОНТРОЛЛЕР DYNAMIC ISLAND И ТЕМ ОФОРМЛЕНИЯ -->
   <script>
     (function () {
-      if ("caches" in window && localStorage.getItem("diary_sw_cleaned_v19") !== "1") {
+      if ("caches" in window && localStorage.getItem("diary_sw_cleaned_v20") !== "1") {
         caches.keys().then(function (keys) {
           keys.forEach(function (k) {
-            if (k !== "student-diary-v19") caches.delete(k);
+            if (k !== "student-diary-v20") caches.delete(k);
           });
         });
-        localStorage.setItem("diary_sw_cleaned_v19", "1");
+        localStorage.setItem("diary_sw_cleaned_v20", "1");
       }
 
       window.__toggleDynamicIsland = function (forceMode) {
@@ -2066,6 +2067,6 @@
     })();
   </script>
 
-  <script type="module" src="./app.js?v=19"></script>
+  <script type="module" src="./app.js?v=20"></script>
 </body>
 </html>
