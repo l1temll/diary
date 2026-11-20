@@ -6,14 +6,14 @@
 
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="ФПИ Банк" />
+  <meta name="apple-mobile-web-app-title" content="Дневник" />
   <meta name="theme-color" content="#050508" id="meta-theme-color" />
   <meta name="format-detection" content="telephone=no" />
 
-  <title>ФПИ Банк</title>
+  <title>Студенческий Дневник</title>
   <link rel="manifest" href="./manifest.webmanifest" />
-  <link rel="icon" href="./assets/icon-192.png" type="image/png" />
-  <link rel="apple-touch-icon" href="./assets/icon-192.png" />
+
+  <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%239B6BFF'/><stop offset='1' stop-color='%235B21B6'/></linearGradient></defs><rect width='180' height='180' rx='42' fill='url(%23g)'/><path d='M50 48h80a12 12 0 0 1 12 12v68a12 12 0 0 1-12 12H50a12 12 0 0 1-12-12V60a12 12 0 0 1 12-12zm0 26h80M68 48V36M112 48V36' stroke='white' stroke-width='10' stroke-linecap='round' fill='none'/></svg>" />
 
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -26,6 +26,7 @@
               bg: '#050508',
               card: '#141418',
               elevated: '#1E1E24',
+              glass: 'rgba(22, 20, 30, 0.72)',
               accent: 'rgb(var(--accent-rgb) / <alpha-value>)',
               accentSoft: 'rgb(var(--accent-soft-rgb) / <alpha-value>)',
               blue: '#0A84FF',
@@ -34,7 +35,8 @@
               orange: '#FF9F0A',
               red: '#FF453A',
               purple: '#9B6BFF',
-              gray: '#8E8E98'
+              gray: '#8E8E98',
+              separator: 'rgba(255, 255, 255, 0.085)'
             }
           },
           fontFamily: {
@@ -55,23 +57,23 @@
       --accent-hex: #8B5CF6;
       --accent-rgb: 139 92 246;
       --accent-soft-rgb: 167 139 250;
-      --accent-glow: rgba(139, 92, 246, 0.34);
+      --accent-glow: rgba(139, 92, 246, 0.28);
       --accent-on: #FFFFFF;
 
       --text-primary: #F5F5F7;
       --text-secondary: #9898A6;
       --text-tertiary: #636370;
 
-      --surface-bg: rgba(255, 255, 255, 0.048);
-      --surface-elevated: rgba(255, 255, 255, 0.08);
+      --surface-bg: rgba(255, 255, 255, 0.045);
+      --surface-elevated: rgba(255, 255, 255, 0.075);
       --surface-sheet: rgba(17, 16, 23, 0.96);
-      --surface-nav: rgba(20, 19, 28, 0.80);
-      --surface-header: rgba(5, 5, 8, 0.52);
+      --surface-nav: rgba(20, 19, 28, 0.78);
+      --surface-header: rgba(5, 5, 8, 0.55);
       --surface-input: rgba(255, 255, 255, 0.065);
       --hairline: rgba(255, 255, 255, 0.085);
       --hairline-strong: rgba(255, 255, 255, 0.14);
 
-      --desktop-shell-bg: rgba(14, 13, 20, 0.66);
+      --desktop-shell-bg: rgba(14, 13, 20, 0.64);
       --glass-border-alpha: 0.12;
       --glass-specular-alpha: 0.22;
       --glass-blur: 28px;
@@ -79,12 +81,12 @@
       --ios-ease: cubic-bezier(0.32, 0.72, 0, 1);
     }
 
-    /* Акцентные палитры (1-в-1 как в дневнике) */
-    body.accent-purple { --accent-hex: #8B5CF6; --accent-rgb: 139 92 246; --accent-soft-rgb: 167 139 250; --accent-glow: rgba(139, 92, 246, 0.34); --accent-on: #FFFFFF; }
-    body.accent-blue   { --accent-hex: #0A84FF; --accent-rgb: 10 132 255; --accent-soft-rgb: 90 172 255;  --accent-glow: rgba(10, 132, 255, 0.30); --accent-on: #FFFFFF; }
-    body.accent-orange { --accent-hex: #FF9F0A; --accent-rgb: 255 159 10; --accent-soft-rgb: 255 186 73;  --accent-glow: rgba(255, 159, 10, 0.30); --accent-on: #000000; }
-    body.accent-green  { --accent-hex: #30D158; --accent-rgb: 48 209 88;  --accent-soft-rgb: 92 225 126;  --accent-glow: rgba(48, 209, 88, 0.28);  --accent-on: #000000; }
-    body.accent-pink   { --accent-hex: #FF375F; --accent-rgb: 255 55 95;  --accent-soft-rgb: 255 107 138; --accent-glow: rgba(255, 55, 95, 0.30);  --accent-on: #FFFFFF; }
+    /* Акцентные палитры */
+    body.accent-purple { --accent-hex: #8B5CF6; --accent-rgb: 139 92 246; --accent-soft-rgb: 167 139 250; --accent-glow: rgba(139, 92, 246, 0.30); --accent-on: #FFFFFF; }
+    body.accent-blue   { --accent-hex: #0A84FF; --accent-rgb: 10 132 255; --accent-soft-rgb: 90 172 255;  --accent-glow: rgba(10, 132, 255, 0.28); --accent-on: #FFFFFF; }
+    body.accent-orange { --accent-hex: #FF9F0A; --accent-rgb: 255 159 10; --accent-soft-rgb: 255 186 73;  --accent-glow: rgba(255, 159, 10, 0.28); --accent-on: #000000; }
+    body.accent-green  { --accent-hex: #30D158; --accent-rgb: 48 209 88;  --accent-soft-rgb: 92 225 126;  --accent-glow: rgba(48, 209, 88, 0.26);  --accent-on: #000000; }
+    body.accent-pink   { --accent-hex: #FF375F; --accent-rgb: 255 55 95;  --accent-soft-rgb: 255 107 138; --accent-glow: rgba(255, 55, 95, 0.28);  --accent-on: #FFFFFF; }
 
     /* Яркость граней стекла */
     body.rim-soft   { --glass-border-alpha: 0.06; --glass-specular-alpha: 0.10; }
@@ -96,10 +98,10 @@
       --text-primary: #111116;
       --text-secondary: #5C5C68;
       --text-tertiary: #8E8E98;
-      --surface-bg: rgba(0, 0, 0, 0.042);
-      --surface-elevated: rgba(0, 0, 0, 0.068);
+      --surface-bg: rgba(0, 0, 0, 0.04);
+      --surface-elevated: rgba(0, 0, 0, 0.065);
       --surface-sheet: rgba(248, 248, 252, 0.97);
-      --surface-nav: rgba(255, 255, 255, 0.86);
+      --surface-nav: rgba(255, 255, 255, 0.84);
       --surface-header: rgba(245, 245, 249, 0.68);
       --desktop-shell-bg: rgba(255, 255, 255, 0.78);
       --surface-input: rgba(0, 0, 0, 0.055);
@@ -113,7 +115,7 @@
       --accent-hex: #FFFFFF;
       --accent-rgb: 255 255 255;
       --accent-soft-rgb: 220 220 225;
-      --accent-glow: rgba(255, 255, 255, 0.18);
+      --accent-glow: rgba(255, 255, 255, 0.16);
       --accent-on: #000000;
     }
     body.mono-mode.mode-light {
@@ -158,14 +160,19 @@
       max-width: 100%;
     }
 
-    input[type="date"], input[type="time"] {
+    input[type="date"], input[type="time"], input[type="datetime-local"] {
       -webkit-appearance: none;
       appearance: none;
       min-width: 0;
     }
 
-    .pt-safe { padding-top: calc(env(safe-area-inset-top, 0px) + 0.65rem); }
-    .pb-safe-nav { padding-bottom: max(env(safe-area-inset-bottom, 0px), 0.75rem); }
+    /* Безопасные зоны iOS */
+    .pt-safe {
+      padding-top: calc(env(safe-area-inset-top, 0px) + 0.65rem);
+    }
+    .pb-safe-nav {
+      padding-bottom: max(env(safe-area-inset-bottom, 0px), 0.7rem);
+    }
     .main-scroll-area {
       padding-bottom: calc(6.75rem + env(safe-area-inset-bottom, 0px));
       overflow-x: clip;
@@ -178,7 +185,7 @@
     }
 
     /* ==========================================================================
-       1. ФОНЫ ИЗ ДНЕВНИКА: ШЁЛКОВЫЕ ВОЛНЫ, ЧЁРНЫЙ, БЕЛЫЙ, ФОТО ИЗ ГАЛЕРЕИ
+       1. ФОНЫ: ШЁЛКОВЫЕ ВОЛНЫ (ПО РЕФЕРЕНСУ), ЧИСТО ЧЁРНЫЙ, БЕЛЫЙ, ГАЛЕРЕЯ
        ========================================================================== */
     #custom-bg-layer {
       position: fixed;
@@ -219,6 +226,76 @@
       background: rgba(244, 243, 250, var(--custom-bg-dim));
     }
 
+    /* ==========================================================================
+       ДЕСКТОП-ВЕРСИЯ (ПК / ПЛАНШЕТЫ >= 768px): АККУРАТНЫЕ РАМКИ И СТРУКТУРА
+       ========================================================================== */
+    @media (min-width: 768px) {
+      #header-inner-container {
+        max-width: 680px !important;
+      }
+      body.week-grid-open #header-inner-container {
+        max-width: 76rem !important;
+      }
+      main#main-container {
+        max-width: 680px !important;
+        background: var(--desktop-shell-bg);
+        backdrop-filter: blur(28px) saturate(165%);
+        -webkit-backdrop-filter: blur(28px) saturate(165%);
+        border: 1px solid var(--hairline-strong);
+        border-radius: 28px;
+        box-shadow: 0 24px 64px -16px rgba(0, 0, 0, 0.62), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+        margin-top: 14px;
+        margin-bottom: 100px;
+        padding: 24px 28px 28px !important;
+      }
+      body.mode-light main#main-container {
+        box-shadow: 0 20px 54px -16px rgba(15, 15, 30, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+      }
+      body.week-grid-open main#main-container {
+        max-width: 76rem !important;
+      }
+      #day-selector {
+        background: var(--surface-bg);
+        border: 1px solid var(--hairline);
+        border-radius: 20px;
+        padding: 6px;
+      }
+      #live-now-widget {
+        border-bottom: none !important;
+        padding-bottom: 0 !important;
+      }
+      #live-now-widget .live-hero-shell {
+        background: var(--surface-bg);
+        border: 1px solid var(--hairline-strong);
+        border-radius: 20px;
+        padding: 18px 20px;
+      }
+      #schedule-list:has(.timeline-row) {
+        background: var(--surface-bg);
+        border: 1px solid var(--hairline);
+        border-radius: 20px;
+        padding: 4px 18px;
+      }
+      #schedule-list .timeline-row {
+        padding: 15px 6px;
+        border-radius: 12px;
+        transition: background-color 0.18s ease;
+      }
+      #schedule-list .timeline-row:hover {
+        background: rgba(255, 255, 255, 0.03);
+      }
+      body.mode-light #schedule-list .timeline-row:hover {
+        background: rgba(0, 0, 0, 0.025);
+      }
+      #tasks-list > div > div.divide-y,
+      #notes-list:has([data-edit-note]) {
+        background: var(--surface-bg);
+        border: 1px solid var(--hairline);
+        border-radius: 20px;
+        padding: 2px 18px;
+      }
+    }
+
     .silk-bg-svg {
       position: absolute;
       inset: 0;
@@ -239,31 +316,17 @@
       filter: grayscale(100%) brightness(1.15) !important;
     }
 
-    @media (min-width: 768px) {
-      #header-inner-container { max-width: 540px !important; }
-      main#main-container {
-        max-width: 540px !important;
-        background: var(--desktop-shell-bg);
-        backdrop-filter: blur(28px) saturate(165%);
-        -webkit-backdrop-filter: blur(28px) saturate(165%);
-        border: 1px solid var(--hairline-strong);
-        border-radius: 28px;
-        box-shadow: 0 24px 64px -16px rgba(0, 0, 0, 0.62), inset 0 1px 0 rgba(255, 255, 255, 0.08);
-        margin-top: 14px;
-        margin-bottom: 104px;
-        padding: 24px 28px 28px !important;
-      }
-      body.mode-light main#main-container {
-        box-shadow: 0 20px 54px -16px rgba(15, 15, 30, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.9);
-      }
+    /* ==========================================================================
+       2. МИНИМАЛИСТИЧНЫЕ ПОВЕРХНОСТИ И НАТИВНЫЕ РАЗДЕЛИТЕЛИ iOS
+       ========================================================================== */
+    .ios-divider {
+      border-color: var(--hairline);
+    }
+    .divide-y.ios-divider > :not([hidden]) ~ :not([hidden]) {
+      border-color: var(--hairline);
     }
 
-    /* ==========================================================================
-       2. ПОВЕРХНОСТИ И СТИЛИ ИНТЕРФЕЙСА (МИНИМАЛ / СТЕКЛО / LIQUID)
-       ========================================================================== */
-    .ios-divider { border-color: var(--hairline); }
-    .divide-y.ios-divider > :not([hidden]) ~ :not([hidden]) { border-color: var(--hairline); }
-
+    /* Тонкие полупрозрачные пилюли и круглые иконки-кнопки */
     .ios-icon-btn {
       background: var(--surface-bg);
       border: 1px solid rgba(255, 255, 255, var(--glass-border-alpha));
@@ -271,8 +334,11 @@
       backdrop-filter: blur(18px);
       -webkit-backdrop-filter: blur(18px);
     }
-    body.mode-light .ios-icon-btn { border-color: rgba(0, 0, 0, 0.08); }
+    body.mode-light .ios-icon-btn {
+      border-color: rgba(0, 0, 0, 0.08);
+    }
 
+    /* Сегментированный переключатель iOS (Активные | Неделя | Готовые) */
     .ios-segmented {
       position: relative;
       background: var(--surface-bg);
@@ -302,6 +368,7 @@
       box-shadow: none;
     }
 
+    /* Активная акцентная кнопка */
     .ios-accent-btn {
       background: rgb(var(--accent-rgb));
       color: var(--accent-on) !important;
@@ -312,7 +379,9 @@
       color: rgb(var(--accent-soft-rgb)) !important;
       border: 1px solid rgb(var(--accent-rgb) / 0.28);
     }
-    body.mode-light .ios-accent-soft-btn { color: rgb(var(--accent-rgb)) !important; }
+    body.mode-light .ios-accent-soft-btn {
+      color: rgb(var(--accent-rgb)) !important;
+    }
 
     .ios-surface {
       background: var(--surface-bg);
@@ -328,25 +397,31 @@
       box-shadow: inset 0 1px 0.5px rgba(255, 255, 255, var(--glass-specular-alpha));
     }
 
-    /* Полоса лимита на день (референс image_9f5f3f.jpg + адаптация под Минимал/Стекло/Liquid) */
-    .limit-capsule {
-      background: rgba(22, 20, 32, 0.56);
+    /* В режиме "Стекло" / "Liquid" добавляем деликатную подложку под текущий блок */
+    body.theme-tg-glass .live-hero-shell {
+      background: rgba(24, 22, 34, 0.48);
+      backdrop-filter: blur(22px) saturate(160%);
+      -webkit-backdrop-filter: blur(22px) saturate(160%);
       border: 1px solid rgba(255, 255, 255, var(--glass-border-alpha));
-      backdrop-filter: blur(22px) saturate(165%);
-      -webkit-backdrop-filter: blur(22px) saturate(165%);
       border-radius: 22px;
-      padding: 15px 17px 14px;
-      transition: border-color 0.2s ease, background 0.2s ease;
+      padding: 16px;
     }
-    body.mode-light .limit-capsule {
-      background: rgba(255, 255, 255, 0.78);
+    body.mode-light.theme-tg-glass .live-hero-shell,
+    body.mode-light.theme-liquid .live-hero-shell {
+      background: rgba(255, 255, 255, 0.68);
       border-color: rgba(0, 0, 0, 0.08);
     }
-    body.theme-liquid .limit-capsule {
-      background: linear-gradient(140deg, rgba(255, 255, 255, 0.10) 0%, rgba(20, 16, 32, 0.52) 100%);
+    body.theme-liquid .live-hero-shell {
+      background: linear-gradient(140deg, rgba(255, 255, 255, 0.10) 0%, rgba(20, 16, 32, 0.45) 100%);
+      backdrop-filter: blur(28px) saturate(190%);
+      -webkit-backdrop-filter: blur(28px) saturate(190%);
+      border: 1px solid rgba(255, 255, 255, var(--glass-border-alpha));
       box-shadow: inset 0 1px 1px rgba(255, 255, 255, var(--glass-specular-alpha));
+      border-radius: 22px;
+      padding: 16px;
     }
 
+    /* Инпуты в стиле iOS */
     .ios-input {
       background: var(--surface-input);
       border: 1px solid var(--hairline);
@@ -359,9 +434,11 @@
       border-color: rgb(var(--accent-rgb) / 0.6);
       background: var(--surface-elevated);
     }
-    .ios-input::placeholder { color: var(--text-tertiary); }
+    .ios-input::placeholder {
+      color: var(--text-tertiary);
+    }
 
-    /* Нативный переключатель iOS Switch из дневника */
+    /* Нативный переключатель iOS Switch */
     .ios-switch {
       position: relative;
       display: inline-flex;
@@ -370,7 +447,12 @@
       flex-shrink: 0;
       cursor: pointer;
     }
-    .ios-switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+    .ios-switch input {
+      position: absolute;
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
     .ios-switch-track {
       position: absolute;
       inset: 0;
@@ -389,155 +471,128 @@
       box-shadow: 0 2px 6px rgba(0, 0, 0, 0.32);
       transition: transform 0.28s cubic-bezier(0.24, 1.18, 0.34, 1);
     }
-    .ios-switch input:checked + .ios-switch-track { background: rgb(var(--accent-rgb)); }
-    .ios-switch input:checked + .ios-switch-track .ios-switch-thumb { transform: translate3d(20px, 0, 0); }
-    body.mono-mode.mode-dark .ios-switch input:checked + .ios-switch-track .ios-switch-thumb { background: #111114; }
+    .ios-switch input:checked + .ios-switch-track {
+      background: rgb(var(--accent-rgb));
+    }
+    .ios-switch input:checked + .ios-switch-track .ios-switch-thumb {
+      transform: translate3d(20px, 0, 0);
+    }
+    body.mono-mode.mode-dark .ios-switch input:checked + .ios-switch-track .ios-switch-thumb {
+      background: #111114;
+    }
 
     /* ==========================================================================
-       3. СТОПКА БАНКОВСКИХ КАРТ (ISO/IEC 7810 ID-1)
+       3. ТАЙМЛАЙН РАСПИСАНИЯ (БЕЗ ПЛИТОК, КАК НА РЕФЕРЕНСЕ)
        ========================================================================== */
-    .card-deck {
+    .timeline-row {
       position: relative;
-      width: calc(100% - 16px);
-      aspect-ratio: 1.586 / 1;
-      margin: 0 auto 0 0;
-      perspective: 1100px;
-      user-select: none;
-      touch-action: pan-y;
-    }
-    .bank-card {
-      position: absolute;
-      inset: 0;
-      border-radius: 18px;
-      padding: 20px 22px;
       display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      color: #ffffff;
-      overflow: hidden;
-      isolation: isolate;
-      border: 1px solid rgba(255, 255, 255, 0.18);
-      box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.28),
-        0 20px 44px -14px rgba(0, 0, 0, 0.72);
-      transform-origin: center center;
-      will-change: transform, opacity;
-      cursor: grab;
-    }
-    .bank-card:active { cursor: grabbing; }
-    .bank-card[data-pos="0"] {
-      z-index: 30;
-      transform: translate3d(0px, 0px, 0px) scale(1);
-      opacity: 1;
-      filter: brightness(1);
-    }
-    .bank-card[data-pos="1"] {
-      z-index: 20;
-      transform: translate3d(13px, 0px, 0px) scale(0.935);
-      opacity: 0.86;
-      filter: brightness(0.76);
+      align-items: flex-start;
+      gap: 14px;
+      padding: 14px 2px;
       cursor: pointer;
     }
-    .bank-card[data-pos="2"] {
-      z-index: 10;
-      transform: translate3d(24px, 0px, 0px) scale(0.87);
-      opacity: 0.56;
-      filter: brightness(0.55);
-      cursor: pointer;
-    }
-
-    /* Скины карт */
-    .bank-card[data-skin="fpi-obsidian"] {
-      background:
-        radial-gradient(95% 95% at 96% 6%, color-mix(in srgb, var(--accent-hex) 82%, #7c3aed) 0%, color-mix(in srgb, var(--accent-hex) 34%, transparent) 44%, transparent 72%),
-        radial-gradient(80% 70% at 8% 96%, rgba(56, 189, 248, 0.14) 0%, transparent 60%),
-        linear-gradient(135deg, #161422 0%, #0b0a12 52%, #1d133c 100%);
-    }
-    .bank-card[data-skin="titanium-dark"] {
-      background:
-        radial-gradient(85% 85% at 92% 10%, rgba(255, 255, 255, 0.16) 0%, transparent 62%),
-        linear-gradient(135deg, #272930 0%, #141519 52%, #0a0b0e 100%);
-    }
-    .bank-card[data-skin="pacific-blue"] {
-      background:
-        radial-gradient(90% 90% at 94% 8%, rgba(56, 189, 248, 0.52) 0%, transparent 62%),
-        linear-gradient(135deg, #0b1628 0%, #102b4b 54%, #071120 100%);
-    }
-    .bank-card[data-skin="alpine-green"] {
-      background:
-        radial-gradient(90% 90% at 94% 8%, rgba(52, 211, 153, 0.42) 0%, transparent 62%),
-        linear-gradient(135deg, #0a1914 0%, #11362a 54%, #06120e 100%);
-    }
-    .bank-card[data-skin="natural-titanium"] {
-      color: #161513;
-      border-color: rgba(255, 255, 255, 0.45);
-      background: linear-gradient(135deg, #dcd8cf 0%, #bbb6aa 52%, #9f9a8e 100%);
-    }
-    .bank-card[data-skin="natural-titanium"] .card-bank-name,
-    .bank-card[data-skin="natural-titanium"] .card-digits,
-    .bank-card[data-skin="natural-titanium"] .card-name-sub { color: rgba(22, 21, 19, 0.72); }
-    .bank-card[data-skin="crimson-noir"] {
-      background:
-        radial-gradient(90% 90% at 94% 8%, rgba(244, 63, 94, 0.56) 0%, transparent 62%),
-        linear-gradient(135deg, #1b0a10 0%, #3d0c1f 54%, #100509 100%);
-    }
-
-    body.mono-mode .bank-card { filter: grayscale(100%) contrast(108%); }
-
-    .emv-chip {
-      width: 42px;
-      height: 31px;
-      border-radius: 6px;
-      background: linear-gradient(135deg, #e1e3e8 0%, #9fa5b0 48%, #eceef2 100%);
-      border: 1px solid rgba(255, 255, 255, 0.5);
+    .timeline-rail-col {
       position: relative;
-      overflow: hidden;
-      box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.75);
+      width: 14px;
+      display: flex;
+      justify-content: center;
+      padding-top: 6px;
+      flex-shrink: 0;
+      align-self: stretch;
     }
-    .emv-chip::before {
-      content: "";
+    .timeline-rail-line {
       position: absolute;
-      inset: 0;
-      background:
-        linear-gradient(90deg, transparent 31%, rgba(0,0,0,0.3) 31%, rgba(0,0,0,0.3) 34%, transparent 34%, transparent 66%, rgba(0,0,0,0.3) 66%, rgba(0,0,0,0.3) 69%, transparent 69%),
-        linear-gradient(0deg, transparent 47%, rgba(0,0,0,0.3) 47%, rgba(0,0,0,0.3) 53%, transparent 53%);
+      top: 16px;
+      bottom: -20px;
+      width: 1.5px;
+      background: var(--hairline-strong);
+    }
+    .timeline-row:last-child .timeline-rail-line {
+      display: none;
+    }
+    .timeline-dot {
+      position: relative;
+      z-index: 1;
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: rgba(168, 162, 198, 0.55);
+      transition: transform 0.25s ease, background-color 0.25s ease;
+    }
+    .timeline-row.is-live .timeline-dot {
+      width: 10px;
+      height: 10px;
+      background: rgb(var(--accent-rgb));
+      box-shadow: 0 0 10px var(--accent-glow);
+    }
+    .timeline-row.is-passed .timeline-dot {
+      background: rgba(142, 142, 152, 0.3);
+    }
+    .timeline-row.is-passed .timeline-title {
+      opacity: 0.55;
     }
 
-    /* Раскрывающаяся секция деталей лимита */
-    .limit-details {
-      display: grid;
-      grid-template-rows: 0fr;
-      transition: grid-template-rows 0.3s cubic-bezier(0.22, 1, 0.36, 1), margin-top 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+    /* Прогресс-бар текущей пары */
+    .live-progress-track {
+      height: 4px;
+      width: 100%;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.11);
+      overflow: hidden;
     }
-    .limit-capsule.expanded .limit-details {
-      grid-template-rows: 1fr;
-      margin-top: 12px;
+    body.mode-light .live-progress-track {
+      background: rgba(0, 0, 0, 0.09);
     }
-    .limit-capsule.expanded .limit-chevron {
-      transform: rotate(180deg);
+    .live-progress-fill {
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, rgb(var(--accent-rgb)) 0%, rgb(var(--accent-soft-rgb)) 100%);
+      transition: width 0.85s var(--ios-ease);
+    }
+
+    @keyframes pulseDot {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.25); opacity: 0.65; }
+    }
+    .live-pulse-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: rgb(var(--accent-rgb));
+      box-shadow: 0 0 10px var(--accent-glow);
+      animation: pulseDot 2s ease-in-out infinite;
     }
 
     /* ==========================================================================
-       4. НАТИВНАЯ НИЖНЯЯ НАВИГАЦИЯ iOS (КАК НА РЕФЕРЕНСЕ + ДОК РЕЖИМ ИЗ ДНЕВНИКА)
+       4. НАТИВНАЯ НИЖНЯЯ НАВИГАЦИЯ iOS + ПРУЖИННЫЙ ГЛАЙДЕР
        ========================================================================== */
     .ios-tabbar-shell {
       background: var(--surface-nav);
       backdrop-filter: blur(30px) saturate(185%);
       -webkit-backdrop-filter: blur(30px) saturate(185%);
       border: 1px solid rgba(255, 255, 255, var(--glass-border-alpha));
-      box-shadow: 0 14px 38px -8px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      box-shadow: 0 12px 36px -8px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.08);
     }
     body.mode-light .ios-tabbar-shell {
       border-color: rgba(0, 0, 0, 0.08);
-      box-shadow: 0 10px 28px -8px rgba(0, 0, 0, 0.12);
+      box-shadow: 0 10px 28px -8px rgba(0, 0, 0, 0.10);
     }
 
-    .fab-center-btn {
-      background: linear-gradient(145deg, color-mix(in srgb, var(--accent-hex) 85%, #ffffff) 0%, rgb(var(--accent-rgb)) 100%);
-      color: var(--accent-on);
-      border: 1.5px solid rgba(255, 255, 255, 0.34);
-      box-shadow: 0 0 26px var(--accent-glow), inset 0 1.5px 1px rgba(255, 255, 255, 0.5);
+    #tg-nav-glider {
+      position: absolute;
+      top: 5px;
+      bottom: 5px;
+      left: 5px;
+      width: calc((100% - 10px - 8px) / 3);
+      border-radius: 9999px;
+      background: rgb(var(--accent-rgb) / 0.14);
+      transform: translate3d(0, 0, 0);
+      pointer-events: none;
+      z-index: 0;
     }
+    body.mono-mode.mode-dark #tg-nav-glider { background: rgba(255, 255, 255, 0.12); }
+    body.mono-mode.mode-light #tg-nav-glider { background: rgba(0, 0, 0, 0.08); }
 
     body.nav-docked #bottom-nav-wrapper { bottom: 0; padding-left: 0; padding-right: 0; }
     body.nav-docked #bottom-nav-capsule {
@@ -548,16 +603,22 @@
       border-bottom: none;
       padding-bottom: max(env(safe-area-inset-bottom, 0px), 0.5rem);
     }
+    body.nav-docked #tg-nav-glider {
+      display: none;
+    }
 
     /* ==========================================================================
-       5. ФИЗИЧЕСКИЕ АНИМАЦИИ, ШТОРКИ (BOTTOM SHEETS), КАСКАД ИЗ ДНЕВНИКА
+       5. ФИЗИЧЕСКИЕ АНИМАЦИИ, ШТОРКИ (BOTTOM SHEETS), КАСКАД
        ========================================================================== */
     .ios-press {
       touch-action: manipulation;
       transform: translate3d(0, 0, 0);
     }
 
-    #expense-list.play-cascade > * {
+    #schedule-list.play-cascade > *,
+    #events-list.play-cascade > *,
+    #tasks-list.play-cascade > *,
+    #notes-list.play-cascade > * {
       animation: iosRowReveal 0.30s cubic-bezier(0.22, 1, 0.36, 1) both;
     }
     .play-cascade > *:nth-child(1) { animation-delay: 0.00s; }
@@ -572,8 +633,8 @@
       100% { opacity: 1; transform: translate3d(0, 0, 0); }
     }
 
-    /* Bottom Sheets с перехватом свайпа вниз (1-в-1 как в дневнике) */
-    [id^="modal-"] {
+    /* Bottom Sheets без тяжёлого blur на оверлее */
+    [id^="modal-"]:not(#modal-photo-viewer) {
       background-color: transparent !important;
       backdrop-filter: none !important;
       -webkit-backdrop-filter: none !important;
@@ -607,12 +668,88 @@
       margin: 0 auto 12px auto;
       pointer-events: none;
     }
-    body.mode-light .ios-sheet-grabber { background: rgba(0, 0, 0, 0.16); }
+    body.mode-light .ios-sheet-grabber {
+      background: rgba(0, 0, 0, 0.16);
+    }
 
+    /* ==========================================================================
+       6. ТАБЛИЦА РАСПИСАНИЯ НА НЕДЕЛЮ (GOOGLE CALENDAR STYLE)
+       ========================================================================== */
+    body.week-grid-open main#main-container {
+      max-width: 76rem !important;
+    }
+    .gcal-grid-table {
+      display: grid;
+      grid-template-columns: 54px repeat(6, minmax(135px, 1fr));
+      min-width: 864px;
+      border-top: 1px solid var(--hairline);
+      border-left: 1px solid var(--hairline);
+    }
+    .gcal-grid-table.cols-7 {
+      grid-template-columns: 54px repeat(7, minmax(130px, 1fr));
+      min-width: 964px;
+    }
+    .gcal-cell {
+      border-right: 1px solid var(--hairline);
+      border-bottom: 1px solid var(--hairline);
+      position: relative;
+    }
+    .gcal-event-card {
+      background: rgb(var(--accent-rgb) / 0.22);
+      border-left: 2.5px solid rgb(var(--accent-rgb));
+      color: var(--text-primary);
+      border-radius: 8px;
+      padding: 6px 8px;
+      font-size: 11px;
+      line-height: 1.25;
+      cursor: pointer;
+      transition: transform 0.16s ease, background-color 0.16s ease;
+    }
+    .gcal-event-card:hover {
+      background: rgb(var(--accent-rgb) / 0.32);
+    }
+    .gcal-now-line {
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: rgb(var(--accent-rgb));
+      z-index: 20;
+      pointer-events: none;
+    }
+    .gcal-now-dot {
+      position: absolute;
+      left: -4px;
+      top: -3.5px;
+      width: 9px;
+      height: 9px;
+      border-radius: 9999px;
+      background: rgb(var(--accent-rgb));
+    }
+
+    /* Просмотрщик фото */
+    #modal-photo-viewer,
+    #modal-photo-viewer .photo-viewer-btn {
+      color: #FFFFFF !important;
+    }
+    #modal-photo-viewer .photo-viewer-btn {
+      background: rgba(30, 29, 38, 0.86) !important;
+      border: 1px solid rgba(255, 255, 255, 0.22) !important;
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+    }
+    .pt-safe-viewer { padding-top: calc(env(safe-area-inset-top, 0px) + 0.75rem); }
+    .pb-safe-viewer { padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 1rem); }
+    #photo-viewer-stage { touch-action: none; }
+
+    /* Адаптация текстов для тёмной/светлой темы */
     body.mode-light .text-primary-adaptive { color: #111116 !important; }
     body.mode-dark .text-primary-adaptive  { color: #F5F5F7 !important; }
     .text-secondary-adaptive { color: var(--text-secondary); }
     .text-tertiary-adaptive  { color: var(--text-tertiary); }
+
+    body.mode-dark select option { background: #18181F; color: #F5F5F7; }
+    body.mode-light select option { background: #FFFFFF; color: #111116; }
 
     .no-scrollbar::-webkit-scrollbar { display: none; }
     .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
@@ -626,18 +763,18 @@
     }
   </style>
 </head>
-<body class="mode-dark accent-purple theme-minimal bg-mode-abstract rim-normal min-h-screen flex flex-col antialiased relative">
+<body class="mode-dark accent-purple theme-minimal btn-matte bg-mode-abstract rim-normal min-h-screen flex flex-col antialiased relative">
 
   <!-- СЛОЙ 1: ПОЛЬЗОВАТЕЛЬСКИЙ ФОН ИЗ ГАЛЕРЕИ -->
   <div id="custom-bg-layer" aria-hidden="true"></div>
 
-  <!-- СЛОЙ 2: АБСТРАКТНЫЕ ШЁЛКОВЫЕ ВОЛНЫ (ПО РЕФЕРЕНСУ И ДНЕВНИКУ) -->
+  <!-- СЛОЙ 2: МЯГКИЕ АБСТРАКТНЫЕ ШЁЛКОВЫЕ ВОЛНЫ (ПО РЕФЕРЕНСУ) -->
   <div id="silk-wave-bg" aria-hidden="true">
     <svg class="silk-bg-svg" viewBox="0 0 430 932" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <radialGradient id="gTop" cx="85%" cy="10%" r="65%">
-          <stop offset="0%" stop-color="rgb(var(--accent-rgb))" stop-opacity="0.36" />
-          <stop offset="55%" stop-color="rgb(var(--accent-rgb))" stop-opacity="0.10" />
+          <stop offset="0%" stop-color="rgb(var(--accent-rgb))" stop-opacity="0.34" />
+          <stop offset="55%" stop-color="rgb(var(--accent-rgb))" stop-opacity="0.09" />
           <stop offset="100%" stop-color="#050508" stop-opacity="0" />
         </radialGradient>
         <radialGradient id="gBottom" cx="72%" cy="84%" r="62%">
@@ -647,12 +784,12 @@
         </radialGradient>
         <linearGradient id="ribbon1" x1="0%" y1="100%" x2="100%" y2="0%">
           <stop offset="0%" stop-color="rgb(var(--accent-rgb))" stop-opacity="0" />
-          <stop offset="50%" stop-color="rgb(var(--accent-soft-rgb))" stop-opacity="0.24" />
+          <stop offset="50%" stop-color="rgb(var(--accent-soft-rgb))" stop-opacity="0.22" />
           <stop offset="100%" stop-color="rgb(var(--accent-rgb))" stop-opacity="0.04" />
         </linearGradient>
         <linearGradient id="ribbon2" x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stop-color="rgb(var(--accent-rgb))" stop-opacity="0.03" />
-          <stop offset="55%" stop-color="rgb(var(--accent-rgb))" stop-opacity="0.26" />
+          <stop offset="55%" stop-color="rgb(var(--accent-rgb))" stop-opacity="0.24" />
           <stop offset="100%" stop-color="rgb(var(--accent-soft-rgb))" stop-opacity="0.02" />
         </linearGradient>
         <filter id="silkBlur" x="-20%" y="-20%" width="140%" height="140%">
@@ -670,21 +807,48 @@
     </svg>
   </div>
 
-  <!-- СЛОЙ 3: ЗАТЕМНЕНИЕ ФОНА -->
+  <!-- СЛОЙ 3: УНИВЕРСАЛЬНОЕ ЗАТЕМНЕНИЕ ФОНА (ДЛЯ ВОЛН И СВОИХ ФОТО) -->
   <div id="custom-bg-overlay" aria-hidden="true"></div>
 
-  <!-- ВЕРХНЯЯ ПАНЕЛЬ -->
+  <!-- ВЕРХНЯЯ ПАНЕЛЬ (ЧИСТАЯ, БЕЗ ПЛИТОК, НАТИВНЫЙ iOS СТИЛЬ) -->
   <header class="sticky top-0 z-30 pt-safe px-5 pb-2 transition-colors" id="top-app-header">
     <div class="max-w-lg mx-auto flex items-center justify-between gap-2" id="header-inner-container">
-      <div class="flex items-center gap-2.5 min-w-0">
-        <h1 id="screen-heading" class="text-[29px] font-bold tracking-tight leading-none text-primary-adaptive">ФПИ Банк</h1>
-        <span id="sync-dot" class="w-2 h-2 rounded-full bg-ios-orange shrink-0 transition-all" title="Статус облака"></span>
+      <div class="flex items-center gap-2 min-w-0">
+        <span class="hidden md:inline-flex items-center gap-2 text-[13px] font-semibold text-secondary-adaptive tracking-tight">
+          <i data-lucide="book-open" class="w-4 h-4 text-ios-accent"></i>
+          <span>Студенческий дневник</span>
+        </span>
       </div>
 
-      <div class="flex items-center gap-2 shrink-0">
-        <button type="button" id="btn-settings" class="ios-press w-10 h-10 rounded-full ios-icon-btn flex items-center justify-center shrink-0" title="Настройки">
-          <i data-lucide="settings" class="w-[19px] h-[19px]"></i>
+      <div class="flex items-center gap-1.5 shrink-0">
+        <button type="button" id="btn-add-event" class="ios-press h-8 px-2.5 rounded-full ios-icon-btn text-[12px] font-medium flex items-center gap-1.5" title="Добавить мероприятие">
+          <i data-lucide="sparkles" class="w-3.5 h-3.5 text-ios-accent shrink-0"></i>
+          <span>Событие</span>
         </button>
+
+        <button type="button" id="btn-week-grid-toggle" class="ios-press h-8 px-2.5 rounded-full ios-icon-btn text-[12px] font-medium flex items-center gap-1.5" title="Обзор всей недели">
+          <i data-lucide="calendar-range" class="w-3.5 h-3.5 text-secondary-adaptive shrink-0"></i>
+          <span id="week-grid-toggle-text">Неделя</span>
+        </button>
+
+        <button type="button" id="btn-header-add" class="ios-press w-8 h-8 rounded-full ios-icon-btn flex items-center justify-center shrink-0" title="Добавить">
+          <i data-lucide="plus" class="w-4 h-4 stroke-[2.2]"></i>
+        </button>
+
+        <button type="button" id="btn-tools" class="ios-press w-8 h-8 rounded-full ios-icon-btn flex items-center justify-center relative shrink-0" title="Настройки">
+          <i data-lucide="settings" class="w-4 h-4"></i>
+          <span id="badge-notif-active" class="hidden absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-ios-accent rounded-full"></span>
+        </button>
+
+        <button type="button" id="btn-login" class="ios-press w-8 h-8 rounded-full ios-icon-btn text-ios-accent flex items-center justify-center shrink-0" title="Войти через Google">
+          <i data-lucide="user" class="w-4 h-4"></i>
+        </button>
+        <div id="user-profile" class="hidden items-center gap-1 ios-icon-btn pl-0.5 pr-1.5 py-0.5 rounded-full shrink-0">
+          <img id="user-avatar" src="" alt="Avatar" class="w-6 h-6 rounded-full object-cover" />
+          <button type="button" id="btn-logout" class="ios-press text-secondary-adaptive hover:text-ios-red p-0.5 flex items-center" title="Выйти">
+            <i data-lucide="log-out" class="w-3 h-3"></i>
+          </button>
+        </div>
       </div>
     </div>
   </header>
@@ -693,437 +857,733 @@
   <main id="main-container" class="relative z-10 flex-1 max-w-lg w-full mx-auto px-5 pt-1 main-scroll-area transition-all">
 
     <!-- ======================================================================
-         ВКЛАДКА 1: ГЛАВНАЯ (СТОПКА КАРТ + ПОЛОСА ЛИМИТА + СПИСОК БЕЗ ПЛИТОК)
+         ВКЛАДКА 1: РАСПИСАНИЕ
          ====================================================================== -->
-    <section id="view-home" class="space-y-5">
+    <section id="view-schedule" class="space-y-5">
 
-      <!-- Стопка из 3 банковских карт -->
-      <div class="pt-0.5">
-        <div class="card-deck" id="card-deck" aria-label="Стопка банковских карт"></div>
-      </div>
-
-      <!-- Полоса дневного лимита (точно как на референсе + раскрытие по клику) -->
-      <div class="limit-capsule" id="limit-capsule">
-        <div class="flex items-center gap-3.5 cursor-pointer" id="limit-capsule-head">
-          <i data-lucide="calendar" class="w-6 h-6 text-secondary-adaptive shrink-0"></i>
-
-          <div class="flex-1 min-w-0">
-            <div class="text-[11.5px] font-medium text-secondary-adaptive">Лимит на день</div>
-            <div id="home-daily-free" class="text-[19px] font-bold tracking-tight text-primary-adaptive tabular-nums mt-0.5 whitespace-nowrap">
-              0 ₽ <span class="text-[13.5px] font-normal text-secondary-adaptive">/ день</span>
+      <!-- Крупный iOS заголовок и управление неделей (без коробки) -->
+      <div id="week-header-card" class="space-y-1">
+        <div class="flex items-end justify-between gap-2">
+          <div class="min-w-0">
+            <h1 class="text-[32px] font-bold tracking-tight leading-none text-primary-adaptive">Расписание</h1>
+            <div class="flex items-center gap-1.5 mt-1.5 flex-wrap">
+              <span id="week-title" class="text-[14px] font-medium text-secondary-adaptive">Учебная неделя №1</span>
+              <span class="text-tertiary-adaptive">·</span>
+              <span id="week-subtitle" class="text-[13px] text-tertiary-adaptive truncate">Числитель</span>
+              <span id="week-current-badge" class="hidden text-[10px] font-semibold px-2 py-0.5 rounded-full ios-accent-soft-btn">Текущая</span>
             </div>
           </div>
 
-          <div class="text-right shrink-0">
-            <div class="text-[11.5px] font-medium text-secondary-adaptive">Без дороги</div>
-            <div id="home-daily-full" class="text-[15px] font-bold text-primary-adaptive tabular-nums mt-0.5 whitespace-nowrap">0 ₽</div>
-          </div>
-
-          <i data-lucide="chevron-down" class="limit-chevron w-4 h-4 text-secondary-adaptive shrink-0 transition-transform duration-300"></i>
-        </div>
-
-        <!-- Прогресс-бар -->
-        <div class="mt-3.5 h-1.5 w-full rounded-full bg-white/10 overflow-hidden flex">
-          <div id="bar-spent" class="h-full rounded-full transition-all duration-500" style="width:0%; background: linear-gradient(90deg, rgb(var(--accent-rgb)) 0%, rgb(var(--accent-soft-rgb)) 100%);"></div>
-          <div id="bar-reserved" class="h-full bg-ios-orange/60 transition-all duration-500" style="width:0%;"></div>
-        </div>
-
-        <!-- Раскрываемые подробности -->
-        <div class="limit-details">
-          <div class="overflow-hidden border-t ios-divider pt-2.5 space-y-2 text-[12.5px]">
-            <div class="flex justify-between text-secondary-adaptive">
-              <span>На сегодня осталось (сверх дороги)</span>
-              <strong id="det-today-free" class="font-semibold tabular-nums">0 ₽</strong>
+          <div class="flex items-center gap-1 shrink-0 pb-0.5">
+            <button type="button" id="btn-today" class="ios-press h-7 px-2.5 rounded-full ios-icon-btn text-[11px] font-semibold text-ios-accent hidden" title="Перейти на сегодня">
+              Сегодня
+            </button>
+            <div id="btn-date-picker-trigger" class="relative w-7 h-7 rounded-full ios-icon-btn flex items-center justify-center overflow-hidden cursor-pointer" title="Выбрать дату">
+              <i data-lucide="calendar" class="w-3.5 h-3.5 text-secondary-adaptive pointer-events-none"></i>
+              <input type="date" id="date-jump-picker" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" aria-label="Выбрать дату" />
             </div>
-            <div class="flex justify-between text-secondary-adaptive">
-              <span>На сегодня осталось (без дороги)</span>
-              <strong id="det-today-full" class="font-semibold text-primary-adaptive tabular-nums">0 ₽</strong>
-            </div>
-            <div class="flex justify-between text-secondary-adaptive">
-              <span>Бронь дороги Пн–Пт</span>
-              <strong id="det-reserved" class="font-semibold text-primary-adaptive tabular-nums">0 ₽</strong>
-            </div>
-            <div class="flex justify-between text-secondary-adaptive">
-              <span>Свободный остаток Кредитки</span>
-              <strong id="det-free-bal" class="font-semibold text-primary-adaptive tabular-nums">0 ₽</strong>
-            </div>
+            <button type="button" id="btn-prev-week" class="ios-press w-7 h-7 rounded-full ios-icon-btn flex items-center justify-center" title="Предыдущая неделя">
+              <i data-lucide="chevron-left" class="w-3.5 h-3.5"></i>
+            </button>
+            <button type="button" id="btn-next-week" class="ios-press w-7 h-7 rounded-full ios-icon-btn flex items-center justify-center" title="Следующая неделя">
+              <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+            </button>
           </div>
         </div>
       </div>
 
-      <!-- Заголовок списка операций -->
-      <div class="space-y-1 pt-0.5">
-        <div class="flex items-center justify-between gap-2 pb-1">
-          <h2 class="text-[21px] font-bold tracking-tight text-primary-adaptive">Сегодня</h2>
-          <button type="button" id="home-filter-cycle" class="ios-press h-7 px-3 rounded-full ios-icon-btn text-[12px] font-medium text-secondary-adaptive flex items-center gap-1">
-            <span id="home-filter-label">Все операции</span>
-            <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+      <!-- 7-дневная полоса недели (Пн – Вс) -->
+      <div id="day-selector" class="grid grid-cols-7 gap-1 pt-0.5"></div>
+
+      <!-- ====================================================================
+           РЕЖИМ 1: ОБЗОР ВСЕЙ НЕДЕЛИ (СПИСОК / СЕТКА / ТАБЛИЦА)
+           ==================================================================== -->
+      <div id="week-grid-view" class="hidden space-y-3 pt-1">
+        <div class="flex items-center justify-between gap-2">
+          <div class="ios-segmented grid grid-cols-3 gap-1 flex-1 max-w-[260px]">
+            <button type="button" data-week-layout="list" class="week-layout-btn ios-press py-1.5 rounded-[11px] text-[12px] font-semibold ios-seg-active">
+              Список
+            </button>
+            <button type="button" data-week-layout="cards" class="week-layout-btn ios-press py-1.5 rounded-[11px] text-[12px] font-semibold text-secondary-adaptive">
+              Сетка
+            </button>
+            <button type="button" data-week-layout="table" class="week-layout-btn ios-press py-1.5 rounded-[11px] text-[12px] font-semibold text-secondary-adaptive">
+              Таблица
+            </button>
+          </div>
+
+          <button type="button" id="btn-close-week-grid" class="ios-press px-3 py-1.5 rounded-full ios-icon-btn text-[12px] font-semibold shrink-0">
+            К дню
           </button>
         </div>
 
-        <div id="expense-list" class="divide-y ios-divider"></div>
+        <div id="week-grid-table-wrapper" class="overflow-x-auto pb-1"></div>
+      </div>
+
+      <!-- ====================================================================
+           РЕЖИМ 2: ДНЕВНОЙ ВИД (ТЕКУЩАЯ ПАРА + ТАЙМЛАЙН БЕЗ ПЛИТОК)
+           ==================================================================== -->
+      <div id="day-schedule-view" class="space-y-4">
+
+        <!-- БЛОК ТЕКУЩЕЙ / СЛЕДУЮЩЕЙ ПАРЫ (ЧИСТЫЙ ОТКРЫТЫЙ БЛОК, ПЕРЕКЛЮЧЕНИЕ ПО КЛИКУ) -->
+        <div id="live-now-widget" class="select-none pb-4 border-b ios-divider">
+          <div id="dynamic-island-capsule" data-island-mode="current" class="live-hero-shell cursor-pointer transition-all" title="Нажмите, чтобы переключить: Текущий статус / Следующая пара">
+
+            <!-- СЛАЙД 1: ТЕКУЩАЯ ПАРА / ОБЕД / ОКНО / ОТДЫХ -->
+            <div id="island-slide-current">
+              <div id="live-current-box" class="space-y-2">
+                <div class="flex items-center justify-between gap-2">
+                  <div class="flex items-center gap-2.5 min-w-0">
+                    <span id="live-current-dot" class="live-pulse-dot shrink-0"></span>
+                    <span id="live-current-label" class="text-[12px] font-semibold text-ios-accent tracking-tight truncate">
+                      Текущая пара
+                    </span>
+                  </div>
+
+                  <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-full ios-surface text-[12px] font-semibold text-primary-adaptive shrink-0 tabular-nums">
+                    <i data-lucide="clock" class="w-3.5 h-3.5 text-secondary-adaptive shrink-0"></i>
+                    <span id="live-current-timer">Свободно</span>
+                  </div>
+                </div>
+
+                <div class="pl-[18px] space-y-1">
+                  <div id="live-current-title" class="text-[20px] font-bold tracking-tight leading-snug text-primary-adaptive break-words">
+                    Сейчас нет пары
+                  </div>
+
+                  <div id="live-current-meta" class="text-[13px] text-secondary-adaptive flex items-center justify-between gap-2 tabular-nums">
+                    <span class="truncate">Отдыхайте</span>
+                    <span id="live-current-time-range" class="shrink-0"></span>
+                  </div>
+
+                  <div id="live-current-progress-wrap" class="hidden pt-2">
+                    <div class="live-progress-track">
+                      <div id="live-current-progress" class="live-progress-fill" style="width: 0%"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- СЛАЙД 2: СЛЕДУЮЩАЯ ПАРА -->
+            <div id="island-slide-next" class="hidden">
+              <div id="live-next-box" class="space-y-2">
+                <div class="flex items-center justify-between gap-2">
+                  <div class="flex items-center gap-2.5 min-w-0">
+                    <span class="w-2 h-2 rounded-full bg-ios-blue shrink-0"></span>
+                    <span id="live-next-label" class="text-[12px] font-semibold text-ios-blue tracking-tight truncate">
+                      Следующая пара
+                    </span>
+                  </div>
+
+                  <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-full ios-surface text-[12px] font-semibold text-primary-adaptive shrink-0 tabular-nums">
+                    <i data-lucide="fast-forward" class="w-3.5 h-3.5 text-ios-blue shrink-0"></i>
+                    <span id="live-next-timer">—</span>
+                  </div>
+                </div>
+
+                <div class="pl-[18px] space-y-1">
+                  <div id="live-next-title" class="text-[20px] font-bold tracking-tight leading-snug text-primary-adaptive break-words">
+                    Поиск по расписанию...
+                  </div>
+
+                  <div id="live-next-meta" class="text-[13px] text-secondary-adaptive flex items-center justify-between gap-2 tabular-nums">
+                    <span id="live-next-room" class="truncate">—</span>
+                    <span id="live-next-time-range" class="font-medium text-primary-adaptive shrink-0"></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Деликатный индикатор слайдов -->
+            <div class="flex items-center justify-between pl-[18px] pt-2.5">
+              <div class="flex items-center gap-1.5">
+                <span id="island-dot-current" class="w-4 h-1 rounded-full bg-ios-accent transition-all"></span>
+                <span id="island-dot-next" class="w-1.5 h-1 rounded-full bg-white/25 transition-all"></span>
+              </div>
+              <span id="island-switch-hint" class="text-[11px] font-medium text-tertiary-adaptive flex items-center gap-0.5">
+                <span>Следующая пара</span>
+                <i data-lucide="chevron-right" class="w-3 h-3"></i>
+              </span>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Отдельный блок мероприятий дня (минималистичный, без коробок) -->
+        <div id="events-section-wrapper" class="hidden space-y-1 pb-3 border-b ios-divider">
+          <div class="flex items-center justify-between">
+            <span class="text-[12px] font-semibold uppercase tracking-wider text-ios-accent flex items-center gap-1.5">
+              <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+              События · <span id="events-day-count">0</span>
+            </span>
+            <button type="button" id="btn-hide-events-inline" class="text-[12px] font-medium text-tertiary-adaptive hover:text-primary-adaptive">
+              Скрыть
+            </button>
+          </div>
+          <div id="events-list" class="divide-y ios-divider"></div>
+        </div>
+
+        <!-- Таймлайн учебных пар выбранного дня -->
+        <div id="schedule-list"></div>
+      </div>
+
+      <!-- Скрытые пары (аккуратная строка внизу, если есть скрытые) -->
+      <div id="hidden-classes-banner" class="hidden pt-1">
+        <button type="button" id="btn-open-hidden-inline" class="ios-press w-full py-3 border-t ios-divider flex items-center justify-between text-[13px] text-secondary-adaptive">
+          <span class="flex items-center gap-2">
+            <i data-lucide="eye-off" class="w-4 h-4 text-ios-accent"></i>
+            <span>Скрытые пары (<span id="inline-hidden-count">0</span>)</span>
+          </span>
+          <span class="text-ios-accent font-semibold flex items-center gap-0.5">Показать <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i></span>
+        </button>
       </div>
     </section>
 
     <!-- ======================================================================
-         ВКЛАДКА 2: АНАЛИТИКА (СОВРЕМЕННЫЙ ГРАФИК ТРАТ + РАЗБИВКА + КАЛЕНДАРЬ)
+         ВКЛАДКА 2: ДОМАШНИЕ ЗАДАНИЯ
          ====================================================================== -->
-    <section id="view-analytics" class="hidden space-y-5">
-
-      <!-- Фильтр карт -->
-      <div id="analytics-card-pills" class="flex gap-2 overflow-x-auto no-scrollbar pb-0.5">
-        <button type="button" data-analytics-card="all" class="an-card-pill ios-press px-3.5 py-1.5 rounded-full text-[12px] font-semibold ios-accent-btn shrink-0">Все карты</button>
-        <button type="button" data-analytics-card="card_1" id="an-pill-0" class="an-card-pill ios-press px-3.5 py-1.5 rounded-full text-[12px] font-semibold ios-icon-btn text-secondary-adaptive shrink-0">Кредитка ФПИ</button>
-        <button type="button" data-analytics-card="card_2" id="an-pill-1" class="an-card-pill ios-press px-3.5 py-1.5 rounded-full text-[12px] font-semibold ios-icon-btn text-secondary-adaptive shrink-0">Повседневная</button>
-        <button type="button" data-analytics-card="card_3" id="an-pill-2" class="an-card-pill ios-press px-3.5 py-1.5 rounded-full text-[12px] font-semibold ios-icon-btn text-secondary-adaptive shrink-0">Накопительная</button>
-      </div>
-
-      <!-- Переключатель периода: Месяцы / 28 дней -->
-      <div class="ios-segmented grid grid-cols-2 gap-1">
-        <button type="button" data-period-mode="month" class="period-mode-btn ios-press py-2 rounded-[11px] text-[13px] font-semibold ios-seg-active">Месяцы</button>
-        <button type="button" data-period-mode="28days" class="period-mode-btn ios-press py-2 rounded-[11px] text-[13px] font-semibold text-secondary-adaptive">28 дней</button>
-      </div>
-
-      <!-- Навигация по месяцам -->
-      <div id="month-nav-bar" class="flex items-center justify-between">
-        <button type="button" id="month-prev" class="ios-press w-8 h-8 rounded-full ios-icon-btn flex items-center justify-center" aria-label="Предыдущий месяц">
-          <i data-lucide="chevron-left" class="w-4 h-4"></i>
-        </button>
-        <span id="analytics-period-label" class="text-[14px] font-semibold text-primary-adaptive">Ноябрь 2026</span>
-        <button type="button" id="month-next" class="ios-press w-8 h-8 rounded-full ios-icon-btn flex items-center justify-center" aria-label="Следующий месяц">
-          <i data-lucide="chevron-right" class="w-4 h-4"></i>
+    <section id="view-tasks" class="hidden space-y-5">
+      <div class="flex items-center justify-between gap-2">
+        <h1 class="text-[32px] font-bold tracking-tight leading-tight text-primary-adaptive">Домашние<br/>задания</h1>
+        <button type="button" id="btn-new-task-top" class="ios-press w-9 h-9 rounded-full ios-icon-btn flex items-center justify-center shrink-0" title="Добавить ДЗ">
+          <i data-lucide="plus" class="w-5 h-5 stroke-[2.2]"></i>
         </button>
       </div>
 
-      <!-- ГЛАВНЫЙ СОВРЕМЕННЫЙ ГРАФИК ТРАТ ПО ДНЯМ (APPLE HEALTH / STOCKS STYLE) -->
-      <div class="space-y-3 pb-4 border-b ios-divider">
-        <div class="flex items-end justify-between gap-2">
-          <div>
-            <div id="chart-kicker" class="text-[12px] font-medium text-secondary-adaptive">Потрачено за период</div>
-            <div id="chart-hero-amount" class="text-[32px] font-bold tracking-tight leading-tight text-primary-adaptive tabular-nums mt-0.5">0 ₽</div>
-          </div>
-          <div class="text-right space-y-0.5">
-            <div id="chart-avg-label" class="text-[12px] font-semibold text-ios-accent tabular-nums">~0 ₽ / день</div>
-            <div id="chart-delta-label" class="text-[11px] text-secondary-adaptive tabular-nums">Без сравнений</div>
-          </div>
+      <div class="ios-segmented grid grid-cols-3 gap-1">
+        <button type="button" data-status="active" class="task-filter-tab ios-press py-2 rounded-[11px] text-[13px] font-semibold transition-all ios-seg-active">
+          Активные <span id="count-active-tasks" class="opacity-75 text-[11px] ml-0.5">0</span>
+        </button>
+        <button type="button" data-status="this-week" class="task-filter-tab ios-press py-2 rounded-[11px] text-[13px] font-semibold transition-all text-secondary-adaptive">
+          Неделя <span id="count-week-tasks" class="opacity-75 text-[11px] ml-0.5">0</span>
+        </button>
+        <button type="button" data-status="completed" class="task-filter-tab ios-press py-2 rounded-[11px] text-[13px] font-semibold transition-all text-secondary-adaptive">
+          Готовые <span id="count-completed-tasks" class="opacity-75 text-[11px] ml-0.5">0</span>
+        </button>
+      </div>
+
+      <div id="tasks-list" class="space-y-5"></div>
+    </section>
+
+    <!-- ======================================================================
+         ВКЛАДКА 3: ЗАМЕТКИ
+         ====================================================================== -->
+    <section id="view-notes" class="hidden space-y-4">
+      <div class="flex items-center justify-between gap-2">
+        <div class="flex items-baseline gap-2.5 min-w-0">
+          <h1 class="text-[32px] font-bold tracking-tight leading-none text-primary-adaptive">Заметки</h1>
+          <span id="note-save-status" class="text-[11px] font-medium text-tertiary-adaptive">Сохранено</span>
         </div>
 
-        <!-- Интерактивный SVG Area/Line график -->
-        <div class="relative pt-2 select-none" id="spending-chart-wrap">
-          <svg id="spending-chart-svg" viewBox="0 0 360 135" class="w-full h-[145px] overflow-visible touch-none"></svg>
-          <div id="chart-axis-labels" class="flex justify-between text-[10px] text-tertiary-adaptive tabular-nums pt-1 px-0.5"></div>
+        <div class="flex items-center gap-1.5 shrink-0">
+          <label class="ios-press h-9 px-3 rounded-full ios-icon-btn text-secondary-adaptive hover:text-primary-adaptive text-[12px] font-medium flex items-center gap-1.5 cursor-pointer" title="Импорт заметок">
+            <i data-lucide="upload" class="w-3.5 h-3.5 text-ios-accent"></i>
+            <span>Импорт</span>
+            <input type="file" id="google-keep-import-input" accept=".json,.txt,.html" multiple class="hidden" />
+          </label>
+          <button type="button" id="btn-new-note-top" class="ios-press w-9 h-9 rounded-full ios-icon-btn flex items-center justify-center shrink-0" title="Новая заметка">
+            <i data-lucide="plus" class="w-5 h-5 stroke-[2.2]"></i>
+          </button>
         </div>
       </div>
 
-      <!-- Компактная строка прогноза кредитки -->
-      <div class="space-y-2 pb-4 border-b ios-divider">
-        <div class="flex items-center justify-between text-[13px]">
-          <span class="text-secondary-adaptive">Лимит: <strong id="an-daily-free" class="text-primary-adaptive tabular-nums">0 ₽/д</strong></span>
-          <span class="text-secondary-adaptive">Без дороги: <strong id="an-daily-full" class="text-primary-adaptive tabular-nums">0 ₽/д</strong></span>
-        </div>
-        <div class="flex items-center justify-between text-[11px] text-tertiary-adaptive">
-          <span id="an-reserve-line">Бронь Пн–Пт: 0 ₽</span>
-          <span id="an-days-line">0 дн.</span>
-        </div>
-        <div class="h-1.5 w-full rounded-full bg-white/10 overflow-hidden flex">
-          <div id="an-bar-spent" class="h-full rounded-full transition-all duration-500" style="width:0%; background: linear-gradient(90deg, rgb(var(--accent-rgb)) 0%, rgb(var(--accent-soft-rgb)) 100%);"></div>
-          <div id="an-bar-reserved" class="h-full bg-ios-orange/60 transition-all duration-500" style="width:0%;"></div>
-        </div>
+      <div class="relative">
+        <i data-lucide="search" class="w-4 h-4 text-tertiary-adaptive absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+        <input
+          type="search"
+          id="notes-search-input"
+          placeholder="Поиск по заметкам"
+          class="ios-input w-full pl-10 pr-4 py-2.5 text-[15px]"
+        />
       </div>
 
-      <!-- Сегментированная шкала категорий + чистый список -->
-      <div class="space-y-3 pb-4 border-b ios-divider">
-        <div class="flex items-center justify-between">
-          <h3 class="text-[15px] font-bold text-primary-adaptive">Категории</h3>
-          <span id="an-top-cat-hint" class="text-[12px] text-secondary-adaptive"></span>
-        </div>
-
-        <!-- Полоса долей как в хранилище iOS -->
-        <div id="cat-stacked-bar" class="h-2.5 w-full rounded-full bg-white/10 overflow-hidden flex gap-0.5"></div>
-
-        <!-- Список категорий без рамок -->
-        <div id="category-bars-list" class="divide-y ios-divider"></div>
+      <div class="ios-segmented grid grid-cols-3 gap-1">
+        <button type="button" data-note-filter="all" class="note-filter-tab ios-press py-1.5 rounded-[11px] text-[13px] font-semibold ios-seg-active">Все заметки</button>
+        <button type="button" data-note-filter="class" class="note-filter-tab ios-press py-1.5 rounded-[11px] text-[13px] font-semibold text-secondary-adaptive">К парам</button>
+        <button type="button" data-note-filter="general" class="note-filter-tab ios-press py-1.5 rounded-[11px] text-[13px] font-semibold text-secondary-adaptive">Личные</button>
       </div>
 
-      <!-- Воздушный календарь трат -->
-      <div class="space-y-2">
-        <div class="flex items-center justify-between">
-          <h3 class="text-[15px] font-bold text-primary-adaptive">Календарь трат</h3>
-          <span class="text-[11px] text-tertiary-adaptive">Нажми на дату</span>
-        </div>
-
-        <div class="grid grid-cols-7 text-center text-[11px] font-semibold text-tertiary-adaptive pt-1">
-          <span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span><span>Пт</span><span>Сб</span><span>Вс</span>
-        </div>
-        <div id="calendar-grid" class="grid grid-cols-7 gap-y-1"></div>
-
-        <div id="calendar-day-details" class="hidden pt-3 border-t ios-divider space-y-1">
-          <div class="flex items-center justify-between text-[13px] font-bold">
-            <span id="cal-selected-date" class="text-primary-adaptive">Сегодня</span>
-            <span id="cal-selected-total" class="text-primary-adaptive tabular-nums">0 ₽</span>
-          </div>
-          <div id="cal-detail-list" class="divide-y ios-divider"></div>
-        </div>
-      </div>
+      <div id="notes-list" class="divide-y ios-divider"></div>
     </section>
 
   </main>
 
-  <!-- НАТИВНАЯ НИЖНЯЯ НАВИГАЦИЯ (КАК НА РЕФЕРЕНСЕ) -->
+  <!-- НАТИВНАЯ НИЖНЯЯ ПАНЕЛЬ НАВИГАЦИИ iOS -->
   <nav id="bottom-nav-wrapper" class="fixed bottom-2 inset-x-0 z-30 px-4 pb-safe-nav pointer-events-none transition-all">
-    <div id="bottom-nav-capsule" class="ios-tabbar-shell max-w-[420px] mx-auto h-[66px] rounded-[33px] px-3 grid grid-cols-[1fr_72px_1fr] items-center pointer-events-auto transition-all">
-      <button type="button" data-tab="home" class="nav-tab ios-press py-1.5 flex flex-col items-center justify-center gap-0.5 text-ios-accent transition-colors">
-        <i data-lucide="home" class="w-5 h-5"></i>
-        <span class="text-[10.5px] font-semibold tracking-tight">Главная</span>
+    <div id="bottom-nav-capsule" class="ios-tabbar-shell relative max-w-md mx-auto rounded-[28px] p-1.5 grid grid-cols-3 gap-1 pointer-events-auto transition-all">
+      <div id="tg-nav-glider" aria-hidden="true"></div>
+      <button type="button" data-tab="schedule" class="nav-tab active-tg-pill relative z-10 ios-press py-1.5 rounded-full flex flex-col items-center justify-center gap-0.5 text-ios-accent transition-colors">
+        <i data-lucide="calendar-days" class="w-5 h-5"></i>
+        <span class="text-[10px] font-semibold tracking-tight">Расписание</span>
       </button>
-
-      <button type="button" id="btn-fab-add" class="ios-press fab-center-btn w-14 h-14 rounded-full flex items-center justify-center justify-self-center" aria-label="Добавить операцию">
-        <i data-lucide="plus" class="w-6 h-6 stroke-[2.4]"></i>
+      <button type="button" data-tab="tasks" class="nav-tab relative z-10 ios-press py-1.5 rounded-full flex flex-col items-center justify-center gap-0.5 text-secondary-adaptive transition-colors">
+        <i data-lucide="check-square" class="w-5 h-5"></i>
+        <span class="text-[10px] font-semibold tracking-tight">ДЗ</span>
+        <span id="nav-badge-tasks" class="hidden absolute top-0.5 right-1/3 translate-x-3.5 min-w-[16px] h-[16px] px-1 bg-ios-accent text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none">0</span>
       </button>
-
-      <button type="button" data-tab="analytics" class="nav-tab ios-press py-1.5 flex flex-col items-center justify-center gap-0.5 text-secondary-adaptive transition-colors">
-        <i data-lucide="pie-chart" class="w-5 h-5"></i>
-        <span class="text-[10.5px] font-semibold tracking-tight">Аналитика</span>
+      <button type="button" data-tab="notes" class="nav-tab relative z-10 ios-press py-1.5 rounded-full flex flex-col items-center justify-center gap-0.5 text-secondary-adaptive transition-colors">
+        <i data-lucide="file-text" class="w-5 h-5"></i>
+        <span class="text-[10px] font-semibold tracking-tight">Заметки</span>
       </button>
     </div>
   </nav>
 
   <!-- ========================================================================
-       МОДАЛЬНОЕ ОКНО 1: ДОБАВЛЕНИЕ / РЕДАКТИРОВАНИЕ ОПЕРАЦИИ + БЫСТРЫЕ ПЛАТЕЖИ
+       МОДАЛЬНОЕ ОКНО 1: ДОБАВИТЬ / ИЗМЕНИТЬ ПАРУ
        ======================================================================== -->
-  <div id="modal-expense" class="fixed inset-0 z-50 hidden items-end sm:items-center justify-center">
+  <div id="modal-schedule" class="fixed inset-0 z-50 hidden items-end sm:items-center justify-center">
     <div class="w-full max-w-lg rounded-t-[28px] sm:rounded-[28px] p-5 pb-safe-nav space-y-4 max-h-[90vh] overflow-y-auto">
       <div class="flex items-center justify-between">
-        <button type="button" data-close-modal="modal-expense" class="ios-press text-[15px] font-medium text-ios-accent">Отмена</button>
-        <h2 id="expense-dialog-title" class="text-[16px] font-semibold text-primary-adaptive">Новая операция</h2>
-        <button type="submit" form="expense-form" class="ios-press text-[15px] font-semibold text-ios-accent">Сохранить</button>
+        <button type="button" data-close-modal="modal-schedule" class="ios-press text-[15px] font-medium text-ios-accent">Отмена</button>
+        <h2 id="modal-schedule-title" class="text-[16px] font-semibold text-primary-adaptive">Новая пара</h2>
+        <button type="submit" form="form-schedule" class="ios-press text-[15px] font-semibold text-ios-accent">Сохранить</button>
       </div>
 
-      <!-- Быстрые платежи: 1 тап -> сразу сохраняет -->
-      <div id="quick-payments-section" class="space-y-2">
-        <div class="flex items-center justify-between">
-          <span class="text-[11.5px] font-semibold text-secondary-adaptive">Быстрые платежи · сохраняют сразу</span>
-          <div class="flex items-center gap-1.5">
-            <button type="button" id="qp-edit-toggle" class="ios-press px-2.5 py-1 rounded-full ios-surface text-[11px] font-semibold text-secondary-adaptive">Изм.</button>
-            <button type="button" id="qp-add-open" class="ios-press px-2.5 py-1 rounded-full ios-accent-soft-btn text-[11px] font-semibold">+ Свой</button>
-          </div>
-        </div>
-        <div id="quick-payments-grid" class="flex flex-wrap gap-1.5"></div>
-      </div>
+      <form id="form-schedule" class="space-y-4 pt-1">
+        <input type="hidden" id="sched-edit-id" value="" />
 
-      <form id="expense-form" class="space-y-4">
-        <input type="hidden" id="expense-id" value="" />
-
-        <div class="ios-segmented grid grid-cols-2 gap-1">
-          <button type="button" data-tx-type="expense" class="tx-type-btn ios-press py-2 rounded-[11px] text-[13px] font-semibold ios-seg-active">Расход</button>
-          <button type="button" data-tx-type="income" class="tx-type-btn ios-press py-2 rounded-[11px] text-[13px] font-semibold text-secondary-adaptive">Пополнение</button>
-        </div>
-
-        <input id="expense-amount" type="number" inputmode="decimal" min="0.01" step="0.01" placeholder="0 ₽" required class="w-full bg-transparent border-0 text-center text-[42px] font-extrabold tracking-tight text-primary-adaptive outline-none py-1 tabular-nums" />
-
-        <div class="space-y-1.5">
-          <label class="block text-[12px] text-secondary-adaptive">Карта</label>
-          <div id="expense-card-selector" class="ios-segmented grid grid-cols-3 gap-1">
-            <button type="button" data-select-card="card_1" class="tx-card-btn ios-press py-1.5 rounded-[11px] text-[12px] font-semibold ios-seg-active">Кредитка</button>
-            <button type="button" data-select-card="card_2" class="tx-card-btn ios-press py-1.5 rounded-[11px] text-[12px] font-semibold text-secondary-adaptive">Повседневная</button>
-            <button type="button" data-select-card="card_3" class="tx-card-btn ios-press py-1.5 rounded-[11px] text-[12px] font-semibold text-secondary-adaptive">Накопительная</button>
+        <div id="scope-selector-wrapper" class="space-y-2">
+          <label class="block text-[12px] font-medium text-secondary-adaptive">Период добавления</label>
+          <div class="ios-segmented grid grid-cols-4 gap-1">
+            <button type="button" data-scope="date" class="scope-btn ios-press py-1.5 rounded-[11px] text-[11px] font-semibold ios-seg-active">На дату</button>
+            <button type="button" data-scope="week" class="scope-btn ios-press py-1.5 rounded-[11px] text-[11px] font-semibold text-secondary-adaptive">Эта нед.</button>
+            <button type="button" data-scope="next-week" class="scope-btn ios-press py-1.5 rounded-[11px] text-[11px] font-semibold text-secondary-adaptive">След. нед.</button>
+            <button type="button" data-scope="semester" class="scope-btn ios-press py-1.5 rounded-[11px] text-[11px] font-semibold text-secondary-adaptive">Семестр</button>
           </div>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+        <div id="scope-box-date" class="space-y-1.5">
+          <label class="block text-[12px] font-medium text-secondary-adaptive">Дата проведения</label>
+          <input type="date" id="sched-date" required class="ios-input w-full px-3.5 py-2.5" />
+        </div>
+
+        <div id="scope-box-week" class="hidden space-y-1.5">
+          <label class="block text-[12px] font-medium text-secondary-adaptive">Дни недели (ПН–ВС)</label>
+          <div class="grid grid-cols-7 gap-1" id="week-days-checkboxes">
+            <label class="flex flex-col items-center ios-surface py-2 rounded-xl cursor-pointer"><input type="checkbox" value="1" class="week-day-cb accent-ios-purple mb-1" /><span class="text-[11px] font-medium">Пн</span></label>
+            <label class="flex flex-col items-center ios-surface py-2 rounded-xl cursor-pointer"><input type="checkbox" value="2" class="week-day-cb accent-ios-purple mb-1" /><span class="text-[11px] font-medium">Вт</span></label>
+            <label class="flex flex-col items-center ios-surface py-2 rounded-xl cursor-pointer"><input type="checkbox" value="3" class="week-day-cb accent-ios-purple mb-1" /><span class="text-[11px] font-medium">Ср</span></label>
+            <label class="flex flex-col items-center ios-surface py-2 rounded-xl cursor-pointer"><input type="checkbox" value="4" class="week-day-cb accent-ios-purple mb-1" /><span class="text-[11px] font-medium">Чт</span></label>
+            <label class="flex flex-col items-center ios-surface py-2 rounded-xl cursor-pointer"><input type="checkbox" value="5" class="week-day-cb accent-ios-purple mb-1" /><span class="text-[11px] font-medium">Пт</span></label>
+            <label class="flex flex-col items-center ios-surface py-2 rounded-xl cursor-pointer"><input type="checkbox" value="6" class="week-day-cb accent-ios-purple mb-1" /><span class="text-[11px] font-medium">Сб</span></label>
+            <label class="flex flex-col items-center ios-surface py-2 rounded-xl cursor-pointer"><input type="checkbox" value="7" class="week-day-cb accent-ios-purple mb-1" /><span class="text-[11px] font-medium">Вс</span></label>
+          </div>
+        </div>
+
+        <div id="scope-box-semester" class="hidden space-y-3">
+          <div class="grid grid-cols-2 gap-2.5">
+            <div>
+              <label class="block text-[12px] text-secondary-adaptive mb-1">День недели</label>
+              <select id="sched-sem-day" class="ios-input w-full px-3 py-2.5">
+                <option value="1">Понедельник</option>
+                <option value="2">Вторник</option>
+                <option value="3">Среда</option>
+                <option value="4">Четверг</option>
+                <option value="5">Пятница</option>
+                <option value="6">Суббота</option>
+                <option value="0">Воскресенье</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-[12px] text-secondary-adaptive mb-1">Повторение</label>
+              <select id="sched-sem-parity" class="ios-input w-full px-3 py-2.5">
+                <option value="all">Каждую неделю</option>
+                <option value="odd">Нечетные (Числитель)</option>
+                <option value="even">Четные (Знаменатель)</option>
+              </select>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-2.5">
+            <div><label class="block text-[12px] text-secondary-adaptive mb-1">С даты</label><input type="date" id="sched-sem-from" value="2026-09-01" class="ios-input w-full px-3 py-2" /></div>
+            <div><label class="block text-[12px] text-secondary-adaptive mb-1">По дату</label><input type="date" id="sched-sem-to" value="2026-12-26" class="ios-input w-full px-3 py-2" /></div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-2">
           <div>
-            <label class="block text-[12px] text-secondary-adaptive mb-1">Описание</label>
-            <input id="expense-description" maxlength="70" placeholder="Продукты, Кофе, Проезд" class="ios-input w-full px-3.5 py-2.5" />
+            <label class="block text-[12px] text-secondary-adaptive mb-1">№ пары</label>
+            <select id="sched-number" required class="ios-input w-full px-2.5 py-2.5">
+              <option value="1">1 пара</option><option value="2">2 пара</option><option value="3">3 пара</option><option value="4">4 пара</option><option value="5">5 пара</option><option value="6">6 пара</option><option value="7">7 пара</option>
+            </select>
           </div>
-          <div>
-            <label class="block text-[12px] text-secondary-adaptive mb-1">Дата</label>
-            <input id="expense-date" type="date" required class="ios-input w-full px-3.5 py-2.5" />
-          </div>
-        </div>
-
-        <div class="space-y-1.5">
-          <label class="block text-[12px] text-secondary-adaptive">Категория</label>
-          <div id="category-grid" class="grid grid-cols-4 gap-1.5"></div>
-        </div>
-
-        <div id="commute-toggle-row" class="hidden flex items-center justify-between gap-3 py-2.5 border-t ios-divider">
-          <div class="min-w-0">
-            <div class="text-[14px] font-medium text-primary-adaptive">В счёт брони дороги (Пн–Пт)</div>
-            <div class="text-[11px] text-secondary-adaptive">Выкл = обычный проезд (вычитается из лимита дня)</div>
-          </div>
-          <label class="ios-switch">
-            <input type="checkbox" id="tx-commute-checkbox" />
-            <span class="ios-switch-track"><span class="ios-switch-thumb"></span></span>
-          </label>
-        </div>
-
-        <div id="expense-error" class="text-[12px] text-ios-red"></div>
-
-        <div class="flex items-center gap-2">
-          <button type="button" id="expense-delete" class="hidden ios-press py-3.5 px-4 rounded-2xl bg-ios-red/15 text-ios-red font-semibold text-[14px]">Удалить</button>
-          <button type="submit" class="ios-press flex-1 py-3.5 rounded-2xl ios-accent-btn font-semibold text-[15px]">Сохранить</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- ========================================================================
-       МОДАЛЬНОЕ ОКНО 2: СОЗДАНИЕ / РЕДАКТИРОВАНИЕ БЫСТРОГО ПЛАТЕЖА
-       ======================================================================== -->
-  <div id="modal-quick-pay" class="fixed inset-0 z-50 hidden items-end sm:items-center justify-center">
-    <div class="w-full max-w-lg rounded-t-[28px] sm:rounded-[28px] p-5 pb-safe-nav space-y-4 max-h-[90vh] overflow-y-auto">
-      <div class="flex items-center justify-between">
-        <button type="button" data-close-modal="modal-quick-pay" class="ios-press text-[15px] font-medium text-ios-accent">Отмена</button>
-        <h2 id="qp-dialog-title" class="text-[16px] font-semibold text-primary-adaptive">Быстрый платёж</h2>
-        <button type="submit" form="qp-form" class="ios-press text-[15px] font-semibold text-ios-accent">Готово</button>
-      </div>
-
-      <form id="qp-form" class="space-y-4">
-        <input type="hidden" id="qp-id" value="" />
-
-        <div class="ios-segmented grid grid-cols-2 gap-1">
-          <button type="button" data-qp-type="expense" class="qp-type-btn ios-press py-2 rounded-[11px] text-[13px] font-semibold ios-seg-active">Расход</button>
-          <button type="button" data-qp-type="income" class="qp-type-btn ios-press py-2 rounded-[11px] text-[13px] font-semibold text-secondary-adaptive">Пополнение</button>
-        </div>
-
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-          <div>
-            <label class="block text-[12px] text-secondary-adaptive mb-1">Название кнопки</label>
-            <input id="qp-title" maxlength="26" placeholder="Кофе, Проезд, Обед" required class="ios-input w-full px-3.5 py-2.5" />
-          </div>
-          <div>
-            <label class="block text-[12px] text-secondary-adaptive mb-1">Сумма (₽)</label>
-            <input id="qp-amount" type="number" inputmode="decimal" min="0.01" step="0.01" placeholder="150" required class="ios-input w-full px-3.5 py-2.5" />
-          </div>
-        </div>
-
-        <div class="space-y-1.5">
-          <label class="block text-[12px] text-secondary-adaptive">Карта</label>
-          <div id="qp-card-selector" class="ios-segmented grid grid-cols-3 gap-1">
-            <button type="button" data-qp-card="card_1" class="qp-card-btn ios-press py-1.5 rounded-[11px] text-[12px] font-semibold ios-seg-active">Кредитка</button>
-            <button type="button" data-qp-card="card_2" class="qp-card-btn ios-press py-1.5 rounded-[11px] text-[12px] font-semibold text-secondary-adaptive">Повседневная</button>
-            <button type="button" data-qp-card="card_3" class="qp-card-btn ios-press py-1.5 rounded-[11px] text-[12px] font-semibold text-secondary-adaptive">Накопительная</button>
-          </div>
-        </div>
-
-        <div class="space-y-1.5">
-          <label class="block text-[12px] text-secondary-adaptive">Категория</label>
-          <div id="qp-category-grid" class="grid grid-cols-4 gap-1.5"></div>
-        </div>
-
-        <div class="flex items-center justify-between gap-3 py-2 border-t ios-divider">
-          <div class="min-w-0">
-            <div class="text-[14px] font-medium text-primary-adaptive">Учитывать как дорогу до вокзала</div>
-            <div class="text-[11px] text-secondary-adaptive">Списывается из брони дороги Пн–Пт</div>
-          </div>
-          <label class="ios-switch">
-            <input type="checkbox" id="qp-commute-checkbox" />
-            <span class="ios-switch-track"><span class="ios-switch-thumb"></span></span>
-          </label>
-        </div>
-
-        <div class="flex items-center gap-2">
-          <button type="button" id="qp-delete" class="hidden ios-press py-3.5 px-4 rounded-2xl bg-ios-red/15 text-ios-red font-semibold text-[14px]">Удалить</button>
-          <button type="submit" class="ios-press flex-1 py-3.5 rounded-2xl ios-accent-btn font-semibold text-[15px]">Сохранить</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- ========================================================================
-       МОДАЛЬНОЕ ОКНО 3: НАСТРОЙКА КАРТЫ
-       ======================================================================== -->
-  <div id="modal-card" class="fixed inset-0 z-50 hidden items-end sm:items-center justify-center">
-    <div class="w-full max-w-lg rounded-t-[28px] sm:rounded-[28px] p-5 pb-safe-nav space-y-4 max-h-[90vh] overflow-y-auto">
-      <div class="flex items-center justify-between">
-        <button type="button" data-close-modal="modal-card" class="ios-press text-[15px] font-medium text-ios-accent">Отмена</button>
-        <h2 class="text-[16px] font-semibold text-primary-adaptive">Настройка карты</h2>
-        <button type="submit" form="card-custom-form" class="ios-press text-[15px] font-semibold text-ios-accent">Сохранить</button>
-      </div>
-
-      <form id="card-custom-form" class="space-y-4">
-        <div class="ios-segmented grid grid-cols-3 gap-1">
-          <button type="button" data-edit-card-slot="0" class="card-slot-btn ios-press py-1.5 rounded-[11px] text-[12px] font-semibold ios-seg-active">Карта 1</button>
-          <button type="button" data-edit-card-slot="1" class="card-slot-btn ios-press py-1.5 rounded-[11px] text-[12px] font-semibold text-secondary-adaptive">Карта 2</button>
-          <button type="button" data-edit-card-slot="2" class="card-slot-btn ios-press py-1.5 rounded-[11px] text-[12px] font-semibold text-secondary-adaptive">Карта 3</button>
+          <div><label class="block text-[12px] text-secondary-adaptive mb-1">Начало</label><input type="time" id="sched-start" value="08:00" required class="ios-input w-full px-2.5 py-2.5" /></div>
+          <div><label class="block text-[12px] text-secondary-adaptive mb-1">Конец</label><input type="time" id="sched-end" value="09:30" required class="ios-input w-full px-2.5 py-2.5" /></div>
         </div>
 
         <div>
-          <label class="block text-[12px] text-secondary-adaptive mb-1">Текущий баланс (₽)</label>
-          <input id="card-balance-input" type="number" inputmode="decimal" step="0.01" required class="ios-input w-full px-3.5 py-2.5 text-[22px] font-bold tabular-nums" />
+          <label class="block text-[12px] text-secondary-adaptive mb-1">Дисциплина</label>
+          <input type="text" id="sched-subject" list="subjects-datalist" placeholder="Основы программирования" required class="ios-input w-full px-3.5 py-2.5" />
         </div>
 
         <div>
-          <label class="block text-[12px] text-secondary-adaptive mb-1">Название карты</label>
-          <input id="card-name-input" maxlength="28" required class="ios-input w-full px-3.5 py-2.5" />
+          <label class="block text-[12px] text-secondary-adaptive mb-1">Тема пары <span class="opacity-60">(необязательно)</span></label>
+          <input type="text" id="sched-topic" placeholder="Объектно-ориентированное программирование" class="ios-input w-full px-3.5 py-2.5" />
         </div>
 
         <div class="grid grid-cols-2 gap-2.5">
           <div>
-            <label class="block text-[12px] text-secondary-adaptive mb-1">Банк</label>
-            <input id="card-bank-input" maxlength="20" class="ios-input w-full px-3.5 py-2.5" />
+            <label class="block text-[12px] text-secondary-adaptive mb-1">Тип занятия</label>
+            <select id="sched-type" required class="ios-input w-full px-3 py-2.5">
+              <option value="Лекция">Лекция</option><option value="Практика">Практика</option><option value="Лабораторная">Лабораторная</option><option value="Лекция (Дистант)">Лекция (Дистант)</option><option value="Практика (Дистант)">Практика (Дистант)</option><option value="Экзамен / Зачет">Экзамен / Зачет</option>
+            </select>
           </div>
-          <div>
-            <label class="block text-[12px] text-secondary-adaptive mb-1">Последние 4 цифры</label>
-            <input id="card-digits-input" maxlength="4" inputmode="numeric" class="ios-input w-full px-3.5 py-2.5" />
-          </div>
+          <div><label class="block text-[12px] text-secondary-adaptive mb-1">Аудитория</label><input type="text" id="sched-room" placeholder="Б-403 или дистант" required class="ios-input w-full px-3.5 py-2.5" /></div>
         </div>
 
-        <div class="space-y-1.5">
-          <label class="block text-[12px] text-secondary-adaptive">Стиль карты</label>
-          <div id="card-skins-grid" class="grid grid-cols-3 gap-2">
-            <button type="button" data-card-skin="fpi-obsidian" class="skin-btn ios-press p-1.5 rounded-xl ios-surface border-2 border-ios-accent text-center">
-              <div class="h-8 rounded-lg mb-1" style="background:linear-gradient(135deg,#161422,#6d28d9)"></div>
-              <span class="text-[10px] font-semibold">ФПИ Фиолет</span>
-            </button>
-            <button type="button" data-card-skin="titanium-dark" class="skin-btn ios-press p-1.5 rounded-xl ios-surface border-2 border-transparent text-center">
-              <div class="h-8 rounded-lg mb-1" style="background:linear-gradient(135deg,#272930,#0a0b0e)"></div>
-              <span class="text-[10px] font-semibold">Титан Dark</span>
-            </button>
-            <button type="button" data-card-skin="pacific-blue" class="skin-btn ios-press p-1.5 rounded-xl ios-surface border-2 border-transparent text-center">
-              <div class="h-8 rounded-lg mb-1" style="background:linear-gradient(135deg,#0b1628,#0284c7)"></div>
-              <span class="text-[10px] font-semibold">Pacific Blue</span>
-            </button>
-            <button type="button" data-card-skin="alpine-green" class="skin-btn ios-press p-1.5 rounded-xl ios-surface border-2 border-transparent text-center">
-              <div class="h-8 rounded-lg mb-1" style="background:linear-gradient(135deg,#0a1914,#059669)"></div>
-              <span class="text-[10px] font-semibold">Alpine Green</span>
-            </button>
-            <button type="button" data-card-skin="natural-titanium" class="skin-btn ios-press p-1.5 rounded-xl ios-surface border-2 border-transparent text-center">
-              <div class="h-8 rounded-lg mb-1" style="background:linear-gradient(135deg,#dcd8cf,#9f9a8e)"></div>
-              <span class="text-[10px] font-semibold">Natural Титан</span>
-            </button>
-            <button type="button" data-card-skin="crimson-noir" class="skin-btn ios-press p-1.5 rounded-xl ios-surface border-2 border-transparent text-center">
-              <div class="h-8 rounded-lg mb-1" style="background:linear-gradient(135deg,#1b0a10,#be123c)"></div>
-              <span class="text-[10px] font-semibold">Crimson Noir</span>
-            </button>
-          </div>
-        </div>
+        <div><label class="block text-[12px] text-secondary-adaptive mb-1">Преподаватель</label><input type="text" id="sched-teacher" placeholder="ст.пр. Адаменко Ю.В." class="ios-input w-full px-3.5 py-2.5" /></div>
 
-        <button type="submit" class="ios-press w-full py-3.5 rounded-2xl ios-accent-btn font-semibold text-[15px]">Сохранить карту</button>
+        <button type="submit" class="ios-press w-full py-3.5 rounded-2xl ios-accent-btn font-semibold text-[15px] mt-1">Сохранить пару</button>
       </form>
     </div>
   </div>
 
   <!-- ========================================================================
-       МОДАЛЬНОЕ ОКНО 4: НАСТРОЙКИ (КАСТОМИЗАЦИЯ 1-В-1 КАК В ДНЕВНИКЕ + БЮДЖЕТ)
+       МОДАЛЬНОЕ ОКНО 2: СОЗДАТЬ / РЕДАКТИРОВАТЬ МЕРОПРИЯТИЕ
        ======================================================================== -->
-  <div id="modal-settings" class="fixed inset-0 z-50 hidden items-end sm:items-center justify-center">
+  <div id="modal-event" class="fixed inset-0 z-50 hidden items-end sm:items-center justify-center">
+    <div class="w-full max-w-lg rounded-t-[28px] sm:rounded-[28px] p-5 pb-safe-nav space-y-4 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between">
+        <button type="button" data-close-modal="modal-event" class="ios-press text-[15px] font-medium text-ios-accent">Отмена</button>
+        <h2 id="modal-event-title" class="text-[16px] font-semibold text-primary-adaptive">Новое событие</h2>
+        <button type="submit" form="form-event" class="ios-press text-[15px] font-semibold text-ios-accent">Сохранить</button>
+      </div>
+
+      <form id="form-event" class="space-y-4 pt-1">
+        <input type="hidden" id="event-edit-id" value="" />
+        <div>
+          <label class="block text-[12px] text-secondary-adaptive mb-1">Название мероприятия</label>
+          <input type="text" id="event-title" placeholder="Хакатон, консультация, собрание..." required class="ios-input w-full px-3.5 py-2.5" />
+        </div>
+
+        <div class="grid grid-cols-2 gap-2.5">
+          <div>
+            <label class="block text-[12px] text-secondary-adaptive mb-1">Дата начала</label>
+            <input type="date" id="event-date-from" required class="ios-input w-full px-3 py-2.5" />
+          </div>
+          <div>
+            <label class="block text-[12px] text-secondary-adaptive mb-1">Дата конца <span class="opacity-60">(необяз.)</span></label>
+            <input type="date" id="event-date-to" class="ios-input w-full px-3 py-2.5" />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2.5">
+          <div>
+            <label class="block text-[12px] text-secondary-adaptive mb-1">Начало <span class="opacity-60">(необяз.)</span></label>
+            <input type="time" id="event-start" class="ios-input w-full px-3 py-2.5" />
+          </div>
+          <div>
+            <label class="block text-[12px] text-secondary-adaptive mb-1">Конец <span class="opacity-60">(необяз.)</span></label>
+            <input type="time" id="event-end" class="ios-input w-full px-3 py-2.5" />
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-[12px] text-secondary-adaptive mb-1">Место проведения / Описание</label>
+          <input type="text" id="event-location" placeholder="Актовый зал или ссылка" class="ios-input w-full px-3.5 py-2.5" />
+        </div>
+
+        <button type="submit" class="ios-press w-full py-3.5 rounded-2xl ios-accent-btn font-semibold text-[15px]">Сохранить мероприятие</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       МОДАЛЬНОЕ ОКНО 3: СКРЫТЬ ИЛИ УДАЛИТЬ ПАРУ
+       ======================================================================== -->
+  <div id="modal-delete-schedule" class="fixed inset-0 z-50 hidden items-end sm:items-center justify-center">
+    <div class="w-full max-w-lg rounded-t-[28px] sm:rounded-[28px] p-5 pb-safe-nav space-y-3">
+      <div class="text-center space-y-1 pb-1">
+        <h3 class="text-[16px] font-semibold text-primary-adaptive">Скрыть или удалить пару</h3>
+        <p id="delete-sched-info" class="text-[13px] text-secondary-adaptive"></p>
+      </div>
+
+      <div class="divide-y ios-divider rounded-2xl ios-surface overflow-hidden">
+        <button type="button" id="btn-hide-this-week" class="ios-press w-full py-3.5 px-4 text-left text-[14px] font-medium text-ios-accent flex items-center justify-between">
+          <span>Пары не будет на этой неделе</span>
+          <span class="text-[12px] opacity-70">На неделю</span>
+        </button>
+
+        <button type="button" id="btn-hide-forever" class="ios-press w-full py-3.5 px-4 text-left text-[14px] font-medium text-ios-red flex items-center justify-between">
+          <span>Не хожу — скрыть предмет</span>
+          <span class="text-[12px] opacity-70">Насовсем</span>
+        </button>
+
+        <button type="button" id="btn-del-single" class="ios-press w-full py-3.5 px-4 text-left text-[14px] font-medium text-secondary-adaptive flex items-center justify-between">
+          <span>Удалить запись только в этот день</span>
+          <i data-lucide="trash-2" class="w-4 h-4 opacity-70"></i>
+        </button>
+      </div>
+
+      <button type="button" data-close-modal="modal-delete-schedule" class="ios-press w-full py-3 rounded-2xl ios-surface text-[14px] font-semibold text-primary-adaptive">
+        Отмена
+      </button>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       МОДАЛЬНОЕ ОКНО 4: ВОССТАНОВИТЬ СКРЫТЫЕ ПАРЫ
+       ======================================================================== -->
+  <div id="modal-hidden-classes" class="fixed inset-0 z-50 hidden items-end sm:items-center justify-center">
+    <div class="w-full max-w-lg rounded-t-[28px] sm:rounded-[28px] p-5 pb-safe-nav space-y-4 max-h-[88vh] overflow-y-auto">
+      <div class="flex items-center justify-between">
+        <h2 class="text-[17px] font-semibold text-primary-adaptive">Скрытые пары</h2>
+        <button type="button" data-close-modal="modal-hidden-classes" class="ios-press text-[15px] font-medium text-ios-accent">Готово</button>
+      </div>
+
+      <div id="hidden-classes-list" class="divide-y ios-divider"></div>
+
+      <button type="button" id="btn-restore-all-hidden" class="ios-press w-full py-3.5 rounded-2xl ios-accent-soft-btn font-semibold text-[14px]">
+        Восстановить все скрытые пары
+      </button>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       МОДАЛЬНОЕ ОКНО 5: ДОМАШНЕЕ ЗАДАНИЕ
+       ======================================================================== -->
+  <div id="modal-task" class="fixed inset-0 z-50 hidden items-end sm:items-center justify-center">
+    <div class="w-full max-w-lg rounded-t-[28px] sm:rounded-[28px] p-5 pb-safe-nav space-y-4 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between">
+        <button type="button" data-close-modal="modal-task" class="ios-press text-[15px] font-medium text-ios-accent">Отмена</button>
+        <h2 id="modal-task-title" class="text-[16px] font-semibold text-primary-adaptive">Домашнее задание</h2>
+        <button type="submit" form="form-task" class="ios-press text-[15px] font-semibold text-ios-accent">Сохранить</button>
+      </div>
+
+      <form id="form-task" class="space-y-4 pt-1">
+        <input type="hidden" id="task-edit-id" value="" />
+
+        <div>
+          <label class="block text-[12px] text-secondary-adaptive mb-1">Дисциплина</label>
+          <input type="text" id="task-subject" list="subjects-datalist" placeholder="Выберите или введите предмет" required class="ios-input w-full px-3.5 py-2.5" />
+          <datalist id="subjects-datalist"></datalist>
+        </div>
+
+        <div class="space-y-1.5">
+          <label class="block text-[12px] text-secondary-adaptive">На какую пару записать</label>
+          <div class="ios-segmented grid grid-cols-3 gap-1">
+            <button type="button" data-task-target="current" class="task-target-btn ios-press py-2 rounded-[11px] text-[12px] font-semibold ios-seg-active">На эту</button>
+            <button type="button" data-task-target="next" class="task-target-btn ios-press py-2 rounded-[11px] text-[12px] font-semibold text-secondary-adaptive">На следующую</button>
+            <button type="button" data-task-target="custom" class="task-target-btn ios-press py-2 rounded-[11px] text-[12px] font-semibold text-secondary-adaptive">На дату</button>
+          </div>
+          <p id="task-target-hint" class="text-[12px] text-ios-accent font-medium px-0.5"></p>
+        </div>
+
+        <div>
+          <label class="block text-[12px] text-secondary-adaptive mb-1">Дедлайн</label>
+          <input type="date" id="task-deadline" required class="ios-input w-full px-3.5 py-2.5" />
+        </div>
+
+        <div>
+          <label class="block text-[12px] text-secondary-adaptive mb-1">Задание</label>
+          <textarea id="task-text" rows="3" placeholder="Что нужно сделать..." required class="ios-input w-full px-3.5 py-2.5 resize-y"></textarea>
+        </div>
+
+        <div class="space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-[13px] text-secondary-adaptive">Фото доски / методички</span>
+            <label class="ios-press px-3 py-1.5 rounded-full ios-accent-soft-btn text-[12px] font-semibold flex items-center gap-1.5 cursor-pointer">
+              <i data-lucide="image-plus" class="w-3.5 h-3.5"></i>
+              <span>Добавить фото</span>
+              <input type="file" id="task-photo-input" accept="image/*" multiple class="hidden" />
+            </label>
+          </div>
+          <div id="task-photos-preview" class="flex gap-2 overflow-x-auto no-scrollbar pt-1"></div>
+        </div>
+
+        <div class="flex items-center justify-between py-2.5 border-t ios-divider">
+          <span class="text-[14px] font-medium text-primary-adaptive">Отметить выполненным</span>
+          <label class="ios-switch">
+            <input type="checkbox" id="task-completed" />
+            <span class="ios-switch-track"><span class="ios-switch-thumb"></span></span>
+          </label>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button type="button" id="btn-delete-task-from-modal" class="hidden ios-press py-3.5 px-4 rounded-2xl bg-ios-red/15 text-ios-red font-semibold text-[14px]">
+            Удалить
+          </button>
+          <button type="submit" class="ios-press flex-1 py-3.5 rounded-2xl ios-accent-btn font-semibold text-[15px]">Сохранить ДЗ</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       МОДАЛЬНОЕ ОКНО 6: СОЗДАНИЕ / РЕДАКТИРОВАНИЕ ЗАМЕТКИ
+       ======================================================================== -->
+  <div id="modal-note" class="fixed inset-0 z-50 hidden items-end sm:items-center justify-center">
+    <div class="w-full max-w-lg rounded-t-[28px] sm:rounded-[28px] p-5 pb-safe-nav space-y-4 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between">
+        <button type="button" data-close-modal="modal-note" class="ios-press text-[15px] font-medium text-ios-accent">Отмена</button>
+        <h2 id="modal-note-title" class="text-[16px] font-semibold text-primary-adaptive">Заметка</h2>
+        <button type="submit" form="form-note" class="ios-press text-[15px] font-semibold text-ios-accent">Сохранить</button>
+      </div>
+
+      <form id="form-note" class="space-y-3.5 pt-1">
+        <input type="hidden" id="note-edit-id" value="" />
+
+        <div class="flex items-center gap-2">
+          <input type="text" id="note-title" placeholder="Заголовок заметки" class="ios-input flex-1 px-3.5 py-2.5 font-semibold" />
+          <button type="button" id="note-modal-pin-btn" class="ios-press w-10 h-10 rounded-xl ios-icon-btn flex items-center justify-center shrink-0 text-secondary-adaptive" title="Закрепить">
+            <i data-lucide="pin" class="w-4 h-4"></i>
+          </button>
+        </div>
+
+        <div>
+          <textarea id="note-content" rows="5" placeholder="Текст заметки..." required class="ios-input w-full px-3.5 py-3 resize-y leading-relaxed"></textarea>
+        </div>
+
+        <div class="space-y-2.5 pt-1 border-t ios-divider">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div class="relative">
+              <i data-lucide="graduation-cap" class="w-4 h-4 text-secondary-adaptive absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+              <input type="text" id="note-subject" list="subjects-datalist" placeholder="Дисциплина (необяз.)" class="ios-input w-full pl-9 pr-3 py-2 text-[13px]" />
+            </div>
+            <div class="relative">
+              <i data-lucide="calendar" class="w-4 h-4 text-secondary-adaptive absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+              <input type="date" id="note-date" class="ios-input w-full pl-9 pr-3 py-2 text-[13px]" />
+            </div>
+          </div>
+
+          <div class="ios-segmented grid grid-cols-4 gap-1">
+            <button type="button" data-note-target="none" class="note-target-btn ios-press py-1.5 rounded-[11px] text-[11px] font-semibold text-secondary-adaptive">Без даты</button>
+            <button type="button" data-note-target="current" class="note-target-btn ios-press py-1.5 rounded-[11px] text-[11px] font-semibold ios-seg-active">К текущей</button>
+            <button type="button" data-note-target="next" class="note-target-btn ios-press py-1.5 rounded-[11px] text-[11px] font-semibold text-secondary-adaptive">К след.</button>
+            <button type="button" data-note-target="custom" class="note-target-btn ios-press py-1.5 rounded-[11px] text-[11px] font-semibold text-secondary-adaptive">К дате</button>
+          </div>
+          <p id="note-target-hint" class="text-[11px] text-ios-accent font-medium px-0.5"></p>
+        </div>
+
+        <div class="space-y-3 pt-2 border-t ios-divider">
+          <div class="flex items-center justify-between gap-2">
+            <label class="ios-press px-3.5 py-2 rounded-full ios-accent-soft-btn text-[13px] font-semibold flex items-center gap-1.5 cursor-pointer">
+              <i data-lucide="image" class="w-4 h-4"></i>
+              <span>Добавить фото</span>
+              <input type="file" id="note-photo-input" accept="image/*" multiple class="hidden" />
+            </label>
+
+            <div class="flex items-center gap-2.5">
+              <span class="text-[13px] text-secondary-adaptive">Напомнить</span>
+              <label class="ios-switch">
+                <input type="checkbox" id="note-notify-enabled" />
+                <span class="ios-switch-track"><span class="ios-switch-thumb"></span></span>
+              </label>
+            </div>
+          </div>
+
+          <div id="note-notify-time-wrap" class="hidden">
+            <input type="datetime-local" id="note-notify-time" class="ios-input w-full px-3.5 py-2 text-[13px]" />
+          </div>
+
+          <div id="note-photos-preview" class="flex gap-2 overflow-x-auto no-scrollbar"></div>
+        </div>
+
+        <div class="flex items-center gap-2 pt-1">
+          <button type="button" id="btn-delete-note-from-modal" class="hidden ios-press py-3.5 px-4 rounded-2xl bg-ios-red/15 text-ios-red font-semibold text-[14px]">
+            Удалить
+          </button>
+          <button type="submit" class="ios-press flex-1 py-3.5 rounded-2xl ios-accent-btn font-semibold text-[15px]">Сохранить</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       МОДАЛЬНОЕ ОКНО 7: НАСТРОЙКИ УВЕДОМЛЕНИЙ (СОВМЕСТИМОСТЬ)
+       ======================================================================== -->
+  <div id="modal-notifications" class="fixed inset-0 z-50 hidden items-end sm:items-center justify-center">
+    <div class="w-full max-w-lg rounded-t-[28px] sm:rounded-[28px] p-5 pb-safe-nav space-y-4 max-h-[88vh] overflow-y-auto">
+      <div class="flex items-center justify-between">
+        <h2 class="text-[17px] font-semibold text-primary-adaptive">Уведомления</h2>
+        <button type="button" data-close-modal="modal-notifications" class="ios-press text-[15px] font-medium text-ios-accent">Готово</button>
+      </div>
+      <p class="text-[13px] text-secondary-adaptive">Все переключатели уведомлений доступны в главном окне Настроек.</p>
+      <button type="button" id="btn-test-notification-alt" class="ios-press w-full py-3 rounded-2xl ios-accent-soft-btn text-[14px] font-semibold">
+        Отправить тестовое уведомление
+      </button>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       МОДАЛЬНОЕ ОКНО 8: НАСТРОЙКИ
+       ======================================================================== -->
+  <div id="modal-tools" class="fixed inset-0 z-50 hidden items-end sm:items-center justify-center">
     <div class="w-full max-w-lg rounded-t-[28px] sm:rounded-[28px] p-5 pb-safe-nav space-y-5 max-h-[92vh] overflow-y-auto">
       <div class="flex items-center justify-between">
         <h2 class="text-[26px] font-bold tracking-tight text-primary-adaptive">Настройки</h2>
-        <button type="button" data-close-modal="modal-settings" class="ios-press text-[15px] font-semibold text-ios-accent">Готово</button>
+        <button type="button" data-close-modal="modal-tools" class="ios-press text-[15px] font-semibold text-ios-accent">Готово</button>
       </div>
 
-      <!-- Статус синхронизации -->
+      <!-- СТАТУС СЕТИ И ОБЛАЧНОЙ СИНХРОНИЗАЦИИ -->
       <div class="flex items-center justify-between gap-3 py-2.5 px-3.5 rounded-2xl ios-surface">
         <div class="flex items-center gap-2.5 min-w-0">
           <span id="network-dot" class="w-2.5 h-2.5 rounded-full bg-ios-green shrink-0"></span>
           <span id="network-text" class="text-[13px] font-medium text-primary-adaptive truncate">Онлайн · Облако готово</span>
         </div>
-        <span id="sync-status-label" class="text-[12px] text-secondary-adaptive shrink-0">solo-fpi-bank</span>
+        <span id="sync-indicator" class="hidden text-[12px] font-semibold text-ios-accent shrink-0">Синхронизация...</span>
+        <span id="sync-ready-label" class="text-[12px] text-tertiary-adaptive shrink-0">Локальный кэш</span>
       </div>
 
-      <!-- СЕКЦИЯ 1: ОТОБРАЖЕНИЕ (ТОЧНО КАК В ДНЕВНИКЕ) -->
+      <!-- СЕКЦИЯ 1: УВЕДОМЛЕНИЯ -->
+      <div class="space-y-1">
+        <p class="text-[12px] font-semibold uppercase tracking-wider text-tertiary-adaptive pb-1">Уведомления</p>
+        <div class="divide-y ios-divider">
+          <div class="py-3 flex items-center justify-between gap-3">
+            <div class="flex items-center gap-3 min-w-0">
+              <i data-lucide="bell" class="w-5 h-5 text-secondary-adaptive shrink-0"></i>
+              <div class="min-w-0">
+                <p class="text-[15px] font-medium text-primary-adaptive">Разрешить уведомления</p>
+                <p id="notif-permission-status" class="text-[12px] text-secondary-adaptive truncate">О парах, дедлайнах и заметках</p>
+              </div>
+            </div>
+            <button type="button" id="btn-request-notif-permission" class="ios-press px-3 py-1.5 rounded-full ios-accent-soft-btn text-[12px] font-semibold shrink-0">
+              Включить
+            </button>
+          </div>
+
+          <div class="py-3 flex items-center justify-between gap-3">
+            <div class="flex items-center gap-3 min-w-0">
+              <i data-lucide="clock" class="w-5 h-5 text-secondary-adaptive shrink-0"></i>
+              <span class="text-[15px] font-medium text-primary-adaptive">Напоминания о парах</span>
+            </div>
+            <label class="ios-switch">
+              <input type="checkbox" id="notif-toggle-classes" checked />
+              <span class="ios-switch-track"><span class="ios-switch-thumb"></span></span>
+            </label>
+          </div>
+
+          <div class="py-3 flex items-center justify-between gap-3">
+            <div class="flex items-center gap-3 min-w-0">
+              <i data-lucide="check-circle" class="w-5 h-5 text-secondary-adaptive shrink-0"></i>
+              <span class="text-[15px] font-medium text-primary-adaptive">Напоминания о ДЗ</span>
+            </div>
+            <label class="ios-switch">
+              <input type="checkbox" id="notif-toggle-tasks" checked />
+              <span class="ios-switch-track"><span class="ios-switch-thumb"></span></span>
+            </label>
+          </div>
+
+          <div class="py-3 flex items-center justify-between gap-3">
+            <div class="flex items-center gap-3 min-w-0">
+              <i data-lucide="file-text" class="w-5 h-5 text-secondary-adaptive shrink-0"></i>
+              <span class="text-[15px] font-medium text-primary-adaptive">Напоминания о заметках</span>
+            </div>
+            <label class="ios-switch">
+              <input type="checkbox" id="notif-toggle-notes" checked />
+              <span class="ios-switch-track"><span class="ios-switch-thumb"></span></span>
+            </label>
+          </div>
+
+          <div class="py-2.5 flex items-center justify-end">
+            <button type="button" id="btn-test-notification" class="ios-press text-[13px] font-semibold text-ios-accent">
+              Отправить тестовое уведомление
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- СЕКЦИЯ 2: ОТОБРАЖЕНИЕ -->
       <div class="space-y-1">
         <p class="text-[12px] font-semibold uppercase tracking-wider text-tertiary-adaptive pb-1">Отображение</p>
         <div class="divide-y ios-divider">
@@ -1142,6 +1602,17 @@
               <button type="button" data-set-accent="green"  class="accent-dot-btn ios-press w-7 h-7 rounded-full bg-[#30D158]" title="Зелёный"></button>
               <button type="button" data-set-accent="pink"   class="accent-dot-btn ios-press w-7 h-7 rounded-full bg-[#FF375F]" title="Розовый"></button>
             </div>
+          </div>
+
+          <div class="py-3 flex items-center justify-between gap-3">
+            <div class="flex items-center gap-3 min-w-0">
+              <i data-lucide="sparkles" class="w-5 h-5 text-secondary-adaptive shrink-0"></i>
+              <span class="text-[15px] font-medium text-primary-adaptive">События в расписании</span>
+            </div>
+            <label class="ios-switch">
+              <input type="checkbox" id="toggle-events-switch" checked />
+              <span class="ios-switch-track"><span class="ios-switch-thumb"></span></span>
+            </label>
           </div>
 
           <div class="py-3 flex items-center justify-between gap-3">
@@ -1233,59 +1704,157 @@
         </div>
       </div>
 
-      <!-- СЕКЦИЯ 2: КРЕДИТКА, ДОРОГА И БЫСТРЫЕ ПЛАТЕЖИ -->
+      <!-- СЕКЦИЯ 3: РАСПИСАНИЕ И БАЗА -->
       <div class="space-y-1">
-        <p class="text-[12px] font-semibold uppercase tracking-wider text-tertiary-adaptive pb-1">Кредитка и дорога (Пн–Пт)</p>
+        <p class="text-[12px] font-semibold uppercase tracking-wider text-tertiary-adaptive pb-1">Расписание</p>
         <div class="divide-y ios-divider">
-          <div class="py-3 grid grid-cols-2 gap-2.5">
-            <div>
-              <label class="block text-[12px] text-secondary-adaptive mb-1">Автобус до вокзала (₽)</label>
-              <input id="setting-bus-price" type="number" inputmode="decimal" min="0" step="0.5" value="42" class="ios-input w-full px-3 py-2" />
+          <button type="button" id="btn-hidden-classes" data-close-modal="modal-tools" class="ios-press w-full py-3.5 flex items-center justify-between gap-3 text-left">
+            <div class="flex items-center gap-3 min-w-0">
+              <i data-lucide="rotate-ccw" class="w-5 h-5 text-secondary-adaptive shrink-0"></i>
+              <span class="text-[15px] font-medium text-primary-adaptive">Восстановить скрытые предметы</span>
             </div>
-            <div>
-              <label class="block text-[12px] text-secondary-adaptive mb-1">Билет на вокзале (₽)</label>
-              <input id="setting-home-price" type="number" inputmode="decimal" min="0" step="0.5" value="175" class="ios-input w-full px-3 py-2" />
+            <div class="flex items-center gap-1.5 shrink-0">
+              <span id="badge-hidden-count" class="hidden px-2 py-0.5 rounded-full ios-accent-soft-btn text-[11px] font-bold">0</span>
+              <i data-lucide="chevron-right" class="w-4 h-4 text-tertiary-adaptive"></i>
             </div>
-          </div>
+          </button>
 
-          <div class="py-3">
-            <label class="block text-[12px] text-secondary-adaptive mb-1">Лимит Кредитки 1-го числа (₽)</label>
-            <input id="setting-credit-limit" type="number" inputmode="decimal" min="100" step="100" value="10000" class="ios-input w-full px-3 py-2" />
-          </div>
+          <button type="button" id="btn-restore-default" class="ios-press w-full py-3.5 flex items-center justify-between gap-3 text-left">
+            <div class="flex items-center gap-3 min-w-0">
+              <i data-lucide="database-backup" class="w-5 h-5 text-secondary-adaptive shrink-0"></i>
+              <span class="text-[15px] font-medium text-primary-adaptive">Сбросить расписание (275 пар)</span>
+            </div>
+            <i data-lucide="chevron-right" class="w-4 h-4 text-tertiary-adaptive"></i>
+          </button>
 
-          <div class="py-3 flex items-center justify-between gap-3">
-            <span class="text-[15px] font-medium text-primary-adaptive">Автосброс Кредитки 1-го числа</span>
-            <label class="ios-switch">
-              <input type="checkbox" id="setting-autoreset-checkbox" checked />
-              <span class="ios-switch-track"><span class="ios-switch-thumb"></span></span>
-            </label>
-          </div>
-
-          <div class="py-3 space-y-2">
-            <button type="button" id="settings-reset-credit-now" class="ios-press w-full py-3 rounded-2xl ios-surface text-[14px] font-semibold text-primary-adaptive">
-              Выставить баланс 10 000 ₽ сейчас
-            </button>
-            <button type="button" id="settings-add-qp" data-close-modal="modal-settings" class="ios-press w-full py-3 rounded-2xl ios-accent-soft-btn text-[14px] font-semibold">
-              + Добавить свой быстрый платёж
-            </button>
-            <button type="button" id="settings-open-cards" data-close-modal="modal-settings" class="ios-press w-full py-3 rounded-2xl ios-surface text-[14px] font-semibold text-primary-adaptive">
-              Настроить 3 карты и балансы
-            </button>
-          </div>
+          <label class="ios-press w-full py-3.5 flex items-center justify-between gap-3 cursor-pointer">
+            <div class="flex items-center gap-3 min-w-0">
+              <i data-lucide="calendar-plus" class="w-5 h-5 text-secondary-adaptive shrink-0"></i>
+              <span class="text-[15px] font-medium text-primary-adaptive">Импорт календаря (.ics)</span>
+            </div>
+            <i data-lucide="chevron-right" class="w-4 h-4 text-tertiary-adaptive"></i>
+            <input type="file" id="ics-file-input" accept=".ics" class="hidden" />
+          </label>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- КОНТРОЛЛЕР ВНЕШНЕГО ВИДА ДО СТАРТА МОДУЛЯ (1-В-1 КАК В ДНЕВНИКЕ) -->
+  <!-- ========================================================================
+       МОДАЛЬНОЕ ОКНО 10: ПОДРОБНЫЙ ПРОСМОТР ПАРЫ ИЛИ МЕРОПРИЯТИЯ
+       ======================================================================== -->
+  <div id="modal-item-details" class="fixed inset-0 z-50 hidden items-end sm:items-center justify-center">
+    <div class="w-full max-w-lg rounded-t-[28px] sm:rounded-[28px] p-5 pb-safe-nav space-y-5 max-h-[92vh] overflow-y-auto">
+      <div class="flex items-center justify-between gap-2">
+        <button type="button" data-close-modal="modal-item-details" class="ios-press w-8 h-8 rounded-full ios-icon-btn flex items-center justify-center shrink-0" title="Назад">
+          <i data-lucide="chevron-left" class="w-4 h-4"></i>
+        </button>
+        <span id="details-modal-header" class="text-[13px] font-semibold text-secondary-adaptive truncate">Подробности</span>
+        <button type="button" data-close-modal="modal-item-details" class="ios-press w-8 h-8 rounded-full ios-icon-btn flex items-center justify-center shrink-0" title="Закрыть">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div id="details-modal-body" class="space-y-5 text-[14px]"></div>
+    </div>
+  </div>
+
+  <!-- МОДАЛЬНОЕ ОКНО 9: ПРОСМОТР ФОТО НА ВЕСЬ ЭКРАН С ЗУМОМ И СОХРАНЕНИЕМ -->
+  <div id="modal-photo-viewer" class="fixed inset-0 z-[80] hidden flex-col justify-between bg-black/95 backdrop-blur-xl select-none overflow-hidden">
+    <div class="relative z-20 flex items-center justify-between gap-2 px-4 pt-safe-viewer pb-2 pointer-events-auto">
+      <button type="button" id="btn-save-photo" class="photo-viewer-btn ios-press px-3.5 h-10 rounded-full font-semibold text-[13px] flex items-center gap-1.5">
+        <i data-lucide="download" class="w-4 h-4 text-ios-accent shrink-0"></i>
+        <span>Сохранить</span>
+      </button>
+
+      <button type="button" data-close-modal="modal-photo-viewer" class="photo-viewer-btn ios-press px-3.5 h-10 rounded-full font-semibold text-[13px] flex items-center gap-1.5">
+        <span>Закрыть</span>
+        <i data-lucide="x" class="w-4 h-4"></i>
+      </button>
+    </div>
+
+    <div id="photo-viewer-stage" class="relative z-10 flex-1 w-full h-full flex items-center justify-center overflow-hidden p-2">
+      <img
+        id="photo-viewer-img"
+        src=""
+        alt="Фото"
+        draggable="false"
+        class="max-w-full max-h-[76vh] rounded-xl object-contain shadow-2xl transition-transform duration-75 ease-out will-change-transform"
+      />
+    </div>
+
+    <div class="relative z-20 flex items-center justify-center gap-2 px-4 pt-2 pb-safe-viewer pointer-events-auto">
+      <div class="photo-viewer-btn rounded-full p-1 flex items-center gap-1">
+        <button type="button" id="btn-zoom-out" class="ios-press w-9 h-9 rounded-full flex items-center justify-center" title="Уменьшить">
+          <i data-lucide="minus" class="w-4 h-4"></i>
+        </button>
+        <button type="button" id="btn-zoom-reset" class="ios-press px-3 h-9 rounded-full text-[12px] font-semibold tabular-nums" title="Сбросить масштаб">
+          100%
+        </button>
+        <button type="button" id="btn-zoom-in" class="ios-press w-9 h-9 rounded-full flex items-center justify-center" title="Приблизить">
+          <i data-lucide="plus" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- КОНТРОЛЛЕР ВНЕШНЕГО ВИДА И LIVE-ПЕРЕКЛЮЧАТЕЛЯ ДО СТАРТА МОДУЛЯ -->
   <script>
     (function () {
+      if ("caches" in window && localStorage.getItem("diary_sw_cleaned_v23") !== "1") {
+        caches.keys().then(function (keys) {
+          keys.forEach(function (k) {
+            if (k !== "student-diary-v23") caches.delete(k);
+          });
+        });
+        localStorage.setItem("diary_sw_cleaned_v23", "1");
+      }
+
       var ACCENT_NAMES = {
         purple: "Фиолетовый",
         blue: "Синий",
         orange: "Оранжевый",
         green: "Зелёный",
         pink: "Розовый"
+      };
+
+      window.__toggleDynamicIsland = function (forceMode) {
+        var capsule = document.getElementById("dynamic-island-capsule");
+        var slideCurrent = document.getElementById("island-slide-current");
+        var slideNext = document.getElementById("island-slide-next");
+        var dotCurrent = document.getElementById("island-dot-current");
+        var dotNext = document.getElementById("island-dot-next");
+        var hint = document.getElementById("island-switch-hint");
+        if (!capsule || !slideCurrent || !slideNext) return;
+
+        var curMode = capsule.getAttribute("data-island-mode") || "current";
+        var nextMode = forceMode || (curMode === "current" ? "next" : "current");
+        capsule.setAttribute("data-island-mode", nextMode);
+
+        var enteringSlide = nextMode === "next" ? slideNext : slideCurrent;
+
+        if (nextMode === "next") {
+          slideCurrent.classList.add("hidden");
+          slideNext.classList.remove("hidden");
+          if (dotCurrent) dotCurrent.className = "w-1.5 h-1 rounded-full bg-white/25 transition-all";
+          if (dotNext) dotNext.className = "w-4 h-1 rounded-full bg-ios-blue transition-all";
+          if (hint) {
+            hint.innerHTML = '<span>Текущая пара</span><i data-lucide="chevron-right" class="w-3 h-3"></i>';
+          }
+        } else {
+          slideNext.classList.add("hidden");
+          slideCurrent.classList.remove("hidden");
+          if (dotCurrent) dotCurrent.className = "w-4 h-1 rounded-full bg-ios-accent transition-all";
+          if (dotNext) dotNext.className = "w-1.5 h-1 rounded-full bg-white/25 transition-all";
+          if (hint) {
+            hint.innerHTML = '<span>Следующая пара</span><i data-lucide="chevron-right" class="w-3 h-3"></i>';
+          }
+        }
+
+        if (typeof window.__animateIslandMorph === "function") {
+          window.__animateIslandMorph(capsule, enteringSlide);
+        }
+        if (window.lucide) window.lucide.createIcons();
       };
 
       function syncSegmented(selector, attr, val) {
@@ -1296,15 +1865,15 @@
         });
       }
 
-      window.__applyAppAppearance = function () {
-        var cMode = localStorage.getItem("fpi_color_mode_v1") || "dark";
-        var accent = localStorage.getItem("fpi_accent_v1") || "purple";
-        var theme = localStorage.getItem("fpi_theme_v1") || "minimal";
-        var bgMode = localStorage.getItem("fpi_bg_mode_v1") || "abstract";
-        var navStyle = localStorage.getItem("fpi_nav_style_v1") || "floating";
-        var rimStyle = localStorage.getItem("fpi_rim_style_v1") || "normal";
-        var customBg = localStorage.getItem("fpi_custom_bg_img_v1") || "";
-        var dim = Number(localStorage.getItem("fpi_custom_bg_dim_v1") || 25);
+      window.__applyDiaryAppearance = function () {
+        var cMode = localStorage.getItem("diary_color_mode_v7") || "dark";
+        var accent = localStorage.getItem("diary_accent_v1") || "purple";
+        var theme = localStorage.getItem("diary_theme_v7") || "minimal";
+        var bgMode = localStorage.getItem("diary_bg_mode_v7") || "abstract";
+        var navStyle = localStorage.getItem("diary_nav_style_v5") || "floating";
+        var rimStyle = localStorage.getItem("diary_rim_style_v5") || "normal";
+        var customBg = localStorage.getItem("diary_custom_bg_img_v6") || "";
+        var dim = Number(localStorage.getItem("diary_custom_bg_dim_v7") || 25);
 
         var isLight = cMode === "light" || cMode === "mono-light";
         var isMono = cMode === "mono-dark" || cMode === "mono-light";
@@ -1317,7 +1886,7 @@
         document.body.classList.remove("accent-purple", "accent-blue", "accent-orange", "accent-green", "accent-pink");
         document.body.classList.add("accent-" + accent);
 
-        document.body.classList.remove("theme-minimal", "theme-liquid", "theme-tg-glass");
+        document.body.classList.remove("theme-minimal", "theme-classic", "theme-liquid", "theme-tg-glass");
         document.body.classList.add("theme-" + theme);
 
         document.body.classList.remove("bg-mode-black", "bg-mode-white", "bg-mode-abstract", "bg-mode-custom");
@@ -1328,7 +1897,9 @@
         document.body.classList.add("rim-" + rimStyle);
 
         var layer = document.getElementById("custom-bg-layer");
-        if (layer) layer.style.backgroundImage = customBg ? 'url("' + customBg + '")' : "none";
+        if (layer) {
+          layer.style.backgroundImage = customBg ? 'url("' + customBg + '")' : "none";
+        }
         document.documentElement.style.setProperty("--custom-bg-dim", (dim / 100).toFixed(2));
 
         var meta = document.getElementById("meta-theme-color");
@@ -1354,89 +1925,97 @@
           dot.classList.toggle("ring-white", isAct && !isLight);
           dot.classList.toggle("ring-black", isAct && isLight);
         });
+
+        window.dispatchEvent(new CustomEvent("diary-appearance-changed"));
       };
 
       document.addEventListener("click", function (e) {
+        var island = e.target.closest("#dynamic-island-capsule");
+        if (island) {
+          window.__toggleDynamicIsland();
+          return;
+        }
+
         var accentBtn = e.target.closest("[data-set-accent]");
         if (accentBtn) {
-          localStorage.setItem("fpi_accent_v1", accentBtn.getAttribute("data-set-accent"));
-          var cm = localStorage.getItem("fpi_color_mode_v1") || "dark";
-          if (cm === "mono-dark") localStorage.setItem("fpi_color_mode_v1", "dark");
-          if (cm === "mono-light") localStorage.setItem("fpi_color_mode_v1", "light");
-          window.__applyAppAppearance();
+          localStorage.setItem("diary_accent_v1", accentBtn.getAttribute("data-set-accent"));
+          var cm = localStorage.getItem("diary_color_mode_v7") || "dark";
+          if (cm === "mono-dark") localStorage.setItem("diary_color_mode_v7", "dark");
+          if (cm === "mono-light") localStorage.setItem("diary_color_mode_v7", "light");
+          window.__applyDiaryAppearance();
           return;
         }
 
         var baseBtn = e.target.closest("[data-set-base-theme]");
         if (baseBtn) {
           var targetBase = baseBtn.getAttribute("data-set-base-theme");
-          var cur = localStorage.getItem("fpi_color_mode_v1") || "dark";
+          var cur = localStorage.getItem("diary_color_mode_v7") || "dark";
           var isMono = cur === "mono-dark" || cur === "mono-light";
-          localStorage.setItem("fpi_color_mode_v1", isMono ? "mono-" + targetBase : targetBase);
-          var curBg = localStorage.getItem("fpi_bg_mode_v1") || "abstract";
-          if (targetBase === "light" && curBg === "black") localStorage.setItem("fpi_bg_mode_v1", "white");
-          if (targetBase === "dark" && curBg === "white") localStorage.setItem("fpi_bg_mode_v1", "black");
-          window.__applyAppAppearance();
+          localStorage.setItem("diary_color_mode_v7", isMono ? "mono-" + targetBase : targetBase);
+          var curBg = localStorage.getItem("diary_bg_mode_v7") || "abstract";
+          if (targetBase === "light" && curBg === "black") localStorage.setItem("diary_bg_mode_v7", "white");
+          if (targetBase === "dark" && curBg === "white") localStorage.setItem("diary_bg_mode_v7", "black");
+          window.__applyDiaryAppearance();
           return;
         }
 
         var themeBtn = e.target.closest("[data-set-theme]");
         if (themeBtn) {
-          localStorage.setItem("fpi_theme_v1", themeBtn.getAttribute("data-set-theme"));
-          window.__applyAppAppearance();
+          localStorage.setItem("diary_theme_v7", themeBtn.getAttribute("data-set-theme"));
+          window.__applyDiaryAppearance();
           return;
         }
 
         var bgBtn = e.target.closest("[data-set-bg]");
         if (bgBtn) {
           var bg = bgBtn.getAttribute("data-set-bg");
-          if (bg === "custom" && !localStorage.getItem("fpi_custom_bg_img_v1")) {
+          if (bg === "custom" && !localStorage.getItem("diary_custom_bg_img_v6")) {
             var fileInp = document.getElementById("custom-bg-input");
             if (fileInp) fileInp.click();
             return;
           }
-          localStorage.setItem("fpi_bg_mode_v1", bg);
+          localStorage.setItem("diary_bg_mode_v7", bg);
           if (bg === "white") {
-            var cmW = localStorage.getItem("fpi_color_mode_v1") || "dark";
-            if (cmW === "dark") localStorage.setItem("fpi_color_mode_v1", "light");
-            if (cmW === "mono-dark") localStorage.setItem("fpi_color_mode_v1", "mono-light");
+            var cmW = localStorage.getItem("diary_color_mode_v7") || "dark";
+            if (cmW === "dark") localStorage.setItem("diary_color_mode_v7", "light");
+            if (cmW === "mono-dark") localStorage.setItem("diary_color_mode_v7", "mono-light");
           } else if (bg === "black") {
-            var cmB = localStorage.getItem("fpi_color_mode_v1") || "dark";
-            if (cmB === "light") localStorage.setItem("fpi_color_mode_v1", "dark");
-            if (cmB === "mono-light") localStorage.setItem("fpi_color_mode_v1", "mono-dark");
+            var cmB = localStorage.getItem("diary_color_mode_v7") || "dark";
+            if (cmB === "light") localStorage.setItem("diary_color_mode_v7", "dark");
+            if (cmB === "mono-light") localStorage.setItem("diary_color_mode_v7", "mono-dark");
           }
-          window.__applyAppAppearance();
+          window.__applyDiaryAppearance();
           return;
         }
 
         var navBtn = e.target.closest("[data-set-nav]");
         if (navBtn) {
-          localStorage.setItem("fpi_nav_style_v1", navBtn.getAttribute("data-set-nav"));
-          window.__applyAppAppearance();
+          localStorage.setItem("diary_nav_style_v5", navBtn.getAttribute("data-set-nav"));
+          window.__applyDiaryAppearance();
           return;
         }
 
         var rimBtn = e.target.closest("[data-set-rim]");
         if (rimBtn) {
-          localStorage.setItem("fpi_rim_style_v1", rimBtn.getAttribute("data-set-rim"));
-          window.__applyAppAppearance();
+          localStorage.setItem("diary_rim_style_v5", rimBtn.getAttribute("data-set-rim"));
+          window.__applyDiaryAppearance();
           return;
         }
       });
 
       document.addEventListener("change", function (e) {
         if (e.target && e.target.id === "toggle-mono-switch") {
-          var cur = localStorage.getItem("fpi_color_mode_v1") || "dark";
+          var cur = localStorage.getItem("diary_color_mode_v7") || "dark";
           var isLight = cur === "light" || cur === "mono-light";
-          localStorage.setItem("fpi_color_mode_v1", e.target.checked ? (isLight ? "mono-light" : "mono-dark") : (isLight ? "light" : "dark"));
-          window.__applyAppAppearance();
+          localStorage.setItem("diary_color_mode_v7", e.target.checked ? (isLight ? "mono-light" : "mono-dark") : (isLight ? "light" : "dark"));
+          window.__applyDiaryAppearance();
         }
       });
 
-      document.addEventListener("DOMContentLoaded", window.__applyAppAppearance);
+      document.addEventListener("DOMContentLoaded", window.__applyDiaryAppearance);
     })();
   </script>
 
-  <script type="module" src="./app.js?v=9"></script>
+  <script type="module" src="./app.js?v=23"></script>
 </body>
 </html>
