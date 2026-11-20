@@ -276,8 +276,6 @@ function spring(from, to, options = {}, onUpdate, onDone) {
     if (onDone) onDone();
   };
 
-  // Страховка: если rAF замерзает (страница свёрнута/заморожена посреди анимации),
-  // пружина гарантированно доезжает до цели по таймеру, а DOM не остаётcя застрявшим
   let settleTimer = setTimeout(finishNow, options.maxDurationMs ?? 1400);
 
   const tick = (now) => {
@@ -341,8 +339,6 @@ function animateTrackedSpring(key, from, to, config = {}, onUpdate, onDone) {
     startPos = 0;
   }
 
-  // let + переназначение: onDone внутри spring() может сработать синхронно
-  // (дистанция меньше precision), и обращение к const до инициализации падало бы в TDZ
   let ctrl = null;
   ctrl = spring(
     startPos,
@@ -372,7 +368,6 @@ function stopTrackedSpring(key) {
   return null;
 }
 
-// Рантайм-состояние шторок (объявлено выше, чтобы не падал TDZ при раннем вызове initBottomSheetsPhysics)
 const sheetRuntimeState = new Map();
 
 // ============================================================================
@@ -380,24 +375,26 @@ const sheetRuntimeState = new Map();
 // ============================================================================
 const state = {
   user: null,
+  isBootstrapped: false,
   animateNextCascade: true,
-  colorMode: localStorage.getItem("diary_color_mode_v6") || "dark",
-  theme: localStorage.getItem("diary_theme_v6") || "classic",
-  btnStyle: localStorage.getItem("diary_btn_style_v6") || "matte",
-  bgMode: localStorage.getItem("diary_bg_mode_v6") || "black",
+  colorMode: localStorage.getItem("diary_color_mode_v7") || "dark",
+  accent: localStorage.getItem("diary_accent_v1") || "purple",
+  theme: localStorage.getItem("diary_theme_v7") || "minimal",
+  bgMode: localStorage.getItem("diary_bg_mode_v7") || "abstract",
   customBgDataUrl: localStorage.getItem("diary_custom_bg_img_v6") || "",
-  customBgDim: Number(localStorage.getItem("diary_custom_bg_dim_v6") ?? 45),
+  customBgDim: Number(localStorage.getItem("diary_custom_bg_dim_v6") ?? 48),
   navStyle: localStorage.getItem("diary_nav_style_v5") || "floating",
   rimStyle: localStorage.getItem("diary_rim_style_v5") || "normal",
 
   activeTab: "schedule",
-  weekGridMode: false, // Режим обзора расписания на всю неделю
-  weekLayout: localStorage.getItem("diary_week_layout_v1") || "cards", // "cards" | "list" | "table"
+  weekGridMode: false,
+  weekLayout: localStorage.getItem("diary_week_layout_v1") || "list", // "list" | "cards" | "table"
   selectedDate: getTodayISO(),
-  daySlideDir: 0, // -1 (влево/назад), 1 (вправо/вперед), 0 (без сдвига)
+  daySlideDir: 0,
   addScope: "date",
   taskFilter: "active",
   noteFilter: "all",
+  noteSearchQuery: "",
   taskTargetMode: "current",
   noteTargetMode: "none",
   contextClassItem: null,
@@ -409,10 +406,7 @@ const state = {
   notes: [],
   hiddenRules: [],
 
-  keepDraft: {
-    pinned: false,
-    photos: []
-  },
+  noteModalPinned: false,
   draftTaskPhotos: [],
   draftNotePhotos: [],
 
@@ -485,6 +479,7 @@ function ensureDaySwipeViewport() {
   if (viewport && track) return { viewport, track };
 
   const dayView = document.getElementById("day-schedule-view");
+  const liveWidget = document.getElementById("live-now-widget");
   const evWrap = document.getElementById("events-section-wrapper");
   const schedList = document.getElementById("schedule-list");
   if (!dayView || !evWrap || !schedList) return { viewport: null, track: null };
@@ -495,9 +490,11 @@ function ensureDaySwipeViewport() {
 
   track = document.createElement("div");
   track.id = "day-swipe-track";
-  track.className = "space-y-3";
+  track.className = "space-y-4";
 
-  dayView.insertBefore(viewport, evWrap);
+  const anchor = liveWidget || evWrap;
+  dayView.insertBefore(viewport, anchor);
+  if (liveWidget) track.appendChild(liveWidget);
   track.appendChild(evWrap);
   track.appendChild(schedList);
   viewport.appendChild(track);
@@ -512,9 +509,6 @@ function cleanupDayGhostLayer() {
   }
 }
 
-// Мгновенное самолечение iOS: если приложение свернули/заморозили посреди свайпа,
-// rAF умирает и трек/клон дня остаются застрявшими на полдороге. При возврате
-// на страницу (показ приложения или выход из bfcache) прибираем всё насильно.
 function forceFinishDaySwipe() {
   stopTrackedSpring("day-swipe-track");
   const { viewport, track } = ensureDaySwipeViewport();
@@ -528,6 +522,7 @@ function forceFinishDaySwipe() {
     viewport.querySelectorAll(":scope > div:not(#day-swipe-track)").forEach((el) => el.remove());
   }
 }
+
 if (typeof document !== "undefined") {
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") forceFinishDaySwipe();
@@ -556,7 +551,6 @@ function selectDateWithSlide(newDateISO, options = {}) {
   const width = viewport.clientWidth || window.innerWidth || 375;
   const oldHeight = track.offsetHeight || 0;
 
-  // Удаляем любые старые клоны перед созданием нового
   if (!options.existingGhost) {
     cleanupDayGhostLayer();
     viewport.querySelectorAll(":scope > div:not(#day-swipe-track)").forEach((el) => el.remove());
@@ -592,7 +586,6 @@ function selectDateWithSlide(newDateISO, options = {}) {
   track.style.willChange = "transform";
   if (dayGhostLayer) dayGhostLayer.style.willChange = "transform, opacity";
 
-  // Сразу ставим начальную позицию до первого кадра rAF, чтобы исключить мигание
   track.style.transform = `translate3d(${startOffset}px, 0, 0)`;
   if (dayGhostLayer) {
     dayGhostLayer.style.transform = `translate3d(${startOffset - dir * width}px, 0, 0)`;
@@ -628,7 +621,15 @@ function formatShortDate(dateStr) {
   return d.toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
 }
 
-// Форматирование секунд в вид "1ч 12м 05с" или "24м 09с"
+function formatCompactNumericDate(dateStr) {
+  if (!dateStr) return "—";
+  const d = parseDateISO(String(dateStr).slice(0, 10));
+  if (isNaN(d)) return dateStr;
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  return `${dd}.${mm}`;
+}
+
 function formatDurationWithSeconds(totalSeconds) {
   const sec = Math.max(0, Math.floor(totalSeconds));
   const h = Math.floor(sec / 3600);
@@ -638,6 +639,16 @@ function formatDurationWithSeconds(totalSeconds) {
     return `${h}ч ${String(m).padStart(2, "0")}м ${s}с`;
   }
   return `${m}м ${s}с`;
+}
+
+function formatRemainingMinutes(totalSeconds) {
+  const mins = Math.max(1, Math.ceil(totalSeconds / 60));
+  if (mins >= 60) {
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    return m > 0 ? `${h} ч ${m} мин` : `${h} ч`;
+  }
+  return `${mins} мин`;
 }
 
 function findNextClassDateForSubject(subjectName, afterDateStr) {
@@ -684,9 +695,9 @@ function getVisibleSchedule() {
 // 6. СТАРТ ПРИЛОЖЕНИЯ
 // ============================================================================
 function bootstrapApp() {
-  // 1. Мгновенно читаем локальную базу и рисуем интерфейс до любых сетевых запросов
   loadLocalDataOrSeed();
   syncStateFromStorage();
+  state.isBootstrapped = true;
   renderAll();
   updateLiveWidget();
   setInterval(updateLiveWidget, 1000);
@@ -695,7 +706,6 @@ function bootstrapApp() {
   initUIListeners();
   initNotificationUI();
 
-  // 2. В фоне регистрируем Service Worker и подключаем облако Firebase
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       const hadController = Boolean(navigator.serviceWorker.controller);
@@ -703,8 +713,6 @@ function bootstrapApp() {
         .register("./sw.js")
         .then((reg) => {
           reg.update().catch(() => {});
-          // Когда новый SW активировался и перехватил управление — один раз
-          // перезагружаемся, чтобы свежий код заработал не со «второго запуска», а сразу
           navigator.serviceWorker.addEventListener("controllerchange", () => {
             if (hadController && !sessionStorage.getItem("diary_sw_reloaded_once")) {
               sessionStorage.setItem("diary_sw_reloaded_once", "1");
@@ -731,12 +739,12 @@ if (document.readyState === "loading") {
 }
 
 function syncStateFromStorage() {
-  state.colorMode = localStorage.getItem("diary_color_mode_v6") || "dark";
-  state.theme = localStorage.getItem("diary_theme_v6") || "classic";
-  state.btnStyle = localStorage.getItem("diary_btn_style_v6") || "matte";
-  state.bgMode = localStorage.getItem("diary_bg_mode_v6") || "black";
+  state.colorMode = localStorage.getItem("diary_color_mode_v7") || "dark";
+  state.accent = localStorage.getItem("diary_accent_v1") || "purple";
+  state.theme = localStorage.getItem("diary_theme_v7") || "minimal";
+  state.bgMode = localStorage.getItem("diary_bg_mode_v7") || "abstract";
   state.customBgDataUrl = localStorage.getItem("diary_custom_bg_img_v6") || "";
-  state.customBgDim = Number(localStorage.getItem("diary_custom_bg_dim_v6") ?? 45);
+  state.customBgDim = Number(localStorage.getItem("diary_custom_bg_dim_v6") ?? 48);
   state.navStyle = localStorage.getItem("diary_nav_style_v5") || "floating";
   state.rimStyle = localStorage.getItem("diary_rim_style_v5") || "normal";
 
@@ -748,9 +756,11 @@ function syncStateFromStorage() {
 
 window.addEventListener("diary-appearance-changed", () => {
   syncStateFromStorage();
-  renderScheduleSection();
-  updateLiveWidget();
-  refreshIcons();
+  if (state.isBootstrapped) {
+    renderScheduleSection();
+    updateLiveWidget();
+    refreshIcons();
+  }
 });
 
 function refreshIcons() {
@@ -1114,7 +1124,7 @@ function updateNotifPermissionStatusUI() {
     if (statusEl) statusEl.textContent = "Заблокировано в браузере (работают баннеры)";
     if (badgeDot) badgeDot.classList.add("hidden");
   } else {
-    if (statusEl) statusEl.textContent = "Нажмите «Разрешить» для пушей";
+    if (statusEl) statusEl.textContent = "Нажмите «Включить» для пушей";
     if (badgeDot) badgeDot.classList.toggle("hidden", !anyEnabled);
   }
 }
@@ -1128,19 +1138,23 @@ function showInAppToast(title, body) {
     document.body.appendChild(container);
   }
   const toast = document.createElement("div");
-  toast.className = "ios26-card rounded-2xl p-3.5 shadow-2xl pointer-events-auto flex items-start gap-3 transition-all border border-white/20";
+  toast.className = "ios-tabbar-shell rounded-2xl p-3.5 shadow-2xl pointer-events-auto flex items-start gap-3 transition-all";
   toast.innerHTML = `
-    <div class="w-8 h-8 rounded-xl ios-active-orange flex items-center justify-center shrink-0 font-bold">🔔</div>
+    <div class="w-8 h-8 rounded-full ios-accent-btn flex items-center justify-center shrink-0">
+      <i data-lucide="bell" class="w-4 h-4"></i>
+    </div>
     <div class="flex-1 min-w-0">
-      <p class="text-xs font-extrabold text-white">${escapeHtml(title)}</p>
-      <p class="text-[11px] text-gray-200 mt-0.5 break-words">${escapeHtml(body)}</p>
+      <p class="text-[13px] font-semibold text-primary-adaptive">${escapeHtml(title)}</p>
+      <p class="text-[12px] text-secondary-adaptive mt-0.5 break-words">${escapeHtml(body)}</p>
     </div>
   `;
   container.appendChild(toast);
+  refreshIcons();
   setTimeout(() => {
     toast.style.opacity = "0";
-    setTimeout(() => toast.remove(), 300);
-  }, 5000);
+    toast.style.transform = "translate3d(0, -10px, 0)";
+    setTimeout(() => toast.remove(), 260);
+  }, 4500);
 }
 
 async function sendAppNotification(title, body, uniqueKey) {
@@ -1177,13 +1191,13 @@ function checkScheduledNotifications() {
       if (diff <= 10 && diff >= 9) {
         sendAppNotification(
           `Через 10 мин: ${cls.subject}`,
-          `${cls.number} пара (${cls.startTime}) • Каб. ${cls.room}`,
+          `${cls.number} пара (${cls.startTime}) · Каб. ${cls.room}`,
           `cls_10m_${cls.id}_${todayISO}`
         );
       } else if (diff === 0) {
         sendAppNotification(
           `Началась пара: ${cls.subject}`,
-          `Кабинет: ${cls.room} • ${cls.type}`,
+          `Кабинет: ${cls.room} · ${cls.type}`,
           `cls_start_${cls.id}_${todayISO}`
         );
       }
@@ -1224,12 +1238,7 @@ function checkScheduledNotifications() {
 }
 
 // ============================================================================
-// 10. УМНЫЙ ВИДЖЕТ РЕАЛЬНОГО ВРЕМЕНИ С СЕКУНДАМИ:
-//     - Текущая пара
-//     - Обед (12:50 - 13:20) и сколько он еще продлится
-//     - Окно / Перемена между парами
-//     - Сейчас нет пары (если пары еще не начались или уже закончились)
-//     - Внизу вместо просто "Отдыхайте" -> "Отдыхайте еще *время*"
+// 10. УМНЫЙ LIVE-БЛОК ТЕКУЩЕЙ / СЛЕДУЮЩЕЙ ПАРЫ (ПО РЕФЕРЕНСУ iOS)
 // ============================================================================
 function updateLiveWidget() {
   const now = new Date();
@@ -1265,17 +1274,16 @@ function updateLiveWidget() {
     if (upcoming.length > 0) nextClassAny = upcoming[0];
   }
 
+  const curDot = document.getElementById("live-current-dot");
   const curLabel = document.getElementById("live-current-label");
   const curTitle = document.getElementById("live-current-title");
   const curTimer = document.getElementById("live-current-timer");
   const curMeta = document.getElementById("live-current-meta");
-  const curBox = document.getElementById("live-current-box");
   const curProgWrap = document.getElementById("live-current-progress-wrap");
   const curProg = document.getElementById("live-current-progress");
 
-  if (!curTitle || !curBox) return;
+  if (!curTitle) return;
 
-  // Строка "Отдыхайте еще *время*" до следующей пары сегодня
   const getRestTextUntilNext = () => {
     if (nextClassToday) {
       const remToNext = timeToMinutes(nextClassToday.startTime) * 60 - nowSec;
@@ -1291,11 +1299,11 @@ function updateLiveWidget() {
     const remSec = Math.max(0, endSec - nowSec);
     const pct = Math.min(100, Math.max(0, Math.round(((nowSec - startSec) / (endSec - startSec)) * 100)));
 
-    curBox.className = "flex flex-col justify-between min-w-0";
-    if (curLabel) curLabel.textContent = `Идет ${currentClass.number} пара`;
+    if (curDot) curDot.className = "live-pulse-dot shrink-0";
+    if (curLabel) curLabel.textContent = `Сейчас · ${currentClass.startTime}–${currentClass.endTime}`;
     curTitle.textContent = currentClass.subject;
-    curTimer.textContent = `Еще ${formatDurationWithSeconds(remSec)}`;
-    curMeta.innerHTML = `<span class="truncate">${escapeHtml(currentClass.room)} • ${escapeHtml(currentClass.type)}</span><span class="font-bold text-white shrink-0">${escapeHtml(currentClass.startTime)}–${escapeHtml(currentClass.endTime)}</span>`;
+    curTimer.textContent = formatRemainingMinutes(remSec);
+    curMeta.innerHTML = `<span class="truncate">${escapeHtml(currentClass.room)}${currentClass.teacher ? ` · ${escapeHtml(currentClass.teacher)}` : ""}</span><span class="font-medium text-secondary-adaptive shrink-0">${escapeHtml(currentClass.type)}</span>`;
     curProgWrap?.classList.remove("hidden");
     if (curProg) curProg.style.width = `${pct}%`;
   } else if (nowSec >= LUNCH_START_SEC && nowSec < LUNCH_END_SEC) {
@@ -1303,45 +1311,45 @@ function updateLiveWidget() {
     const remLunchSec = LUNCH_END_SEC - nowSec;
     const lunchPct = Math.min(100, Math.max(0, Math.round(((nowSec - LUNCH_START_SEC) / (LUNCH_END_SEC - LUNCH_START_SEC)) * 100)));
 
-    curBox.className = "flex flex-col justify-between min-w-0";
-    if (curLabel) curLabel.textContent = "Обеденный перерыв";
-    curTitle.textContent = "Обед (12:50–13:20)";
-    curTimer.textContent = `Еще ${formatDurationWithSeconds(remLunchSec)}`;
-    curMeta.innerHTML = `<span class="truncate">${escapeHtml(getRestTextUntilNext())}</span><span class="font-bold text-white shrink-0">до 13:20</span>`;
+    if (curDot) curDot.className = "w-2 h-2 rounded-full bg-ios-green shrink-0";
+    if (curLabel) curLabel.textContent = "Обед · 12:50–13:20";
+    curTitle.textContent = "Обеденный перерыв";
+    curTimer.textContent = formatDurationWithSeconds(remLunchSec);
+    curMeta.innerHTML = `<span class="truncate">${escapeHtml(getRestTextUntilNext())}</span><span class="shrink-0">до 13:20</span>`;
     curProgWrap?.classList.remove("hidden");
     if (curProg) curProg.style.width = `${lunchPct}%`;
   } else if (prevClassToday && nextClassToday) {
-    // 3. ОКНО ИЛИ ПЕРЕМЕНА МЕЖДУ ПАРАМИ СЕГОДНЯ
+    // 3. ОКНО ИЛИ ПЕРЕМЕНА МЕЖДУ ПАРАМИ
     const prevEndSec = timeToMinutes(prevClassToday.endTime) * 60;
     const nextStartSec = timeToMinutes(nextClassToday.startTime) * 60;
     const totalGapMin = Math.round((nextStartSec - prevEndSec) / 60);
     const remGapSec = nextStartSec - nowSec;
     const isWindow = totalGapMin > 20;
 
-    curBox.className = "flex flex-col justify-between min-w-0";
+    if (curDot) curDot.className = "w-2 h-2 rounded-full bg-ios-accent shrink-0";
     if (curLabel) curLabel.textContent = isWindow ? "Окно в расписании" : "Перемена";
     curTitle.textContent = isWindow ? "Сейчас окно" : "Перемена между парами";
     curTimer.textContent = formatDurationWithSeconds(remGapSec);
     curMeta.innerHTML = `<span class="truncate">${escapeHtml(getRestTextUntilNext())}</span><span class="shrink-0">${escapeHtml(prevClassToday.endTime)}–${escapeHtml(nextClassToday.startTime)}</span>`;
     curProgWrap?.classList.add("hidden");
   } else {
-    // 4. ПАРЫ ЕЩЕ НЕ НАЧАЛИСЬ ИЛИ УЖЕ ЗАКОНЧИЛИСЬ ("Сейчас нет пары")
-    curBox.className = "flex flex-col justify-between min-w-0";
-    if (curLabel) curLabel.textContent = "Текущая пара";
+    // 4. ПАРЫ ЕЩЕ НЕ НАЧАЛИСЬ ИЛИ УЖЕ ЗАКОНЧИЛИСЬ
+    if (curDot) curDot.className = "w-2 h-2 rounded-full bg-ios-gray/50 shrink-0";
+    if (curLabel) curLabel.textContent = "Текущий статус";
     curTitle.textContent = "Сейчас нет пары";
 
     if (nextClassToday) {
       const remToStart = timeToMinutes(nextClassToday.startTime) * 60 - nowSec;
-      curTimer.textContent = "До старта";
-      curMeta.innerHTML = `<span class="truncate">Отдыхайте еще ${escapeHtml(formatDurationWithSeconds(remToStart))}</span><span class="shrink-0">Старт в ${escapeHtml(nextClassToday.startTime)}</span>`;
+      curTimer.textContent = `в ${nextClassToday.startTime}`;
+      curMeta.innerHTML = `<span class="truncate">Отдыхайте еще ${escapeHtml(formatDurationWithSeconds(remToStart))}</span><span class="shrink-0">${escapeHtml(nextClassToday.subject)}</span>`;
     } else {
       curTimer.textContent = "Свободно";
-      curMeta.innerHTML = `<span class="truncate">Отдыхайте • Пары закончились</span><span></span>`;
+      curMeta.innerHTML = `<span class="truncate">Отдыхайте · Пары на сегодня закончились</span><span></span>`;
     }
     curProgWrap?.classList.add("hidden");
   }
 
-  // Блок: СЛЕДУЮЩАЯ ПАРА (с секундами)
+  // Блок: СЛЕДУЮЩАЯ ПАРА
   const nextTitle = document.getElementById("live-next-title");
   const nextTimer = document.getElementById("live-next-timer");
   const nextRoom = document.getElementById("live-next-room");
@@ -1349,7 +1357,7 @@ function updateLiveWidget() {
 
   if (nextClassAny && nextTitle && nextTimer && nextRoom && nextRange) {
     nextTitle.textContent = nextClassAny.subject;
-    nextRoom.textContent = `${nextClassAny.room} (${nextClassAny.type})`;
+    nextRoom.textContent = `${nextClassAny.room} · ${nextClassAny.type}`;
     nextRange.textContent = `${nextClassAny.startTime}–${nextClassAny.endTime}`;
 
     if (nextClassAny.date === todayISO) {
@@ -1367,12 +1375,11 @@ function updateLiveWidget() {
     if (nextTimer) nextTimer.textContent = "—";
   }
 
-  // Обновляем линию текущего времени в сетке недели, если она открыта
   updateWeekGridNowLine();
 }
 
 // ============================================================================
-// 11. ТАБЛИЦА РАСПИСАНИЯ НА ВСЮ НЕДЕЛЮ В СТИЛЕ GOOGLE КАЛЕНДАРЯ
+// 11. ОБЗОР РАСПИСАНИЯ НА ВСЮ НЕДЕЛЮ (СПИСОК / СЕТКА / ТАБЛИЦА)
 // ============================================================================
 function toggleWeekGridView(forceState) {
   state.weekGridMode = typeof forceState === "boolean" ? forceState : !state.weekGridMode;
@@ -1380,6 +1387,7 @@ function toggleWeekGridView(forceState) {
 
   const gridView = document.getElementById("week-grid-view");
   const dayView = document.getElementById("day-schedule-view");
+  const daySel = document.getElementById("day-selector");
   const btnText = document.getElementById("week-grid-toggle-text");
   const btnToggle = document.getElementById("btn-week-grid-toggle");
 
@@ -1387,11 +1395,14 @@ function toggleWeekGridView(forceState) {
     gridView.classList.toggle("hidden", !state.weekGridMode);
     dayView.classList.toggle("hidden", state.weekGridMode);
   }
+  if (daySel) {
+    daySel.classList.toggle("hidden", state.weekGridMode);
+  }
   if (btnText) {
     btnText.textContent = state.weekGridMode ? "День" : "Неделя";
   }
   if (btnToggle) {
-    btnToggle.classList.toggle("ios-active-orange", state.weekGridMode);
+    btnToggle.classList.toggle("ios-accent-soft-btn", state.weekGridMode);
   }
 
   if (state.weekGridMode) {
@@ -1408,8 +1419,8 @@ function renderWeekGridTable() {
 
   document.querySelectorAll(".week-layout-btn").forEach((btn) => {
     const active = btn.dataset.weekLayout === state.weekLayout;
-    btn.className = `week-layout-btn ios-press px-2.5 py-1 rounded-full text-[11px] font-bold transition-all ${
-      active ? "ios-active-orange" : "text-ios-gray hover:text-white"
+    btn.className = `week-layout-btn ios-press py-1.5 rounded-[11px] text-[12px] font-semibold transition-all ${
+      active ? "ios-seg-active" : "text-secondary-adaptive"
     }`;
   });
 
@@ -1425,7 +1436,7 @@ function renderWeekGridTable() {
     (state.showEvents && state.events.some((e) => e.date === sundayISO));
 
   const daysCount = hasSundayItems ? 7 : 6;
-  const dayLabels = ["ПН", "ВТ", "СР", "ЧТ", "ПТ", "СБ", "ВС"];
+  const dayLabels = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
   const dayFullNames = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"];
   const weekDates = [];
 
@@ -1442,80 +1453,117 @@ function renderWeekGridTable() {
     });
   }
 
-  // ВАРИАНТ 1: НАГЛЯДНЫЕ ПЛИТКИ (2 КОЛОНКИ НА ТЕЛЕФОНЕ — ВСЯ НЕДЕЛЯ БЕЗ СКРОЛЛА ВБОК)
-  if (state.weekLayout === "cards") {
-    let cardsHtml = `<div class="grid grid-cols-2 sm:grid-cols-3 gap-2">`;
+  // ВАРИАНТ 1: МИНИМАЛИСТИЧНЫЙ СПИСОК ВСЕЙ НЕДЕЛИ С РАЗДЕЛИТЕЛЯМИ
+  if (state.weekLayout === "list") {
+    let listHtml = `<div class="space-y-4">`;
 
     for (const wd of weekDates) {
       const isToday = wd.iso === todayISO;
-      const isSelected = wd.iso === state.selectedDate;
       const dayClasses = visibleSchedule
         .filter((s) => s.date === wd.iso)
         .sort((a, b) => Number(a.number || 0) - Number(b.number || 0) || timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
       const dayEvents = state.showEvents ? state.events.filter((e) => e.date === wd.iso) : [];
 
-      const borderClass = isToday
-        ? "border-ios-orange/60 bg-ios-orange/[0.06]"
-        : isSelected
-        ? "border-white/30 bg-white/[0.05]"
-        : "border-white/10 bg-black/25";
+      listHtml += `
+        <div data-grid-pick-date="${wd.iso}" class="space-y-1.5 cursor-pointer">
+          <div class="flex items-center justify-between pb-1 border-b ios-divider">
+            <div class="flex items-center gap-2">
+              <span class="text-[14px] font-bold ${isToday ? "text-ios-accent" : "text-primary-adaptive"}">${escapeHtml(wd.dayFull)}</span>
+              <span class="text-[13px] text-tertiary-adaptive">${escapeHtml(wd.shortLabel)}</span>
+            </div>
+            <span class="text-[12px] text-tertiary-adaptive">${dayClasses.length > 0 ? `${dayClasses.length} пар(ы)` : "Выходной"}</span>
+          </div>
+
+          ${
+            dayEvents.length > 0
+              ? `<div class="divide-y ios-divider">
+                  ${dayEvents
+                    .map(
+                      (ev) => `
+                    <div class="py-2 flex items-center justify-between gap-2 text-[13px]">
+                      <span class="font-medium text-ios-accent truncate">✦ ${escapeHtml(ev.title)}</span>
+                      <span class="text-[12px] text-secondary-adaptive shrink-0">${escapeHtml(ev.startTime || "Весь день")}</span>
+                    </div>`
+                    )
+                    .join("")}
+                </div>`
+              : ""
+          }
+
+          ${
+            dayClasses.length > 0
+              ? `<div class="divide-y ios-divider">
+                  ${dayClasses
+                    .map((cls) => {
+                      const hasHw = state.tasks.some(
+                        (t) =>
+                          !t.completed &&
+                          t.deadline === wd.iso &&
+                          String(t.subject).trim().toLowerCase() === String(cls.subject).trim().toLowerCase()
+                      );
+                      return `
+                      <div class="py-2.5 flex items-center justify-between gap-3">
+                        <div class="min-w-0 flex-1">
+                          <div class="text-[14px] font-semibold text-primary-adaptive truncate">${escapeHtml(cls.subject)}</div>
+                          <div class="text-[12px] text-secondary-adaptive truncate mt-0.5">
+                            ${escapeHtml(cls.room)} · ${escapeHtml(cls.type)}${hasHw ? ` · <span class="text-ios-accent font-semibold">ДЗ</span>` : ""}
+                          </div>
+                        </div>
+                        <div class="text-right shrink-0 tabular-nums">
+                          <div class="text-[13px] font-medium text-primary-adaptive">${escapeHtml(cls.startTime)}–${escapeHtml(cls.endTime)}</div>
+                          <div class="text-[11px] text-tertiary-adaptive">${escapeHtml(cls.number)} пара</div>
+                        </div>
+                      </div>
+                    `;
+                    })
+                    .join("")}
+                </div>`
+              : `<p class="py-2 text-[13px] text-tertiary-adaptive">Пар нет</p>`
+          }
+        </div>
+      `;
+    }
+
+    listHtml += `</div>`;
+    wrapper.innerHTML = listHtml;
+    return;
+  }
+
+  // ВАРИАНТ 2: КОМПАКТНАЯ СЕТКА ДНЕЙ (2 КОЛОНКИ)
+  if (state.weekLayout === "cards") {
+    let cardsHtml = `<div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5">`;
+
+    for (const wd of weekDates) {
+      const isToday = wd.iso === todayISO;
+      const dayClasses = visibleSchedule
+        .filter((s) => s.date === wd.iso)
+        .sort((a, b) => Number(a.number || 0) - Number(b.number || 0) || timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
 
       cardsHtml += `
-        <div data-grid-pick-date="${wd.iso}" class="rounded-2xl border ${borderClass} p-2.5 flex flex-col justify-between cursor-pointer active:scale-[0.98] transition-all min-w-0">
+        <div data-grid-pick-date="${wd.iso}" class="ios-surface rounded-2xl p-3 flex flex-col justify-between cursor-pointer ios-press min-w-0">
           <div>
-            <div class="flex items-center justify-between gap-1 pb-1.5 mb-2 border-b border-white/10">
-              <div class="flex items-center gap-1.5 min-w-0">
-                <span class="w-6 h-6 rounded-full text-xs font-extrabold flex items-center justify-center shrink-0 ${
-                  isToday ? "ios-active-orange text-black" : "bg-white/10 text-white"
-                }">${wd.dayName}</span>
-                <span class="text-[11px] font-bold text-gray-300 truncate">${escapeHtml(wd.shortLabel)}</span>
-              </div>
-              <span class="text-[10px] font-bold text-ios-gray shrink-0">${dayClasses.length > 0 ? `${dayClasses.length} п.` : "Вых."}</span>
+            <div class="flex items-center justify-between gap-1 pb-2 mb-2 border-b ios-divider">
+              <span class="text-[13px] font-bold ${isToday ? "text-ios-accent" : "text-primary-adaptive"}">${wd.dayName}, ${wd.dayNum}</span>
+              <span class="text-[11px] text-tertiary-adaptive">${dayClasses.length > 0 ? `${dayClasses.length} п.` : "Вых."}</span>
             </div>
 
             ${
-              dayEvents.length > 0
-                ? `<div class="mb-1.5 space-y-1">
-                    ${dayEvents
+              dayClasses.length > 0
+                ? `<div class="divide-y ios-divider">
+                    ${dayClasses
                       .map(
-                        (ev) => `
-                      <div class="px-2 py-1 rounded-lg bg-ios-purple/20 border border-ios-purple/40 text-[10px] font-bold text-white truncate">
-                        ✦ ${escapeHtml(ev.title)}
-                      </div>`
+                        (cls) => `
+                        <div class="py-1.5 space-y-0.5">
+                          <div class="flex items-center justify-between gap-1 text-[10px] text-secondary-adaptive tabular-nums">
+                            <span>${escapeHtml(cls.startTime)}</span>
+                            <span class="font-medium text-primary-adaptive">${escapeHtml(cls.room)}</span>
+                          </div>
+                          <div class="text-[12px] font-semibold text-primary-adaptive leading-snug line-clamp-2 break-words">${escapeHtml(cls.subject)}</div>
+                        </div>`
                       )
                       .join("")}
                   </div>`
-                : ""
-            }
-
-            ${
-              dayClasses.length > 0
-                ? `<div class="space-y-1.5">
-                    ${dayClasses
-                      .map((cls) => {
-                        const hasHw = state.tasks.some(
-                          (t) =>
-                            !t.completed &&
-                            t.deadline === wd.iso &&
-                            String(t.subject).trim().toLowerCase() === String(cls.subject).trim().toLowerCase()
-                        );
-                        return `
-                        <div class="rounded-xl bg-white/[0.05] border border-white/10 p-1.5 space-y-0.5">
-                          <div class="flex items-center justify-between gap-1 text-[9px] font-bold">
-                            <span class="text-ios-orange">${escapeHtml(cls.number)} пара • ${escapeHtml(cls.startTime)}</span>
-                            ${hasHw ? `<span class="px-1 rounded bg-ios-orange text-black font-extrabold">ДЗ</span>` : ""}
-                          </div>
-                          <div class="text-[11px] font-extrabold text-white leading-tight line-clamp-2 break-words">${escapeHtml(cls.subject)}</div>
-                          <div class="flex items-center justify-between gap-1 text-[9px] text-gray-300 pt-0.5">
-                            <span class="truncate text-ios-gray">${escapeHtml(cls.type)}</span>
-                            <span class="font-bold text-white shrink-0">${escapeHtml(cls.room)}</span>
-                          </div>
-                        </div>
-                      `;
-                      })
-                      .join("")}
-                  </div>`
-                : `<div class="py-5 text-center text-[11px] text-ios-gray italic">Пар нет</div>`
+                : `<div class="py-4 text-center text-[12px] text-tertiary-adaptive">Пар нет</div>`
             }
           </div>
         </div>
@@ -1527,91 +1575,7 @@ function renderWeekGridTable() {
     return;
   }
 
-  // ВАРИАНТ 2: ПОДРОБНЫЙ СПИСОК ВСЕЙ НЕДЕЛИ СВЕРХУ ВНИЗ
-  if (state.weekLayout === "list") {
-    let listHtml = `<div class="space-y-2.5">`;
-
-    for (const wd of weekDates) {
-      const isToday = wd.iso === todayISO;
-      const dayClasses = visibleSchedule
-        .filter((s) => s.date === wd.iso)
-        .sort((a, b) => Number(a.number || 0) - Number(b.number || 0) || timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
-      const dayEvents = state.showEvents ? state.events.filter((e) => e.date === wd.iso) : [];
-
-      listHtml += `
-        <div data-grid-pick-date="${wd.iso}" class="rounded-2xl border ${
-          isToday ? "border-ios-orange/60 bg-ios-orange/[0.06]" : "border-white/10 bg-black/25"
-        } p-3 space-y-2 cursor-pointer transition-all">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2">
-              <span class="px-2 py-0.5 rounded-lg text-xs font-extrabold ${
-                isToday ? "ios-active-orange text-black" : "bg-white/10 text-white"
-              }">${wd.dayName}</span>
-              <span class="text-xs font-extrabold text-white">${escapeHtml(wd.dayFull)}, ${escapeHtml(wd.shortLabel)}</span>
-            </div>
-            <span class="text-[11px] font-semibold text-ios-gray">${dayClasses.length > 0 ? `${dayClasses.length} пар(ы)` : "Выходной"}</span>
-          </div>
-
-          ${
-            dayEvents.length > 0
-              ? `<div class="space-y-1">
-                  ${dayEvents
-                    .map(
-                      (ev) => `
-                    <div class="px-2.5 py-1.5 rounded-xl bg-ios-purple/20 border border-ios-purple/40 text-xs font-bold text-white flex items-center justify-between gap-2">
-                      <span class="truncate">✦ ${escapeHtml(ev.title)}</span>
-                      <span class="text-[10px] text-ios-purple shrink-0">${escapeHtml(ev.startTime || "Весь день")}</span>
-                    </div>`
-                    )
-                    .join("")}
-                </div>`
-              : ""
-          }
-
-          ${
-            dayClasses.length > 0
-              ? `<div class="space-y-1.5">
-                  ${dayClasses
-                    .map((cls) => {
-                      const hasHw = state.tasks.some(
-                        (t) =>
-                          !t.completed &&
-                          t.deadline === wd.iso &&
-                          String(t.subject).trim().toLowerCase() === String(cls.subject).trim().toLowerCase()
-                      );
-                      return `
-                      <div class="flex items-center gap-2.5 rounded-xl bg-white/[0.04] border border-white/10 px-2.5 py-2">
-                        <div class="text-center min-w-[52px] shrink-0">
-                          <div class="text-[10px] font-extrabold text-ios-orange">${escapeHtml(cls.number)} пара</div>
-                          <div class="text-[10px] font-bold text-gray-300">${escapeHtml(cls.startTime)}</div>
-                        </div>
-                        <div class="flex-1 min-w-0">
-                          <div class="text-xs font-extrabold text-white truncate">${escapeHtml(cls.subject)}</div>
-                          <div class="text-[10px] text-gray-300 truncate mt-0.5">
-                            ${escapeHtml(cls.type)}${cls.teacher ? ` • ${escapeHtml(cls.teacher)}` : ""}
-                          </div>
-                        </div>
-                        <div class="flex flex-col items-end gap-1 shrink-0">
-                          <span class="text-[11px] font-extrabold text-white bg-white/10 px-2 py-0.5 rounded-lg">${escapeHtml(cls.room)}</span>
-                          ${hasHw ? `<span class="text-[9px] px-1.5 py-0.2 rounded bg-ios-orange text-black font-extrabold">Есть ДЗ</span>` : ""}
-                        </div>
-                      </div>
-                    `;
-                    })
-                    .join("")}
-                </div>`
-              : `<p class="text-xs text-ios-gray italic">Учебных пар нет</p>`
-          }
-        </div>
-      `;
-    }
-
-    listHtml += `</div>`;
-    wrapper.innerHTML = listHtml;
-    return;
-  }
-
-  // ВАРИАНТ 3: ТАБЛИЦА КАЛЕНДАРЯ (С ИСПРАВЛЕННОЙ ШИРИНОЙ БЕЗ ОБРЕЗКИ СУББОТЫ)
+  // ВАРИАНТ 3: ТАБЛИЦА КАЛЕНДАРЯ
   const hasSeventhSlot = visibleSchedule.some(
     (s) => weekDates.some((wd) => wd.iso === s.date) && Number(s.number) === 7
   );
@@ -1631,19 +1595,19 @@ function renderWeekGridTable() {
 
   let html = `<div class="gcal-grid-table ${daysCount === 7 ? "cols-7" : ""} rounded-2xl overflow-hidden">`;
 
-  html += `<div class="gcal-cell p-2 flex items-center justify-center text-[10px] font-bold text-ios-gray bg-black/20">Пара</div>`;
+  html += `<div class="gcal-cell p-2 flex items-center justify-center text-[10px] font-semibold text-tertiary-adaptive">Пара</div>`;
   for (const wd of weekDates) {
     const isToday = wd.iso === todayISO;
     const isSelected = wd.iso === state.selectedDate;
     html += `
-      <div data-grid-pick-date="${wd.iso}" class="gcal-cell py-2.5 px-2 text-center cursor-pointer hover:bg-white/[0.04] transition-colors bg-black/20">
-        <div class="text-[10px] font-bold uppercase tracking-wider ${isToday ? "text-ios-blue" : "text-ios-gray"}">${wd.dayName}</div>
-        <div class="mt-1 inline-flex items-center justify-center w-8 h-8 rounded-full text-base font-extrabold ${
+      <div data-grid-pick-date="${wd.iso}" class="gcal-cell py-2 px-2 text-center cursor-pointer hover:bg-white/[0.03] transition-colors">
+        <div class="text-[10px] font-semibold uppercase ${isToday ? "text-ios-accent" : "text-secondary-adaptive"}">${wd.dayName}</div>
+        <div class="mt-1 inline-flex items-center justify-center w-7 h-7 rounded-full text-[13px] font-bold ${
           isToday
-            ? "bg-ios-blue text-white shadow"
+            ? "ios-accent-btn"
             : isSelected
-            ? "bg-white/15 text-white"
-            : "text-white"
+            ? "ios-surface text-primary-adaptive"
+            : "text-primary-adaptive"
         }">${wd.dayNum}</div>
       </div>
     `;
@@ -1652,15 +1616,15 @@ function renderWeekGridTable() {
   for (const slot of slots) {
     if (slot.type === "lunch") {
       html += `
-        <div class="gcal-cell px-1.5 py-1.5 flex flex-col items-center justify-center text-center bg-white/[0.02]">
-          <span class="text-[10px] font-extrabold text-ios-green">Обед</span>
-          <span class="text-[9px] text-ios-gray">12:50</span>
+        <div class="gcal-cell px-1.5 py-1.5 flex flex-col items-center justify-center text-center">
+          <span class="text-[10px] font-semibold text-ios-green">Обед</span>
+          <span class="text-[9px] text-tertiary-adaptive">12:50</span>
         </div>
       `;
       for (const wd of weekDates) {
         html += `
-          <div class="gcal-cell px-2 py-1.5 flex items-center justify-center bg-white/[0.02]" data-grid-slot-cell="${wd.iso}:${slot.startMin}:${slot.endMin}">
-            <span class="text-[10px] text-ios-gray/70 font-medium">Обеденный перерыв (12:50–13:20)</span>
+          <div class="gcal-cell px-2 py-1.5 flex items-center justify-center" data-grid-slot-cell="${wd.iso}:${slot.startMin}:${slot.endMin}">
+            <span class="text-[10px] text-tertiary-adaptive">12:50–13:20</span>
           </div>
         `;
       }
@@ -1668,9 +1632,9 @@ function renderWeekGridTable() {
     }
 
     html += `
-      <div class="gcal-cell p-1.5 flex flex-col items-center justify-center text-center bg-black/10">
-        <span class="text-[11px] font-extrabold text-white">${slot.number} пара</span>
-        <span class="text-[9px] text-ios-gray leading-tight mt-0.5">${slot.time.replace("–", "<br/>")}</span>
+      <div class="gcal-cell p-1.5 flex flex-col items-center justify-center text-center">
+        <span class="text-[11px] font-bold text-primary-adaptive">${slot.number}</span>
+        <span class="text-[9px] text-tertiary-adaptive leading-tight mt-0.5">${slot.time.replace("–", "<br/>")}</span>
       </div>
     `;
 
@@ -1680,14 +1644,13 @@ function renderWeekGridTable() {
       );
 
       html += `
-        <div class="gcal-cell p-1.5 min-h-[78px] space-y-1" data-grid-slot-cell="${wd.iso}:${slot.startMin}:${slot.endMin}">
+        <div class="gcal-cell p-1.5 min-h-[72px] space-y-1" data-grid-slot-cell="${wd.iso}:${slot.startMin}:${slot.endMin}">
           ${cellClasses
             .map(
               (cls) => `
             <div data-grid-open-class="${cls.id}" data-grid-pick-date="${wd.iso}" class="gcal-event-card">
-              <div class="font-extrabold truncate">[Пара ${escapeHtml(cls.number)}, ${escapeHtml(cls.startTime)}-${escapeHtml(cls.endTime)}] ${escapeHtml(cls.subject)}</div>
-              <div class="opacity-90 truncate text-[10px] mt-0.5">${escapeHtml(cls.type)}${cls.teacher ? ` • ${escapeHtml(cls.teacher)}` : ""}</div>
-              <div class="font-bold text-[10px] mt-0.5 truncate">${escapeHtml(cls.room)}</div>
+              <div class="font-semibold truncate">${escapeHtml(cls.subject)}</div>
+              <div class="opacity-75 truncate text-[10px] mt-0.5">${escapeHtml(cls.room)} · ${escapeHtml(cls.type)}</div>
             </div>
           `
             )
@@ -1702,7 +1665,6 @@ function renderWeekGridTable() {
   updateWeekGridNowLine();
 }
 
-// Отрисовка красной линии текущего времени в сетке недели (как в Google Календаре)
 function updateWeekGridNowLine() {
   if (!state.weekGridMode) return;
   document.querySelectorAll(".gcal-now-line").forEach((el) => el.remove());
@@ -1728,7 +1690,7 @@ function updateWeekGridNowLine() {
 }
 
 // ============================================================================
-// 12. РЕНДЕРИНГ РАСПИСАНИЯ
+// 12. РЕНДЕРИНГ РАСПИСАНИЯ (МИНИМАЛИСТИЧНЫЙ ТАЙМЛАЙН iOS БЕЗ ПЛИТОК)
 // ============================================================================
 function triggerCascadeOnce(containerEl) {
   if (!containerEl || isReducedMotion()) return;
@@ -1753,41 +1715,30 @@ function renderScheduleSection() {
   const weekNum = getStudyWeekNumber(state.selectedDate);
   const currentActualWeekNum = getStudyWeekNumber(todayISO);
   const isCurrentStudyWeek = weekNum === currentActualWeekNum;
-  const mono = isMonoMode();
-  const light = isLightMode();
 
   const isOdd = Math.abs(weekNum) % 2 === 1;
-  const parityText = isOdd ? "Нечетная (Числитель)" : "Четная (Знаменатель)";
+  const parityText = isOdd ? "Числитель" : "Знаменатель";
   const sunday = new Date(monday);
   sunday.setDate(monday.getDate() + 6);
   const fmtShort = (d) => d.toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
 
-  const weekHeaderCard = document.getElementById("week-header-card");
   const weekCurrentBadge = document.getElementById("week-current-badge");
   const weekTitle = document.getElementById("week-title");
   const weekSubtitle = document.getElementById("week-subtitle");
   const datePicker = document.getElementById("date-jump-picker");
+  const btnToday = document.getElementById("btn-today");
 
   if (weekTitle) {
     weekTitle.textContent = weekNum >= 1 && weekNum <= 24 ? `Учебная неделя №${weekNum}` : `Календарная неделя`;
-    weekTitle.className = isCurrentStudyWeek && !mono
-      ? "text-sm font-extrabold text-ios-orange truncate"
-      : "text-sm font-extrabold text-white truncate";
   }
-  weekCurrentBadge?.classList.toggle("hidden", !isCurrentStudyWeek || mono);
-  if (weekHeaderCard) {
-    weekHeaderCard.className = isCurrentStudyWeek && !mono
-      ? "ios26-card-orange rounded-3xl p-3 space-y-2.5 transition-all"
-      : "ios26-card rounded-3xl p-3 space-y-2.5 transition-all";
-  }
-
-  if (weekSubtitle) weekSubtitle.textContent = `${parityText} • ${fmtShort(monday)} – ${fmtShort(sunday)}`;
+  weekCurrentBadge?.classList.toggle("hidden", !isCurrentStudyWeek);
+  if (weekSubtitle) weekSubtitle.textContent = `${parityText} · ${fmtShort(monday)} – ${fmtShort(sunday)}`;
   if (datePicker) datePicker.value = state.selectedDate;
+  if (btnToday) btnToday.classList.toggle("hidden", state.selectedDate === todayISO);
 
-  const textToggleEvents = document.getElementById("text-toggle-events");
-  if (textToggleEvents) {
-    textToggleEvents.textContent = state.showEvents ? "События: Вкл" : "События: Скрыты";
-  }
+  // Синхронизируем тумблер событий в настройках
+  const eventsSwitch = document.getElementById("toggle-events-switch");
+  if (eventsSwitch) eventsSwitch.checked = Boolean(state.showEvents);
 
   const hiddenCount = state.hiddenRules.length;
   const badgeHidden = document.getElementById("badge-hidden-count");
@@ -1802,13 +1753,13 @@ function renderScheduleSection() {
     bannerHidden.classList.toggle("hidden", hiddenCount === 0);
   }
 
-  // Если включен режим сетки на неделю — обновляем также таблицу
   if (state.weekGridMode) {
     renderWeekGridTable();
   }
 
+  // 7-дневная полоса недели (чистая, без рамок и коробок, по референсу image_6964ef.jpg)
   const visibleSchedule = getVisibleSchedule();
-  const dayNames = ["ПН", "ВТ", "СР", "ЧТ", "ПТ", "СБ", "ВС"];
+  const dayNames = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
   const daySelector = document.getElementById("day-selector");
   const buttonsHtml = [];
 
@@ -1821,53 +1772,29 @@ function renderScheduleSection() {
     const countForDay = visibleSchedule.filter((s) => s.date === iso).length;
     const hasEventForDay = state.showEvents && state.events.some((ev) => ev.date === iso);
 
-    let btnClass = "ios26-card border-white/10 text-ios-gray font-medium";
-    if (mono) {
-      if (isSelected) {
-        btnClass = light
-          ? "bg-black text-white border-black font-extrabold"
-          : "bg-white text-black border-white font-extrabold";
-      } else if (isToday) {
-        btnClass = light
-          ? "ios26-card border-black/40 text-black font-bold"
-          : "ios26-card border-white/40 text-white font-bold";
-      }
-    } else {
-      if (isSelected && isToday) {
-        btnClass = "ios-active-orange font-extrabold";
-      } else if (isSelected) {
-        btnClass = light
-          ? "bg-ios-blue text-white border-ios-blue font-extrabold shadow"
-          : "bg-white text-black border-white font-extrabold shadow";
-      } else if (isToday) {
-        btnClass = "bg-ios-orange/20 border-2 border-ios-orange text-ios-orange font-extrabold";
-      }
+    let pillClass = "bg-transparent text-secondary-adaptive hover:bg-white/[0.04]";
+    if (isSelected) {
+      pillClass = "ios-accent-btn font-bold";
+    } else if (isToday) {
+      pillClass = "bg-transparent text-ios-accent font-bold";
     }
 
-    const dotColor = isSelected
-      ? "bg-current"
-      : mono
-      ? "bg-current opacity-60"
-      : isToday
-      ? "bg-ios-orange"
-      : "bg-ios-blue";
-
-    const eventDotColor = mono ? "bg-current" : "bg-ios-purple";
+    const dotColor = isSelected ? "bg-current opacity-85" : isToday ? "bg-ios-accent" : "bg-white/30";
 
     buttonsHtml.push(`
-      <button type="button" data-select-date="${iso}" class="ios-press relative flex flex-col items-center py-2 rounded-2xl border transition-all min-w-0 ${btnClass}">
-        <span class="text-[9px] font-bold uppercase tracking-tighter opacity-85">${dayNames[i]}</span>
-        <span class="text-xs sm:text-sm mt-0.5">${d.getDate()}</span>
-        <div class="flex gap-0.5 mt-1 h-1.5 items-center">
-          ${countForDay > 0 ? Array.from({ length: Math.min(countForDay, 3) }).map(() => `<span class="w-1 h-1 rounded-full ${dotColor}"></span>`).join("") : ""}
-          ${hasEventForDay ? `<span class="w-1.5 h-1.5 rounded-full ${eventDotColor}"></span>` : ""}
+      <button type="button" data-select-date="${iso}" class="ios-press relative flex flex-col items-center py-2.5 rounded-2xl transition-colors min-w-0 ${pillClass}">
+        <span class="text-[11px] font-medium ${isSelected ? "opacity-90" : "opacity-75"}">${dayNames[i]}</span>
+        <span class="text-[16px] font-semibold mt-1 tabular-nums">${d.getDate()}</span>
+        <div class="flex gap-1 mt-1.5 h-1.5 items-center">
+          ${countForDay > 0 ? `<span class="w-1 h-1 rounded-full ${dotColor}"></span>` : ""}
+          ${hasEventForDay ? `<span class="w-1 h-1 rounded-full ${isSelected ? "bg-current" : "bg-ios-accent"}"></span>` : ""}
         </div>
       </button>
     `);
   }
   if (daySelector) daySelector.innerHTML = buttonsHtml.join("");
 
-  // Рендеринг блока Мероприятий
+  // Рендеринг блока Мероприятий (чистые строки с тонкими разделителями)
   const eventsWrapper = document.getElementById("events-section-wrapper");
   const eventsListEl = document.getElementById("events-list");
   const eventsCountEl = document.getElementById("events-day-count");
@@ -1891,31 +1818,21 @@ function renderScheduleSection() {
               : "Весь день";
 
           return `
-        <div class="ios26-card rounded-2xl p-3 border border-ios-purple/40 flex items-center justify-between gap-2.5">
-          <div data-open-event-details="${ev.id}" class="flex items-center gap-2.5 min-w-0 flex-1 cursor-pointer active:opacity-80 transition-opacity" title="Нажмите, чтобы открыть полностью">
-            <div class="px-2.5 py-1.5 rounded-xl bg-ios-purple/20 border border-ios-purple/40 text-center shrink-0 min-w-[68px]">
-              <span class="block text-[9px] font-extrabold uppercase text-ios-purple">Событие</span>
-              <span class="block text-[11px] font-bold text-white">${timeLabel}</span>
-            </div>
+        <div data-open-event-details="${ev.id}" class="py-3 flex items-center justify-between gap-3 cursor-pointer active:opacity-70 transition-opacity">
+          <div class="flex items-center gap-3 min-w-0 flex-1">
+            <span class="w-2 h-2 rounded-full bg-ios-accent shrink-0"></span>
             <div class="min-w-0 flex-1">
-              <h4 class="text-sm font-extrabold text-white truncate">${escapeHtml(ev.title)}</h4>
+              <h4 class="text-[15px] font-semibold text-primary-adaptive truncate">${escapeHtml(ev.title)}</h4>
               ${
                 ev.location
-                  ? `<p class="text-xs text-gray-300 flex items-center gap-1 truncate mt-0.5">
-                      <i data-lucide="map-pin" class="w-3 h-3 text-ios-purple shrink-0"></i>
-                      <span class="truncate">${escapeHtml(ev.location)}</span>
-                    </p>`
-                  : `<p class="text-[11px] text-ios-purple/80 mt-0.5">Нажмите для подробностей →</p>`
+                  ? `<p class="text-[12px] text-secondary-adaptive truncate mt-0.5">${escapeHtml(ev.location)}</p>`
+                  : ""
               }
             </div>
           </div>
-          <div class="flex items-center gap-1 shrink-0">
-            <button type="button" data-edit-event="${ev.id}" class="ios-press w-8 h-8 rounded-full ios26-pill text-gray-300 hover:text-white flex items-center justify-center" title="Изменить">
-              <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
-            </button>
-            <button type="button" data-delete-event="${ev.id}" class="ios-press px-2.5 h-8 rounded-full bg-ios-red/20 border border-ios-red/40 text-ios-red text-xs font-bold flex items-center gap-1" title="Удалить">
-              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-            </button>
+          <div class="flex items-center gap-2 shrink-0">
+            <span class="text-[13px] font-medium text-ios-accent tabular-nums">${timeLabel}</span>
+            <i data-lucide="chevron-right" class="w-4 h-4 text-tertiary-adaptive"></i>
           </div>
         </div>
       `;
@@ -1927,7 +1844,7 @@ function renderScheduleSection() {
     }
   }
 
-  // Рендеринг учебных пар выбранного дня
+  // Рендеринг учебных пар выбранного дня (чистый таймлайн iOS по референсу image_6964ef.jpg)
   const listEl = document.getElementById("schedule-list");
   if (!listEl) return;
 
@@ -1938,12 +1855,12 @@ function renderScheduleSection() {
   if (dayClasses.length === 0) {
     const readableDate = parseDateISO(state.selectedDate).toLocaleDateString("ru-RU", { weekday: "long", day: "numeric", month: "long" });
     listEl.innerHTML = `
-      <div class="ios26-card rounded-3xl p-7 text-center space-y-2">
-        <div class="w-11 h-11 rounded-2xl bg-ios-orange/15 text-ios-orange flex items-center justify-center mx-auto">
-          <i data-lucide="coffee" class="w-5 h-5"></i>
+      <div class="py-12 text-center space-y-2">
+        <div class="w-11 h-11 rounded-full ios-surface text-ios-accent flex items-center justify-center mx-auto mb-3">
+          <i data-lucide="sparkles" class="w-5 h-5"></i>
         </div>
-        <p class="font-extrabold text-base capitalize">${escapeHtml(readableDate)}</p>
-        <p class="text-xs text-gray-300">Учебных пар в этот день нет. Нажмите «+» сверху, чтобы добавить пару или событие.</p>
+        <p class="font-semibold text-[16px] text-primary-adaptive capitalize">${escapeHtml(readableDate)}</p>
+        <p class="text-[13px] text-secondary-adaptive max-w-[260px] mx-auto">Свободный день — пар по расписанию нет</p>
       </div>
     `;
     refreshIcons();
@@ -1956,10 +1873,13 @@ function renderScheduleSection() {
   listEl.innerHTML = dayClasses
     .map((item) => {
       const isLiveNow =
-        !mono &&
         item.date === todayISO &&
         nowMinutes >= timeToMinutes(item.startTime) &&
         nowMinutes < timeToMinutes(item.endTime);
+
+      const isPassed =
+        item.date < todayISO ||
+        (item.date === todayISO && nowMinutes >= timeToMinutes(item.endTime));
 
       const subjectTasks = state.tasks.filter(
         (t) =>
@@ -1974,144 +1894,66 @@ function renderScheduleSection() {
           (!n.date || n.date === item.date)
       );
 
+      const rowStateClass = isLiveNow ? "is-live" : isPassed ? "is-passed" : "";
+
+      // Компактные метаданные под названием предмета (аудитория · тип · индикаторы ДЗ/заметок/темы)
+      const metaParts = [escapeHtml(item.room), escapeHtml(item.type)];
+      if (item.topic) metaParts.push(`Тема: ${escapeHtml(item.topic)}`);
+      if (classNotes.length > 0) metaParts.push(`Заметки (${classNotes.length})`);
+
       return `
-      <article class="${isLiveNow ? "ios26-card-orange" : "ios26-card"} rounded-3xl p-3.5 space-y-3 transition-all">
-        <div class="flex gap-3 items-start">
-          <div data-open-class-details="${item.id}" class="cursor-pointer active:scale-95 flex flex-col items-center justify-center ${isLiveNow ? "ios-active-orange" : "bg-white/[0.07] border border-white/15"} rounded-2xl px-2 py-2 min-w-[68px] text-center shrink-0 transition-transform" title="Открыть карточку пары">
-            <span class="text-[11px] font-extrabold ${isLiveNow ? "text-black" : "text-ios-orange"}">${escapeHtml(item.number)} пара</span>
-            <span class="text-xs font-extrabold ${isLiveNow ? "text-black" : "text-white"} mt-0.5">${escapeHtml(item.startTime)}</span>
-            <span class="text-[10px] ${isLiveNow ? "text-black/80" : "text-gray-300"}">${escapeHtml(item.endTime)}</span>
-          </div>
-
-          <div data-open-class-details="${item.id}" class="flex-1 min-w-0 cursor-pointer active:opacity-80 transition-opacity" title="Открыть карточку пары">
-            <div class="flex items-center gap-1.5 flex-wrap mb-1">
-              ${isLiveNow ? `<span class="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-ios-orange text-black">Сейчас</span>` : ""}
-              <span class="text-[11px] font-bold px-2 py-0.5 rounded-full border ${getBadgeStyle(item.type)}">${escapeHtml(item.type)}</span>
-              <span class="text-xs text-gray-200 flex items-center gap-1">
-                <i data-lucide="map-pin" class="w-3 h-3 text-ios-orange shrink-0"></i>
-                <span class="truncate">${escapeHtml(item.room)}</span>
-              </span>
-            </div>
-            <h3 class="font-extrabold text-sm sm:text-base leading-snug text-white break-words">${escapeHtml(item.subject)}</h3>
-            ${item.teacher ? `<p class="text-xs text-gray-300 mt-1 flex items-center gap-1"><i data-lucide="user" class="w-3 h-3 shrink-0"></i><span class="truncate">${escapeHtml(item.teacher)}</span></p>` : ""}
-          </div>
-
-          <div class="flex items-center gap-1 shrink-0">
-            <button type="button" data-copy-next-week="${item.id}" class="ios-press w-7 h-7 rounded-full ios26-pill text-gray-300 hover:text-ios-orange flex items-center justify-center" title="Перенести на след. неделю">
-              <i data-lucide="calendar-plus" class="w-3.5 h-3.5"></i>
-            </button>
-            <button type="button" data-edit-schedule="${item.id}" class="ios-press w-7 h-7 rounded-full ios26-pill text-gray-300 hover:text-white flex items-center justify-center" title="Изменить">
-              <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
-            </button>
-            <button type="button" data-ask-delete-schedule="${item.id}" class="ios-press w-7 h-7 rounded-full ios26-pill text-gray-300 hover:text-ios-red flex items-center justify-center" title="Скрыть пару">
-              <i data-lucide="eye-off" class="w-3.5 h-3.5"></i>
-            </button>
-          </div>
+      <div class="timeline-row ${rowStateClass} group" data-open-class-details="${item.id}">
+        <!-- Вертикальная линия таймлайна с точкой -->
+        <div class="timeline-rail-col">
+          <span class="timeline-dot"></span>
+          <span class="timeline-rail-line"></span>
         </div>
 
-        <div class="pt-2.5 border-t border-white/10 space-y-2">
-          <div class="flex items-center justify-between">
-            <span class="text-[11px] font-bold uppercase tracking-wider text-gray-300 flex items-center gap-1.5">
-              <i data-lucide="check-circle-2" class="w-3.5 h-3.5 text-ios-orange"></i>
-              ДЗ (${subjectTasks.length})
-            </span>
-            <button type="button" data-quick-add-task="${item.id}" class="ios-press text-xs font-bold text-ios-orange flex items-center gap-1">
-              <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i>
-              <span>+ ДЗ</span>
-            </button>
+        <!-- Основная информация о паре (без коробки!) -->
+        <div class="flex-1 min-w-0 space-y-1.5">
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0 flex-1">
+              <h3 class="timeline-title text-[16px] font-semibold leading-snug text-primary-adaptive break-words">
+                ${escapeHtml(item.subject)}
+              </h3>
+              <p class="text-[13px] text-secondary-adaptive truncate mt-0.5">
+                ${metaParts.join(" · ")}
+              </p>
+            </div>
+
+            <div class="text-right shrink-0 tabular-nums">
+              <div class="text-[13px] font-medium ${isLiveNow ? "text-ios-accent font-semibold" : "text-secondary-adaptive"}">
+                ${escapeHtml(item.startTime)}–${escapeHtml(item.endTime)}
+              </div>
+              <div class="text-[11px] text-tertiary-adaptive mt-0.5">${escapeHtml(item.number)} пара</div>
+            </div>
           </div>
 
           ${
             subjectTasks.length > 0
-              ? `<div class="space-y-1.5">
+              ? `<div class="pt-1 space-y-1.5" onclick="event.stopPropagation()">
                   ${subjectTasks
                     .map(
                       (t) => `
-                    <div class="rounded-2xl bg-black/35 border border-white/10 p-2.5 flex items-start gap-2.5">
-                      <button type="button" data-toggle-task="${t.id}" class="ios-press mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${t.completed ? "bg-ios-green border-ios-green text-black" : "border-ios-orange"}">
+                    <div class="flex items-center gap-2.5 text-[13px]">
+                      <button type="button" data-toggle-task="${t.id}" class="ios-press w-[18px] h-[18px] rounded-full border-[1.5px] flex items-center justify-center shrink-0 transition-colors ${
+                        t.completed
+                          ? "ios-accent-btn border-transparent"
+                          : "border-ios-accent/70 hover:border-ios-accent"
+                      }">
                         ${t.completed ? '<i data-lucide="check" class="w-3 h-3 stroke-[3]"></i>' : ""}
                       </button>
-                      <div class="flex-1 min-w-0">
-                        <p class="text-xs font-medium text-white whitespace-pre-wrap break-words ${t.completed ? "line-through text-ios-gray" : ""}">${escapeHtml(t.text)}</p>
-                        <div class="flex items-center gap-2 mt-1 flex-wrap">
-                          <span class="text-[10px] text-ios-orange bg-ios-orange/15 px-2 py-0.5 rounded-md font-semibold">До: ${escapeHtml(formatShortDate(t.deadline))}</span>
-                          <button type="button" data-shift-task-week="${t.id}" class="text-[10px] text-ios-blue hover:underline font-semibold">+7д</button>
-                          <button type="button" data-edit-task="${t.id}" class="text-[10px] text-gray-300 hover:text-white">Изм.</button>
-                        </div>
-                        ${renderPhotosRow(t.photos)}
-                      </div>
-                    </div>
-                  `
-                    )
-                    .join("")}
-                </div>`
-              : `<p class="text-[11px] text-gray-400 italic">ДЗ не записано</p>`
-          }
-        </div>
-
-        <div class="pt-2 border-t border-white/10">
-          <div class="flex items-center justify-between gap-2 bg-white/[0.04] border border-white/10 rounded-2xl px-3 py-2">
-            <div class="flex items-center gap-2 min-w-0 flex-1">
-              <i data-lucide="bookmark" class="w-3.5 h-3.5 text-ios-orange shrink-0"></i>
-              <span class="text-xs ${item.topic ? "font-bold text-white" : "text-gray-400 italic"} truncate">
-                ${item.topic ? `Тема: ${escapeHtml(item.topic)}` : "Тема пары не указана"}
-              </span>
-            </div>
-            <button type="button" data-quick-topic="${item.id}" class="ios-press text-[11px] font-bold text-ios-orange shrink-0">
-              ${item.topic ? "Изм." : "+ Тема"}
-            </button>
-          </div>
-        </div>
-
-        <div class="pt-2 border-t border-white/10 space-y-2">
-          <div class="flex items-center justify-between">
-            <span class="text-[11px] font-bold uppercase tracking-wider text-gray-300 flex items-center gap-1.5">
-              <i data-lucide="notebook-pen" class="w-3.5 h-3.5 text-ios-blue"></i>
-              Заметки к паре
-            </span>
-            <button type="button" data-quick-add-note="${item.id}" class="ios-press text-xs font-bold text-ios-blue flex items-center gap-1">
-              <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i>
-              <span>Расширенная</span>
-            </button>
-          </div>
-
-          ${
-            classNotes.length > 0
-              ? `<div class="space-y-1.5">
-                  ${classNotes
-                    .map(
-                      (n) => `
-                    <div class="rounded-2xl bg-black/35 border border-white/10 p-2.5 space-y-1">
-                      <div class="flex items-center justify-between gap-2">
-                        <span class="text-xs font-extrabold text-white truncate">${escapeHtml(n.title || "Заметка к паре")}</span>
-                        <div class="flex items-center gap-2 shrink-0">
-                          <button type="button" data-edit-note="${n.id}" class="text-[10px] text-gray-300 hover:text-white">Изм.</button>
-                          <button type="button" data-delete-note="${n.id}" class="text-[10px] text-gray-300 hover:text-ios-red">Удал.</button>
-                        </div>
-                      </div>
-                      <p class="text-xs text-gray-200 whitespace-pre-wrap break-words leading-relaxed">${escapeHtml(n.content)}</p>
-                      ${renderPhotosRow(n.photos)}
-                    </div>
-                  `
+                      <span data-edit-task="${t.id}" class="truncate cursor-pointer ${
+                        t.completed ? "line-through text-tertiary-adaptive" : "text-primary-adaptive/90"
+                      }">${escapeHtml(t.text)}</span>
+                    </div>`
                     )
                     .join("")}
                 </div>`
               : ""
           }
-
-          <div class="flex items-end gap-1.5">
-            <textarea
-              rows="2"
-              data-inline-note-input="${item.id}"
-              placeholder="Быстрая заметка к паре..."
-              class="flex-1 min-w-0 bg-black/40 border border-white/15 rounded-2xl px-3 py-2 text-xs text-white placeholder-gray-400 outline-none resize-y leading-relaxed"
-            ></textarea>
-            <button type="button" data-inline-note-save="${item.id}" class="ios-press px-3 py-2 rounded-2xl ios-active-orange text-xs font-extrabold shrink-0">
-              ОК
-            </button>
-          </div>
         </div>
-      </article>
+      </div>
     `;
     })
     .join("");
@@ -2125,11 +1967,11 @@ function renderScheduleSection() {
 function renderPhotosRow(photos) {
   if (!Array.isArray(photos) || photos.length === 0) return "";
   return `
-    <div class="flex gap-1.5 overflow-x-auto no-scrollbar pt-1.5">
+    <div class="flex gap-2 overflow-x-auto no-scrollbar pt-1.5">
       ${photos
         .map(
           (src) => `
-        <img src="${src}" data-view-photo="${src}" alt="Вложение" class="w-14 h-14 rounded-xl object-cover border border-white/20 cursor-pointer shrink-0 hover:opacity-90" />
+        <img src="${src}" data-view-photo="${src}" alt="Вложение" class="w-16 h-16 rounded-xl object-cover border ios-divider cursor-pointer shrink-0 hover:opacity-90" />
       `
         )
         .join("")}
@@ -2137,30 +1979,33 @@ function renderPhotosRow(photos) {
   `;
 }
 
-function getBadgeStyle(type) {
-  const t = String(type).toLowerCase();
-  if (t.includes("дистант")) return "bg-ios-indigo/25 text-indigo-300 border-ios-indigo/50";
-  if (t.includes("лаб")) return "bg-ios-orange/25 text-ios-orange border-ios-orange/50";
-  if (t.includes("практ")) return "bg-ios-green/25 text-ios-green border-ios-green/50";
-  return "bg-ios-blue/25 text-ios-blue border-ios-blue/50";
+// ============================================================================
+// 13. РЕНДЕРИНГ ТРЕКЕРА ДЗ (ГРУППИРОВКА ПО ДАТАМ БЕЗ ПЛИТОК, ПО РЕФЕРЕНСУ)
+// ============================================================================
+function formatTaskGroupHeader(dateStr, todayISO, tomorrowISO) {
+  if (dateStr < todayISO) return "Просрочено";
+  if (dateStr === todayISO) return "Сегодня";
+  if (dateStr === tomorrowISO) return "Завтра";
+  const d = parseDateISO(dateStr);
+  if (isNaN(d)) return dateStr;
+  const raw = d.toLocaleDateString("ru-RU", { weekday: "short", day: "numeric", month: "short" });
+  return raw.charAt(0).toUpperCase() + raw.slice(1);
 }
 
-// ============================================================================
-// 13. РЕНДЕРИНГ ТРЕКЕРА ДЗ
-// ============================================================================
 function renderTasks() {
   const container = document.getElementById("tasks-list");
   if (!container) return;
 
-  // 1. First: записываем старые координаты карточек для FLIP-анимации
+  // 1. First: записываем старые координаты строк для FLIP-анимации
   const prevRects = new Map();
   if (!isReducedMotion() && state.activeTab === "tasks") {
-    container.querySelectorAll("article[data-task-card-id]").forEach((el) => {
+    container.querySelectorAll("[data-task-card-id]").forEach((el) => {
       prevRects.set(el.dataset.taskCardId, el.getBoundingClientRect());
     });
   }
 
   const todayISO = getTodayISO();
+  const tomorrowISO = addDaysISO(todayISO, 1);
   const currentWeekNum = getStudyWeekNumber(state.selectedDate);
 
   const activeTasks = state.tasks.filter((t) => !t.completed);
@@ -2190,60 +2035,95 @@ function renderTasks() {
 
   if (list.length === 0) {
     container.innerHTML = `
-      <div class="ios26-card rounded-3xl p-8 text-center">
-        <p class="font-bold text-base">Заданий в этой категории нет</p>
-        <p class="text-xs text-gray-300 mt-1">Нажмите «Добавить ДЗ» выше или в карточке нужной пары</p>
+      <div class="py-12 text-center space-y-1.5">
+        <p class="font-semibold text-[16px] text-primary-adaptive">Заданий в этой категории нет</p>
+        <p class="text-[13px] text-secondary-adaptive">Нажмите «+» сверху или откройте нужную пару в расписании</p>
       </div>`;
     return;
   }
 
-  container.innerHTML = list
-    .map((task) => {
-      const deadlineDate = String(task.deadline).slice(0, 10);
-      const overdue = !task.completed && deadlineDate < todayISO;
-      const dateLabel = formatShortDate(deadlineDate);
+  // Группируем задачи по дате дедлайна (как на референсе image_6964ee.jpg)
+  const groups = new Map();
+  for (const task of list) {
+    const dKey = String(task.deadline || todayISO).slice(0, 10);
+    if (!groups.has(dKey)) groups.set(dKey, []);
+    groups.get(dKey).push(task);
+  }
 
-      return `
-      <article data-task-card-id="${task.id}" class="ios26-card rounded-3xl p-4 space-y-2.5">
-        <div class="flex items-start gap-3">
-          <button type="button" data-toggle-task="${task.id}" class="ios-press mt-0.5 w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 ${
-        task.completed ? "bg-ios-green border-ios-green text-black" : "border-ios-orange"
-      }">
-            ${task.completed ? '<i data-lucide="check" class="w-3.5 h-3.5 stroke-[3]"></i>' : ""}
-          </button>
+  let html = "";
+  for (const [dKey, groupTasks] of groups.entries()) {
+    const groupTitle = formatTaskGroupHeader(dKey, todayISO, tomorrowISO);
+    const isOverdueGroup = state.taskFilter !== "completed" && dKey < todayISO;
 
-          <div class="flex-1 min-w-0">
-            <div class="flex items-center justify-between gap-2 mb-1 flex-wrap">
-              <span class="text-xs font-extrabold text-ios-orange truncate">${escapeHtml(task.subject)}</span>
-              <span class="text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
-                overdue ? "bg-ios-red/20 text-ios-red border border-ios-red/40" : "bg-white/10 text-gray-200"
-              }">
-                Дедлайн: ${escapeHtml(dateLabel)}
-              </span>
-            </div>
-            <p class="text-sm text-white whitespace-pre-wrap break-words ${
-              task.completed ? "line-through text-ios-gray" : ""
-            }">${escapeHtml(task.text)}</p>
-            ${renderPhotosRow(task.photos)}
+    html += `
+      <div class="space-y-1">
+        <h3 class="text-[13px] font-semibold tracking-tight pb-1 ${
+          isOverdueGroup ? "text-ios-red" : "text-primary-adaptive"
+        }">${escapeHtml(groupTitle)}</h3>
 
-            <div class="flex items-center gap-3 mt-2 pt-2 border-t border-white/10 text-xs">
-              <button type="button" data-shift-task-week="${task.id}" class="ios-press text-ios-blue font-semibold flex items-center gap-1">
-                <i data-lucide="calendar-plus" class="w-3.5 h-3.5"></i>
-                <span>+7 дней</span>
-              </button>
-              <button type="button" data-edit-task="${task.id}" class="ios-press text-gray-300 hover:text-white font-semibold ml-auto">Изменить</button>
-              <button type="button" data-delete-task="${task.id}" class="ios-press text-gray-300 hover:text-ios-red font-semibold">Удалить</button>
-            </div>
-          </div>
+        <div class="divide-y ios-divider">
+          ${groupTasks
+            .map((task) => {
+              const deadlineDate = String(task.deadline).slice(0, 10);
+              const overdue = !task.completed && deadlineDate < todayISO;
+              const isTodayDue = !task.completed && deadlineDate === todayISO;
+              const isTomorrowDue = !task.completed && deadlineDate === tomorrowISO;
+              const rightLabel = isTodayDue
+                ? "Сегодня"
+                : isTomorrowDue
+                ? "Завтра"
+                : formatCompactNumericDate(deadlineDate);
+
+              const hasPhotos = Array.isArray(task.photos) && task.photos.length > 0;
+
+              return `
+              <div data-task-card-id="${task.id}" class="py-3 flex items-start gap-3.5">
+                <button type="button" data-toggle-task="${task.id}" class="ios-press mt-0.5 w-[22px] h-[22px] rounded-full border-[1.5px] flex items-center justify-center shrink-0 transition-colors ${
+                  task.completed
+                    ? "ios-accent-btn border-transparent"
+                    : "border-white/30 hover:border-ios-accent"
+                }">
+                  ${task.completed ? '<i data-lucide="check" class="w-3.5 h-3.5 stroke-[3]"></i>' : ""}
+                </button>
+
+                <div data-edit-task="${task.id}" class="flex-1 min-w-0 cursor-pointer">
+                  <div class="flex items-start justify-between gap-2.5">
+                    <p class="text-[15px] font-medium leading-snug whitespace-pre-wrap break-words ${
+                      task.completed ? "line-through text-tertiary-adaptive" : "text-primary-adaptive"
+                    }">${escapeHtml(task.text)}</p>
+
+                    <span class="text-[12px] font-medium shrink-0 tabular-nums mt-0.5 ${
+                      overdue
+                        ? "text-ios-red"
+                        : isTodayDue
+                        ? "text-ios-accent"
+                        : "text-secondary-adaptive"
+                    }">${escapeHtml(rightLabel)}</span>
+                  </div>
+
+                  <div class="flex items-center gap-2 mt-1 text-[12px] text-secondary-adaptive">
+                    <span class="truncate">${escapeHtml(task.subject)}</span>
+                    ${
+                      hasPhotos
+                        ? `<span class="inline-flex items-center gap-1 text-ios-accent shrink-0">· <i data-lucide="image" class="w-3 h-3"></i> ${task.photos.length}</span>`
+                        : ""
+                    }
+                  </div>
+                </div>
+              </div>
+            `;
+            })
+            .join("")}
         </div>
-      </article>
+      </div>
     `;
-    })
-    .join("");
+  }
 
-  // 2. Last + Invert + Play: сдвигаем карточки со старых мест на новые пружиной
+  container.innerHTML = html;
+
+  // 2. Last + Invert + Play: FLIP-сдвиг строк пружиной
   if (prevRects.size > 0 && !isReducedMotion() && state.activeTab === "tasks") {
-    container.querySelectorAll("article[data-task-card-id]").forEach((el) => {
+    container.querySelectorAll("[data-task-card-id]").forEach((el) => {
       const id = el.dataset.taskCardId;
       const oldRect = prevRects.get(id);
       const newRect = el.getBoundingClientRect();
@@ -2265,25 +2145,6 @@ function renderTasks() {
             }
           );
         }
-      } else {
-        // Новая карточка мягко вырастает
-        el.style.willChange = "transform, opacity";
-        animateTrackedSpring(
-          `enter_task_${id}`,
-          0,
-          1,
-          SPRING_SNAPPY,
-          (p) => {
-            el.style.opacity = String(Math.min(1, Math.max(0, p)));
-            const sc = 0.92 + 0.08 * p;
-            el.style.transform = `scale(${sc})`;
-          },
-          () => {
-            el.style.opacity = "";
-            el.style.transform = "";
-            el.style.willChange = "";
-          }
-        );
       }
     });
   } else if (state.animateNextCascade) {
@@ -2294,7 +2155,7 @@ function renderTasks() {
 }
 
 // ============================================================================
-// 14. РЕНДЕРИНГ РАЗДЕЛА ЗАМЕТОК
+// 14. РЕНДЕРИНГ ЗАМЕТОК (APPLE NOTES LIST + ПОИСК, ПО РЕФЕРЕНСУ)
 // ============================================================================
 function renderNotes() {
   const container = document.getElementById("notes-list");
@@ -2308,86 +2169,68 @@ function renderNotes() {
     list = list.filter((n) => !n.subject);
   }
 
+  const q = state.noteSearchQuery.trim().toLowerCase();
+  if (q) {
+    list = list.filter(
+      (n) =>
+        String(n.title || "").toLowerCase().includes(q) ||
+        String(n.content || "").toLowerCase().includes(q) ||
+        String(n.subject || "").toLowerCase().includes(q)
+    );
+  }
+
   list.sort((a, b) => Number(Boolean(b.pinned)) - Number(Boolean(a.pinned)));
 
   if (list.length === 0) {
     container.innerHTML = `
-      <div class="ios26-card rounded-3xl p-8 text-center">
-        <p class="font-bold text-base">Заметок пока нет</p>
-        <p class="text-xs text-gray-300 mt-1">Создайте заметку в поле выше</p>
+      <div class="py-12 text-center space-y-1.5">
+        <p class="font-semibold text-[16px] text-primary-adaptive">${q ? "Ничего не найдено" : "Заметок пока нет"}</p>
+        <p class="text-[13px] text-secondary-adaptive">${q ? "Попробуйте изменить поисковый запрос" : "Нажмите «+» сверху, чтобы создать заметку"}</p>
       </div>`;
     return;
   }
 
   container.innerHTML = list
     .map((note) => {
-      const hasSubject = Boolean(note.subject);
-      const hasDate = Boolean(note.date);
-      const hasNotify = Boolean(note.notifyEnabled && note.notifyTime);
+      const subParts = [];
+      subParts.push(note.subject ? escapeHtml(note.subject) : "Личное");
+      if (note.date) subParts.push(escapeHtml(formatCompactNumericDate(note.date)));
+      if (Array.isArray(note.photos) && note.photos.length > 0) {
+        subParts.push(`Фото (${note.photos.length})`);
+      }
 
       return `
-      <article class="ios26-card rounded-3xl p-4 space-y-2.5 ${note.pinned ? "border-ios-orange/50" : ""}">
-        <div class="flex items-start justify-between gap-2">
-          <input
-            type="text"
-            data-note-title-input="${note.id}"
-            value="${escapeHtml(note.title || "")}"
-            placeholder="Название"
-            class="flex-1 min-w-0 bg-transparent font-extrabold text-base text-white placeholder-gray-400 outline-none"
-          />
-          <div class="flex items-center gap-1 shrink-0">
-            <button type="button" data-toggle-pin-note="${note.id}" class="ios-press p-1.5 rounded-full ${note.pinned ? "text-ios-orange bg-ios-orange/15" : "text-gray-400 hover:text-white"}" title="Закрепить">
-              <i data-lucide="pin" class="w-4 h-4"></i>
-            </button>
-            <button type="button" data-edit-note="${note.id}" class="ios-press text-gray-300 hover:text-white p-1.5" title="Настроить">
-              <i data-lucide="sliders-horizontal" class="w-4 h-4"></i>
-            </button>
-            <button type="button" data-delete-note="${note.id}" class="ios-press text-gray-300 hover:text-ios-red p-1.5" title="Удалить">
-              <i data-lucide="trash-2" class="w-4 h-4"></i>
-            </button>
+      <div data-edit-note="${note.id}" class="py-3.5 flex items-center justify-between gap-3 cursor-pointer active:opacity-70 transition-opacity">
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-1.5">
+            ${note.pinned ? `<i data-lucide="pin" class="w-3.5 h-3.5 text-ios-accent shrink-0"></i>` : ""}
+            <h3 class="text-[15px] font-semibold text-primary-adaptive truncate">
+              ${escapeHtml(note.title || "Без названия")}
+            </h3>
+          </div>
+          <p class="text-[13px] text-secondary-adaptive truncate mt-0.5">
+            ${escapeHtml(note.content || "Нет дополнительного текста")}
+          </p>
+          <div class="flex items-center gap-2 mt-1 text-[12px] text-tertiary-adaptive">
+            <span>${subParts.join(" · ")}</span>
+            ${
+              note.notifyEnabled && note.notifyTime
+                ? `<span class="text-ios-accent inline-flex items-center gap-1"><i data-lucide="bell" class="w-3 h-3"></i>${escapeHtml(
+                    new Date(note.notifyTime).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })
+                  )}</span>`
+                : ""
+            }
           </div>
         </div>
-
-        <textarea
-          data-note-input="${note.id}"
-          rows="3"
-          placeholder="Заметка..."
-          class="w-full bg-black/30 rounded-2xl p-3 text-xs text-white placeholder-gray-400 outline-none resize-y leading-relaxed"
-        >${escapeHtml(note.content || "")}</textarea>
-
-        ${renderPhotosRow(note.photos)}
-
-        ${
-          hasSubject || hasDate || hasNotify
-            ? `<div class="flex items-center gap-1.5 flex-wrap pt-1">
-                ${
-                  hasSubject
-                    ? `<span class="text-[10px] font-bold px-2.5 py-1 rounded-full bg-ios-orange/20 text-ios-orange flex items-center gap-1">
-                        <i data-lucide="graduation-cap" class="w-3 h-3"></i>${escapeHtml(note.subject)}
-                      </span>`
-                    : ""
-                }
-                ${
-                  hasDate
-                    ? `<span class="text-[10px] font-bold px-2.5 py-1 rounded-full bg-ios-blue/20 text-ios-blue flex items-center gap-1">
-                        <i data-lucide="calendar" class="w-3 h-3"></i>${escapeHtml(formatShortDate(note.date))}
-                      </span>`
-                    : ""
-                }
-                ${
-                  hasNotify
-                    ? `<span class="text-[10px] font-bold px-2.5 py-1 rounded-full bg-ios-green/20 text-ios-green flex items-center gap-1">
-                        <i data-lucide="bell-ring" class="w-3 h-3"></i>${escapeHtml(new Date(note.notifyTime).toLocaleString("ru-RU", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }))}
-                      </span>`
-                    : ""
-                }
-              </div>`
-            : ""
-        }
-      </article>
+        <i data-lucide="chevron-right" class="w-4 h-4 text-tertiary-adaptive shrink-0"></i>
+      </div>
     `;
     })
     .join("");
+
+  if (state.animateNextCascade) {
+    triggerCascadeOnce(container);
+  }
   refreshIcons();
 }
 
@@ -2398,21 +2241,21 @@ function renderHiddenClassesModal() {
   const container = document.getElementById("hidden-classes-list");
   if (!container) return;
   if (state.hiddenRules.length === 0) {
-    container.innerHTML = `<div class="p-6 text-center text-xs text-gray-300">Скрытых пар сейчас нет. Все дисциплины отображаются в расписании.</div>`;
+    container.innerHTML = `<div class="py-8 text-center text-[13px] text-secondary-adaptive">Скрытых пар сейчас нет. Все дисциплины отображаются в расписании.</div>`;
     return;
   }
 
   container.innerHTML = state.hiddenRules
     .map(
       (rule) => `
-    <div class="bg-ios-elevated rounded-2xl p-3.5 flex items-center justify-between gap-3">
+    <div class="py-3.5 flex items-center justify-between gap-3">
       <div class="min-w-0">
-        <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded-md ${rule.mode === "forever" ? "bg-ios-red/20 text-ios-red" : "bg-ios-orange/20 text-ios-orange"}">
+        <span class="text-[11px] font-semibold ${rule.mode === "forever" ? "text-ios-red" : "text-ios-accent"}">
           ${rule.mode === "forever" ? "Скрыто насовсем" : `Только на неделе №${rule.weekNum}`}
         </span>
-        <p class="text-sm font-bold text-white truncate mt-1">${escapeHtml(rule.subject)}</p>
+        <p class="text-[15px] font-medium text-primary-adaptive truncate mt-0.5">${escapeHtml(rule.subject)}</p>
       </div>
-      <button type="button" data-restore-hidden="${rule.id}" class="ios-press px-3 py-1.5 rounded-xl bg-ios-green/20 border border-ios-green/40 text-ios-green text-xs font-bold shrink-0">
+      <button type="button" data-restore-hidden="${rule.id}" class="ios-press px-3.5 py-1.5 rounded-full ios-accent-soft-btn text-[12px] font-semibold shrink-0">
         Вернуть
       </button>
     </div>
@@ -2432,7 +2275,9 @@ function applyTaskTargetMode(mode) {
   state.taskTargetMode = mode;
   document.querySelectorAll(".task-target-btn").forEach((btn) => {
     const active = btn.dataset.taskTarget === mode;
-    btn.className = `task-target-btn py-2 rounded-xl text-xs font-bold transition-all ${active ? "ios-active-orange" : "text-ios-gray"}`;
+    btn.className = `task-target-btn ios-press py-2 rounded-[11px] text-[12px] font-semibold transition-all ${
+      active ? "ios-seg-active" : "text-secondary-adaptive"
+    }`;
   });
 
   const subj = document.getElementById("task-subject")?.value.trim() || "";
@@ -2458,7 +2303,9 @@ function applyNoteTargetMode(mode) {
   state.noteTargetMode = mode;
   document.querySelectorAll(".note-target-btn").forEach((btn) => {
     const active = btn.dataset.noteTarget === mode;
-    btn.className = `note-target-btn py-1.5 rounded-lg text-[11px] font-bold transition-all ${active ? "ios-active-orange" : "text-ios-gray"}`;
+    btn.className = `note-target-btn ios-press py-1.5 rounded-[11px] text-[11px] font-semibold transition-all ${
+      active ? "ios-seg-active" : "text-secondary-adaptive"
+    }`;
   });
 
   const subj = document.getElementById("note-subject")?.value.trim() || "";
@@ -2494,8 +2341,8 @@ function renderDraftPhotos(containerId, photosArray, type) {
     .map(
       (src, idx) => `
     <div class="relative shrink-0">
-      <img src="${src}" class="w-16 h-16 rounded-xl object-cover border border-white/20" />
-      <button type="button" data-remove-draft-photo="${type}:${idx}" class="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-ios-red text-white text-[10px] font-bold flex items-center justify-center">✕</button>
+      <img src="${src}" data-view-photo="${src}" class="w-16 h-16 rounded-xl object-cover border ios-divider cursor-pointer" />
+      <button type="button" data-remove-draft-photo="${type}:${idx}" class="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-ios-red text-white text-[10px] font-bold flex items-center justify-center shadow">✕</button>
     </div>
   `
     )
@@ -2506,32 +2353,20 @@ function setScopeMode(scope) {
   state.addScope = scope;
   document.querySelectorAll(".scope-btn").forEach((btn) => {
     const active = btn.dataset.scope === scope;
-    btn.className = `scope-btn py-1.5 rounded-xl text-[11px] font-bold transition-all ${active ? "ios-active-orange" : "text-ios-gray"}`;
+    btn.className = `scope-btn ios-press py-1.5 rounded-[11px] text-[11px] font-semibold transition-all ${
+      active ? "ios-seg-active" : "text-secondary-adaptive"
+    }`;
   });
   document.getElementById("scope-box-date")?.classList.toggle("hidden", scope !== "date");
   document.getElementById("scope-box-week")?.classList.toggle("hidden", scope !== "week" && scope !== "next-week");
   document.getElementById("scope-box-semester")?.classList.toggle("hidden", scope !== "semester");
 }
 
-function resetKeepComposer() {
-  state.keepDraft.pinned = false;
-  state.keepDraft.photos = [];
-  const t = document.getElementById("keep-title-input");
-  const c = document.getElementById("keep-content-input");
-  const s = document.getElementById("keep-subject-input");
-  const d = document.getElementById("keep-date-input");
-  const n = document.getElementById("keep-notify-input");
-  if (t) t.value = "";
-  if (c) c.value = "";
-  if (s) s.value = "";
-  if (d) d.value = "";
-  if (n) n.value = "";
-  document.getElementById("keep-panel-subject")?.classList.add("hidden");
-  document.getElementById("keep-panel-date")?.classList.add("hidden");
-  document.getElementById("keep-panel-notify")?.classList.add("hidden");
-  const pinBtn = document.getElementById("keep-pin-btn");
-  if (pinBtn) pinBtn.className = "ios-press w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-ios-orange shrink-0";
-  renderDraftPhotos("keep-photos-preview", state.keepDraft.photos, "keep");
+function syncNoteModalPinUI() {
+  const pinBtn = document.getElementById("note-modal-pin-btn");
+  if (!pinBtn) return;
+  pinBtn.classList.toggle("ios-accent-soft-btn", state.noteModalPinned);
+  pinBtn.classList.toggle("text-secondary-adaptive", !state.noteModalPinned);
 }
 
 // ============================================================================
@@ -2540,10 +2375,10 @@ function resetKeepComposer() {
 function initUIListeners() {
   initPhotoViewerGestures();
 
-  // Кнопка показа расписания на всю неделю (как в Google Календаре)
+  // Обзор всей недели
   document.getElementById("btn-week-grid-toggle")?.addEventListener("click", () => {
     if (state.activeTab !== "schedule") {
-      document.querySelector('[data-tab="schedule"]')?.click();
+      switchTabWithSpring("schedule");
     }
     toggleWeekGridView();
   });
@@ -2553,7 +2388,7 @@ function initUIListeners() {
 
   document.querySelectorAll(".week-layout-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
-      state.weekLayout = btn.dataset.weekLayout || "cards";
+      state.weekLayout = btn.dataset.weekLayout || "list";
       localStorage.setItem("diary_week_layout_v1", state.weekLayout);
       renderWeekGridTable();
     });
@@ -2566,7 +2401,7 @@ function initUIListeners() {
     try {
       const compressedBg = await compressImageFile(file, 1400, 0.78);
       localStorage.setItem("diary_custom_bg_img_v6", compressedBg);
-      localStorage.setItem("diary_bg_mode_v6", "custom");
+      localStorage.setItem("diary_bg_mode_v7", "custom");
       if (window.__applyDiaryAppearance) window.__applyDiaryAppearance();
       showInAppToast("Фон обновлен", "Ваш фон из галереи установлен.");
     } catch {
@@ -2577,7 +2412,7 @@ function initUIListeners() {
 
   document.getElementById("btn-clear-custom-bg")?.addEventListener("click", () => {
     localStorage.removeItem("diary_custom_bg_img_v6");
-    localStorage.setItem("diary_bg_mode_v6", isLightMode() ? "white" : "black");
+    localStorage.setItem("diary_bg_mode_v7", "abstract");
     if (window.__applyDiaryAppearance) window.__applyDiaryAppearance();
   });
 
@@ -2589,18 +2424,7 @@ function initUIListeners() {
     if (window.__applyDiaryAppearance) window.__applyDiaryAppearance();
   });
 
-  // Модальное окно уведомлений
-  document.getElementById("btn-notifications")?.addEventListener("click", () => {
-    closeModal("modal-tools");
-    updateNotifPermissionStatusUI();
-    openModal("modal-notifications");
-  });
-  document.getElementById("btn-open-notif-from-tools")?.addEventListener("click", () => {
-    closeModal("modal-tools");
-    updateNotifPermissionStatusUI();
-    openModal("modal-notifications");
-  });
-
+  // Разрешение уведомлений и тумблеры
   document.getElementById("btn-request-notif-permission")?.addEventListener("click", async () => {
     if (!("Notification" in window)) {
       showInAppToast("Уведомления активны", "В вашем браузере включены внутриэкранные уведомления.");
@@ -2609,7 +2433,7 @@ function initUIListeners() {
     const perm = await Notification.requestPermission();
     updateNotifPermissionStatusUI();
     if (perm === "granted") {
-      sendAppNotification("Уведомления включены!", "Мы напомним о парах, дедлайнах ДЗ и заметках.");
+      sendAppNotification("Уведомления включены", "Мы напомним о парах, дедлайнах ДЗ и заметках.");
     }
   });
 
@@ -2628,6 +2452,21 @@ function initUIListeners() {
 
   document.getElementById("btn-test-notification")?.addEventListener("click", () => {
     sendAppNotification("Тестовое уведомление", "Уведомления работают отлично!");
+  });
+  document.getElementById("btn-test-notification-alt")?.addEventListener("click", () => {
+    sendAppNotification("Тестовое уведомление", "Уведомления работают отлично!");
+  });
+
+  // Тумблер показа мероприятий в настройках
+  document.getElementById("toggle-events-switch")?.addEventListener("change", (e) => {
+    state.showEvents = Boolean(e.target.checked);
+    localStorage.setItem("diary_show_events_v4", String(state.showEvents));
+    renderScheduleSection();
+  });
+  document.getElementById("btn-hide-events-inline")?.addEventListener("click", () => {
+    state.showEvents = false;
+    localStorage.setItem("diary_show_events_v4", "false");
+    renderScheduleSection();
   });
 
   // Навигация по неделям и дням с плавным перелистыванием
@@ -2660,7 +2499,7 @@ function initUIListeners() {
     }
   });
 
-  // Переключение дней недели на ПК стрелками клавиатуры (← / →, а с Shift — целая неделя)
+  // Переключение дней недели на ПК стрелками клавиатуры
   document.addEventListener("keydown", (e) => {
     if (state.activeTab !== "schedule") return;
     const tag = document.activeElement?.tagName;
@@ -2677,21 +2516,13 @@ function initUIListeners() {
     }
   });
 
-  // Двухпанельный интерактивный свайп дней (и свайп вкладок) с трекером скорости пальца
+  // Двухпанельный интерактивный свайп дней и вкладок + физика кнопок и шторок
   ensureDaySwipeViewport();
   initInteractiveDayAndTabSwipes();
   initPressAndIslandPhysics();
   initBottomSheetsPhysics();
 
-  // Скрытие / показ мероприятий
-  const toggleEventsVisibility = () => {
-    state.showEvents = !state.showEvents;
-    localStorage.setItem("diary_show_events_v4", String(state.showEvents));
-    renderScheduleSection();
-  };
-  document.getElementById("btn-toggle-events")?.addEventListener("click", toggleEventsVisibility);
-  document.getElementById("btn-hide-events-inline")?.addEventListener("click", toggleEventsVisibility);
-
+  // Добавление мероприятия
   document.getElementById("btn-add-event")?.addEventListener("click", () => {
     document.getElementById("form-event")?.reset();
     const editId = document.getElementById("event-edit-id");
@@ -2701,7 +2532,7 @@ function initUIListeners() {
     const st = document.getElementById("event-start");
     const et = document.getElementById("event-end");
     if (editId) editId.value = "";
-    if (title) title.textContent = "Новое мероприятие";
+    if (title) title.textContent = "Новое событие";
     if (df) df.value = state.selectedDate;
     if (dt) dt.value = "";
     if (st) st.value = "";
@@ -2755,80 +2586,21 @@ function initUIListeners() {
     closeModal("modal-event");
   });
 
-  // Конструктор заметок
-  document.getElementById("keep-pin-btn")?.addEventListener("click", () => {
-    state.keepDraft.pinned = !state.keepDraft.pinned;
-    const btn = document.getElementById("keep-pin-btn");
-    if (btn) {
-      btn.className = `ios-press w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
-        state.keepDraft.pinned ? "bg-ios-orange/20 text-ios-orange" : "text-gray-400 hover:text-ios-orange"
-      }`;
-    }
+  // Поиск по заметкам
+  document.getElementById("notes-search-input")?.addEventListener("input", (e) => {
+    state.noteSearchQuery = e.target.value || "";
+    renderNotes();
   });
 
-  document.querySelectorAll("[data-toggle-keep-opt]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const opt = btn.dataset.toggleKeepOpt;
-      const panel = document.getElementById(`keep-panel-${opt}`);
-      if (!panel) return;
-      panel.classList.toggle("hidden");
-      if (!panel.classList.contains("hidden")) {
-        const input = panel.querySelector("input");
-        if (opt === "date" && input && !input.value) input.value = state.selectedDate;
-        if (input) input.focus();
-      }
-    });
+  // Закрепление заметки в модальном окне
+  document.getElementById("note-modal-pin-btn")?.addEventListener("click", () => {
+    state.noteModalPinned = !state.noteModalPinned;
+    syncNoteModalPinUI();
   });
 
-  document.querySelectorAll("[data-clear-keep-opt]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const opt = btn.dataset.clearKeepOpt;
-      const panel = document.getElementById(`keep-panel-${opt}`);
-      if (panel) {
-        const input = panel.querySelector("input");
-        if (input) input.value = "";
-        panel.classList.add("hidden");
-      }
-    });
-  });
-
-  document.getElementById("keep-photo-input")?.addEventListener("change", async (e) => {
-    const files = [...(e.target.files || [])];
-    for (const f of files) {
-      const dataUrl = await compressImageFile(f);
-      state.keepDraft.photos.push(dataUrl);
-    }
-    renderDraftPhotos("keep-photos-preview", state.keepDraft.photos, "keep");
-    e.target.value = "";
-  });
-
-  document.getElementById("keep-btn-clear")?.addEventListener("click", resetKeepComposer);
-
-  document.getElementById("keep-btn-save")?.addEventListener("click", async () => {
-    const title = document.getElementById("keep-title-input")?.value.trim() || "";
-    const content = document.getElementById("keep-content-input")?.value.trim() || "";
-    const subject = document.getElementById("keep-subject-input")?.value.trim() || "";
-    const date = document.getElementById("keep-date-input")?.value || "";
-    const notifyTime = document.getElementById("keep-notify-input")?.value || "";
-
-    if (!title && !content && state.keepDraft.photos.length === 0) {
-      document.getElementById("keep-content-input")?.focus();
-      return;
-    }
-
-    await saveNoteItem({
-      id: `note_${Date.now()}`,
-      title: title || (subject ? `Заметка: ${subject}` : "Без названия"),
-      content,
-      subject: subject || "",
-      date: date || "",
-      pinned: state.keepDraft.pinned,
-      photos: [...state.keepDraft.photos],
-      notifyEnabled: Boolean(notifyTime),
-      notifyTime: notifyTime || ""
-    });
-
-    resetKeepComposer();
+  // Показ/скрытие поля времени уведомления в модалке заметки
+  document.getElementById("note-notify-enabled")?.addEventListener("change", (e) => {
+    document.getElementById("note-notify-time-wrap")?.classList.toggle("hidden", !e.target.checked);
   });
 
   document.querySelectorAll(".scope-btn").forEach((btn) => {
@@ -2844,6 +2616,7 @@ function initUIListeners() {
     }
   });
 
+  // Универсальная кнопка "+" в верхней шапке
   document.getElementById("btn-header-add")?.addEventListener("click", () => {
     if (state.activeTab === "schedule") {
       document.getElementById("form-schedule")?.reset();
@@ -2853,7 +2626,7 @@ function initUIListeners() {
       const sDate = document.getElementById("sched-date");
       const semDay = document.getElementById("sched-sem-day");
       if (editId) editId.value = "";
-      if (title) title.textContent = "Добавить пару";
+      if (title) title.textContent = "Новая пара";
       wrap?.classList.remove("hidden");
       if (sDate) sDate.value = state.selectedDate;
       const rawDay = parseDateISO(state.selectedDate).getDay();
@@ -2867,13 +2640,14 @@ function initUIListeners() {
     } else if (state.activeTab === "tasks") {
       openTaskModalFor(null);
     } else {
-      document.getElementById("keep-title-input")?.focus();
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      openNoteModalFor(null);
     }
   });
 
   document.getElementById("btn-new-task-top")?.addEventListener("click", () => openTaskModalFor(null));
+  document.getElementById("btn-new-note-top")?.addEventListener("click", () => openNoteModalFor(null));
 
+  // Скрытые пары
   const openHiddenModal = () => {
     closeModal("modal-tools");
     renderHiddenClassesModal();
@@ -2881,7 +2655,6 @@ function initUIListeners() {
   };
   document.getElementById("btn-hidden-classes")?.addEventListener("click", openHiddenModal);
   document.getElementById("btn-open-hidden-inline")?.addEventListener("click", openHiddenModal);
-  document.getElementById("btn-open-hidden-from-tools")?.addEventListener("click", openHiddenModal);
 
   document.getElementById("btn-restore-all-hidden")?.addEventListener("click", async () => {
     const ids = state.hiddenRules.map((r) => r.id);
@@ -3039,25 +2812,52 @@ function initUIListeners() {
     closeModal("modal-task");
   });
 
+  // Удаление ДЗ из модального окна редактирования
+  document.getElementById("btn-delete-task-from-modal")?.addEventListener("click", async () => {
+    const id = document.getElementById("task-edit-id")?.value;
+    if (!id) return;
+    closeModal("modal-task");
+    if (state.user && db) await deleteDoc(doc(db, "users", state.user.uid, "tasks", id));
+    else {
+      state.tasks = state.tasks.filter((t) => t.id !== id);
+      saveLocalData();
+      renderTasks();
+      renderScheduleSection();
+    }
+  });
+
   document.getElementById("form-note")?.addEventListener("submit", async (e) => {
     e.preventDefault();
     const editId = document.getElementById("note-edit-id")?.value || "";
-    const existing = state.notes.find((n) => n.id === editId);
     const title = document.getElementById("note-title")?.value.trim() || "";
     const subject = document.getElementById("note-subject")?.value.trim() || "";
     const noteObj = {
       id: editId || `note_${Date.now()}`,
-      title: title || (subject ? `Заметка: ${subject}` : "Заметка"),
+      title: title || (subject ? `Заметка: ${subject}` : "Без названия"),
       content: document.getElementById("note-content")?.value.trim() || "",
       subject,
       date: document.getElementById("note-date")?.value || "",
-      pinned: existing ? Boolean(existing.pinned) : false,
+      pinned: Boolean(state.noteModalPinned),
       photos: [...state.draftNotePhotos],
       notifyEnabled: Boolean(document.getElementById("note-notify-enabled")?.checked),
       notifyTime: document.getElementById("note-notify-time")?.value || ""
     };
     await saveNoteItem(noteObj);
     closeModal("modal-note");
+  });
+
+  // Удаление заметки из модального окна редактирования
+  document.getElementById("btn-delete-note-from-modal")?.addEventListener("click", async () => {
+    const id = document.getElementById("note-edit-id")?.value;
+    if (!id) return;
+    closeModal("modal-note");
+    if (state.user && db) await deleteDoc(doc(db, "users", state.user.uid, "notes", id));
+    else {
+      state.notes = state.notes.filter((n) => n.id !== id);
+      saveLocalData();
+      renderNotes();
+      renderScheduleSection();
+    }
   });
 
   document.getElementById("google-keep-import-input")?.addEventListener("change", async (e) => {
@@ -3140,7 +2940,9 @@ function initUIListeners() {
       state.taskFilter = btn.dataset.status;
       document.querySelectorAll(".task-filter-tab").forEach((b) => {
         const active = b.dataset.status === state.taskFilter;
-        b.className = `task-filter-tab ios-press py-2 rounded-full text-xs font-bold transition-all ${active ? "bg-white/15 text-white shadow" : "text-ios-gray"}`;
+        b.className = `task-filter-tab ios-press py-2 rounded-[11px] text-[13px] font-semibold transition-all ${
+          active ? "ios-seg-active" : "text-secondary-adaptive"
+        }`;
       });
       renderTasks();
     });
@@ -3151,7 +2953,9 @@ function initUIListeners() {
       state.noteFilter = btn.dataset.noteFilter;
       document.querySelectorAll(".note-filter-tab").forEach((b) => {
         const active = b.dataset.noteFilter === state.noteFilter;
-        b.className = `note-filter-tab ios-press py-1.5 rounded-full text-xs font-bold transition-all ${active ? "bg-white/15 text-white shadow" : "text-ios-gray"}`;
+        b.className = `note-filter-tab ios-press py-1.5 rounded-[11px] text-[13px] font-semibold transition-all ${
+          active ? "ios-seg-active" : "text-secondary-adaptive"
+        }`;
       });
       renderNotes();
     });
@@ -3183,7 +2987,7 @@ function initUIListeners() {
       return;
     }
 
-    // Клик по дню или карточке пары в сетке на всю неделю -> переход к этому дню
+    // Клик по дню в сетке на всю неделю -> переход к этому дню
     const gridPick = e.target.closest("[data-grid-pick-date]");
     if (gridPick) {
       state.selectedDate = gridPick.dataset.gridPickDate;
@@ -3209,9 +3013,6 @@ function initUIListeners() {
       if (type === "task") {
         state.draftTaskPhotos.splice(idx, 1);
         renderDraftPhotos("task-photos-preview", state.draftTaskPhotos, "task");
-      } else if (type === "keep") {
-        state.keepDraft.photos.splice(idx, 1);
-        renderDraftPhotos("keep-photos-preview", state.keepDraft.photos, "keep");
       } else {
         state.draftNotePhotos.splice(idx, 1);
         renderDraftPhotos("note-photos-preview", state.draftNotePhotos, "note");
@@ -3232,10 +3033,10 @@ function initUIListeners() {
       const ev = state.events.find((x) => x.id === editEventBtn.dataset.editEvent);
       if (!ev) return;
       document.getElementById("event-edit-id").value = ev.id;
-      document.getElementById("modal-event-title").textContent = "Изменить мероприятие";
+      document.getElementById("modal-event-title").textContent = "Изменить событие";
       document.getElementById("event-title").value = ev.title;
       document.getElementById("event-date-from").value = ev.date;
-      document.getElementById("event-date-to").value = ev.date;
+      document.getElementById("event-date-to").value = "";
       document.getElementById("event-start").value = ev.startTime;
       document.getElementById("event-end").value = ev.endTime;
       document.getElementById("event-location").value = ev.location || "";
@@ -3251,6 +3052,9 @@ function initUIListeners() {
       if (newTopic !== null) {
         item.topic = newTopic.trim();
         await saveScheduleItems([item]);
+        if (!document.getElementById("modal-item-details")?.classList.contains("hidden")) {
+          openClassDetailsModal(item.id);
+        }
       }
       return;
     }
@@ -3264,6 +3068,7 @@ function initUIListeners() {
 
     const editTaskBtn = e.target.closest("[data-edit-task]");
     if (editTaskBtn) {
+      closeModal("modal-item-details");
       const task = state.tasks.find((t) => t.id === editTaskBtn.dataset.editTask);
       if (!task) return;
       state.contextClassItem = null;
@@ -3274,6 +3079,7 @@ function initUIListeners() {
       document.getElementById("task-text").value = task.text;
       document.getElementById("task-deadline").value = String(task.deadline).slice(0, 10);
       document.getElementById("task-completed").checked = Boolean(task.completed);
+      document.getElementById("btn-delete-task-from-modal")?.classList.remove("hidden");
       renderDraftPhotos("task-photos-preview", state.draftTaskPhotos, "task");
       openModal("modal-task");
       return;
@@ -3295,28 +3101,6 @@ function initUIListeners() {
       return;
     }
 
-    const inlineNoteSaveBtn = e.target.closest("[data-inline-note-save]");
-    if (inlineNoteSaveBtn) {
-      const classId = inlineNoteSaveBtn.dataset.inlineNoteSave;
-      const area = document.querySelector(`[data-inline-note-input="${classId}"]`);
-      const item = state.schedule.find((s) => s.id === classId);
-      if (item && area && area.value.trim()) {
-        await saveNoteItem({
-          id: `note_${Date.now()}`,
-          title: item.topic ? `${item.subject}: ${item.topic}` : item.subject,
-          subject: item.subject,
-          date: item.date,
-          content: area.value.trim(),
-          pinned: false,
-          photos: [],
-          notifyEnabled: false,
-          notifyTime: ""
-        });
-        area.value = "";
-      }
-      return;
-    }
-
     const pinNoteBtn = e.target.closest("[data-toggle-pin-note]");
     if (pinNoteBtn) {
       const note = state.notes.find((n) => n.id === pinNoteBtn.dataset.togglePinNote);
@@ -3328,18 +3112,23 @@ function initUIListeners() {
 
     const editNoteBtn = e.target.closest("[data-edit-note]");
     if (editNoteBtn) {
+      closeModal("modal-item-details");
       const note = state.notes.find((n) => n.id === editNoteBtn.dataset.editNote);
       if (!note) return;
       state.contextClassItem = null;
       state.draftNotePhotos = [...(note.photos || [])];
+      state.noteModalPinned = Boolean(note.pinned);
+      syncNoteModalPinUI();
       document.getElementById("note-edit-id").value = note.id;
-      document.getElementById("modal-note-title").textContent = "Изменить заметку";
+      document.getElementById("modal-note-title").textContent = "Заметка";
       document.getElementById("note-title").value = note.title || "";
       document.getElementById("note-subject").value = note.subject || "";
       document.getElementById("note-date").value = note.date || "";
       document.getElementById("note-content").value = note.content || "";
       document.getElementById("note-notify-enabled").checked = Boolean(note.notifyEnabled);
       document.getElementById("note-notify-time").value = note.notifyTime || "";
+      document.getElementById("note-notify-time-wrap")?.classList.toggle("hidden", !note.notifyEnabled);
+      document.getElementById("btn-delete-note-from-modal")?.classList.remove("hidden");
       applyNoteTargetMode(note.date ? "custom" : "none");
       renderDraftPhotos("note-photos-preview", state.draftNotePhotos, "note");
       openModal("modal-note");
@@ -3348,6 +3137,7 @@ function initUIListeners() {
 
     const copyNextWeekBtn = e.target.closest("[data-copy-next-week]");
     if (copyNextWeekBtn) {
+      closeModal("modal-item-details");
       const item = state.schedule.find((s) => s.id === copyNextWeekBtn.dataset.copyNextWeek);
       if (!item) return;
       const nextDate = addDaysISO(item.date, 7);
@@ -3359,6 +3149,7 @@ function initUIListeners() {
       await saveScheduleItems([copyItem]);
       state.selectedDate = nextDate;
       renderScheduleSection();
+      showInAppToast("Пара скопирована", `Добавлена на ${formatShortDate(nextDate)}`);
       return;
     }
 
@@ -3396,14 +3187,14 @@ function initUIListeners() {
       if (!item) return;
       state.pendingDeleteItem = item;
       const info = document.getElementById("delete-sched-info");
-      if (info) info.textContent = `${item.number} пара • ${item.subject} (${formatShortDate(item.date)})`;
+      if (info) info.textContent = `${item.number} пара · ${item.subject} (${formatShortDate(item.date)})`;
       openModal("modal-delete-schedule");
       return;
     }
 
     const collapseTaskCardIfInList = (taskId) =>
       new Promise((resolve) => {
-        const card = document.querySelector(`#tasks-list article[data-task-card-id="${taskId}"]`);
+        const card = document.querySelector(`#tasks-list [data-task-card-id="${taskId}"]`);
         if (!card || isReducedMotion() || state.activeTab !== "tasks") {
           resolve();
           return;
@@ -3419,8 +3210,8 @@ function initUIListeners() {
           (p) => {
             const clamped = Math.max(0, p);
             card.style.opacity = String(clamped);
-            card.style.transform = `scale(${0.92 + 0.08 * clamped})`;
-            card.style.marginBottom = `${(clamped - 1) * (h + 12)}px`;
+            card.style.transform = `translate3d(${(1 - clamped) * 24}px, 0, 0)`;
+            card.style.marginBottom = `${(clamped - 1) * h}px`;
           },
           () => resolve()
         );
@@ -3468,82 +3259,20 @@ function initUIListeners() {
       }
     }
   });
-
-  document.addEventListener("keydown", async (e) => {
-    if (e.key !== "Enter") return;
-    const area = e.target.closest("[data-inline-note-input]");
-    if (!area) return;
-
-    const isMobileTouch = window.matchMedia("(pointer: coarse)").matches || "ontouchstart" in window;
-    if (e.shiftKey || isMobileTouch) return;
-
-    e.preventDefault();
-    const classId = area.dataset.inlineNoteInput;
-    const item = state.schedule.find((s) => s.id === classId);
-    if (item && area.value.trim()) {
-      await saveNoteItem({
-        id: `note_${Date.now()}`,
-        title: item.topic ? `${item.subject}: ${item.topic}` : item.subject,
-        subject: item.subject,
-        date: item.date,
-        content: area.value.trim(),
-        pinned: false,
-        photos: [],
-        notifyEnabled: false,
-        notifyTime: ""
-      });
-      area.value = "";
-    }
-  });
-
-  document.addEventListener("input", (e) => {
-    const contentArea = e.target.closest("[data-note-input]");
-    const titleInput = e.target.closest("[data-note-title-input]");
-    if (!contentArea && !titleInput) return;
-
-    const noteId = contentArea ? contentArea.dataset.noteInput : titleInput.dataset.noteTitleInput;
-    const statusEl = document.getElementById("note-save-status");
-    if (statusEl) {
-      statusEl.textContent = "Печатает...";
-      statusEl.className = "text-[10px] font-semibold text-ios-orange bg-ios-orange/15 px-2 py-0.5 rounded-full";
-    }
-
-    clearTimeout(state.noteDebounceTimers[noteId]);
-    state.noteDebounceTimers[noteId] = setTimeout(async () => {
-      const note = state.notes.find((n) => n.id === noteId);
-      if (!note) return;
-      if (contentArea) note.content = contentArea.value;
-      if (titleInput) note.title = titleInput.value;
-      saveLocalData();
-      if (state.user && db) {
-        await setDoc(
-          doc(db, "users", state.user.uid, "notes", noteId),
-          { title: note.title || "", content: note.content || "" },
-          { merge: true }
-        );
-      }
-      if (statusEl) {
-        statusEl.textContent = "Сохранено";
-        statusEl.className = "text-[10px] font-semibold text-ios-green bg-ios-green/15 px-2 py-0.5 rounded-full";
-      }
-    }, 450);
-  });
 }
 
+// ============================================================================
+// 17. ПОДРОБНЫЙ ПРОСМОТР ПАРЫ И МЕРОПРИЯТИЯ (ПО РЕФЕРЕНСУ image_680c11.jpg)
+// ============================================================================
 function openEventDetailsModal(eventId) {
   const ev = state.events.find((x) => x.id === eventId);
   if (!ev) return;
 
   const headerEl = document.getElementById("details-modal-header");
-  const iconEl = document.getElementById("details-modal-icon");
   const bodyEl = document.getElementById("details-modal-body");
   if (!bodyEl) return;
 
-  if (headerEl) headerEl.textContent = "Мероприятие";
-  if (iconEl) {
-    iconEl.className = "w-8 h-8 rounded-2xl bg-ios-purple/20 text-ios-purple flex items-center justify-center shrink-0";
-    iconEl.innerHTML = `<i data-lucide="sparkles" class="w-4 h-4"></i>`;
-  }
+  if (headerEl) headerEl.textContent = "Событие";
 
   const fullDate = parseDateISO(ev.date).toLocaleDateString("ru-RU", {
     weekday: "long",
@@ -3562,47 +3291,37 @@ function openEventDetailsModal(eventId) {
       : "Весь день";
 
   bodyEl.innerHTML = `
-    <div class="rounded-2xl bg-ios-purple/15 border border-ios-purple/35 p-4 space-y-2">
-      <div class="flex items-center gap-2 flex-wrap">
-        <span class="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-ios-purple text-white">Событие</span>
-        <span class="text-xs font-bold text-ios-purple">${timeLabel}</span>
-      </div>
-      <h3 class="text-base sm:text-lg font-extrabold text-white leading-snug break-words whitespace-pre-wrap">${escapeHtml(ev.title)}</h3>
+    <div class="space-y-1.5">
+      <div class="text-[12px] font-semibold text-ios-accent">${timeLabel}</div>
+      <h3 class="text-[24px] font-bold tracking-tight leading-snug text-primary-adaptive break-words whitespace-pre-wrap">${escapeHtml(ev.title)}</h3>
+      <p class="text-[14px] text-secondary-adaptive capitalize">${escapeHtml(fullDate)}</p>
     </div>
 
-    <div class="bg-ios-elevated rounded-2xl p-3.5 space-y-2.5 text-xs">
-      <div class="flex items-start gap-2.5">
-        <i data-lucide="calendar" class="w-4 h-4 text-ios-purple shrink-0 mt-0.5"></i>
-        <div>
-          <span class="text-ios-gray block text-[10px] uppercase font-bold">Дата проведения</span>
-          <span class="text-white font-bold capitalize">${escapeHtml(fullDate)}</span>
-        </div>
+    <div class="divide-y ios-divider border-t border-b ios-divider">
+      <div class="py-3.5 flex items-center justify-between gap-3">
+        <span class="text-[13px] text-secondary-adaptive flex items-center gap-2">
+          <i data-lucide="clock" class="w-4 h-4 text-ios-accent"></i>
+          Время
+        </span>
+        <span class="text-[14px] font-semibold text-primary-adaptive">${timeLabel}</span>
       </div>
 
-      <div class="flex items-start gap-2.5 pt-2 border-t border-white/10">
-        <i data-lucide="clock" class="w-4 h-4 text-ios-purple shrink-0 mt-0.5"></i>
-        <div>
-          <span class="text-ios-gray block text-[10px] uppercase font-bold">Время</span>
-          <span class="text-white font-bold">${timeLabel}</span>
-        </div>
-      </div>
-
-      <div class="flex items-start gap-2.5 pt-2 border-t border-white/10">
-        <i data-lucide="map-pin" class="w-4 h-4 text-ios-purple shrink-0 mt-0.5"></i>
-        <div class="min-w-0 flex-1">
-          <span class="text-ios-gray block text-[10px] uppercase font-bold">Место проведения / Описание</span>
-          <p class="text-white font-medium break-words whitespace-pre-wrap mt-0.5">${escapeHtml(ev.location || "Не указано")}</p>
-        </div>
+      <div class="py-3.5 flex items-start justify-between gap-3">
+        <span class="text-[13px] text-secondary-adaptive flex items-center gap-2 shrink-0">
+          <i data-lucide="map-pin" class="w-4 h-4 text-ios-accent"></i>
+          Место
+        </span>
+        <span class="text-[14px] font-medium text-primary-adaptive text-right break-words whitespace-pre-wrap">${escapeHtml(ev.location || "Не указано")}</span>
       </div>
     </div>
 
-    <div class="grid grid-cols-2 gap-2 pt-1">
-      <button type="button" data-edit-event="${ev.id}" class="ios-press py-2.5 px-3 rounded-2xl ios26-pill text-xs font-extrabold text-white flex items-center justify-center gap-1.5">
-        <i data-lucide="pencil" class="w-3.5 h-3.5 text-ios-purple"></i>
+    <div class="grid grid-cols-2 gap-2.5 pt-1">
+      <button type="button" data-edit-event="${ev.id}" class="ios-press py-3 rounded-2xl ios-accent-soft-btn text-[14px] font-semibold flex items-center justify-center gap-1.5">
+        <i data-lucide="pencil" class="w-4 h-4"></i>
         <span>Изменить</span>
       </button>
-      <button type="button" data-delete-event="${ev.id}" class="ios-press py-2.5 px-3 rounded-2xl bg-ios-red/20 border border-ios-red/40 text-xs font-extrabold text-ios-red flex items-center justify-center gap-1.5">
-        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+      <button type="button" data-delete-event="${ev.id}" class="ios-press py-3 rounded-2xl bg-ios-red/15 text-ios-red text-[14px] font-semibold flex items-center justify-center gap-1.5">
+        <i data-lucide="trash-2" class="w-4 h-4"></i>
         <span>Удалить</span>
       </button>
     </div>
@@ -3617,15 +3336,13 @@ function openClassDetailsModal(classId) {
   if (!item) return;
 
   const headerEl = document.getElementById("details-modal-header");
-  const iconEl = document.getElementById("details-modal-icon");
   const bodyEl = document.getElementById("details-modal-body");
   if (!bodyEl) return;
 
-  if (headerEl) headerEl.textContent = `${item.number} пара • ${item.startTime}–${item.endTime}`;
-  if (iconEl) {
-    iconEl.className = "w-8 h-8 rounded-2xl bg-ios-orange/20 text-ios-orange flex items-center justify-center shrink-0";
-    iconEl.innerHTML = `<i data-lucide="graduation-cap" class="w-4 h-4"></i>`;
-  }
+  const weekNum = getStudyWeekNumber(item.date);
+  const parityText = Math.abs(weekNum) % 2 === 1 ? "Нечетная неделя" : "Четная неделя";
+
+  if (headerEl) headerEl.textContent = `${item.number} пара · ${parityText}`;
 
   const fullDate = parseDateISO(item.date).toLocaleDateString("ru-RU", {
     weekday: "long",
@@ -3647,120 +3364,116 @@ function openClassDetailsModal(classId) {
   );
 
   bodyEl.innerHTML = `
-    <div class="rounded-2xl bg-white/[0.05] border border-white/15 p-4 space-y-2">
-      <div class="flex items-center gap-1.5 flex-wrap">
-        <span class="text-[11px] font-extrabold px-2.5 py-0.5 rounded-full ios-active-orange text-black">${escapeHtml(item.number)} пара</span>
-        <span class="text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${getBadgeStyle(item.type)}">${escapeHtml(item.type)}</span>
-        <span class="text-xs font-bold text-gray-300 ml-auto">${escapeHtml(item.startTime)} – ${escapeHtml(item.endTime)}</span>
+    <!-- Заголовок пары (крупная типографика без коробки, по референсу image_680c11.jpg) -->
+    <div class="space-y-1.5">
+      <div class="flex items-center gap-2 text-[12px] font-semibold text-ios-accent">
+        <span>${escapeHtml(item.type)}</span>
+        <span>·</span>
+        <span class="capitalize">${escapeHtml(fullDate)}</span>
       </div>
-      <h3 class="text-base sm:text-lg font-extrabold text-white leading-snug break-words whitespace-pre-wrap">${escapeHtml(item.subject)}</h3>
+      <h3 class="text-[24px] font-bold tracking-tight leading-snug text-primary-adaptive break-words whitespace-pre-wrap">${escapeHtml(item.subject)}</h3>
+      <p class="text-[14px] text-secondary-adaptive">
+        Ауд. ${escapeHtml(item.room || "—")}${item.teacher ? ` · ${escapeHtml(item.teacher)}` : ""}
+      </p>
     </div>
 
-    <div class="bg-ios-elevated rounded-2xl p-3.5 space-y-2.5 text-xs">
-      <div class="flex items-start gap-2.5">
-        <i data-lucide="calendar" class="w-4 h-4 text-ios-orange shrink-0 mt-0.5"></i>
-        <div>
-          <span class="text-ios-gray block text-[10px] uppercase font-bold">Дата занятия</span>
-          <span class="text-white font-bold capitalize">${escapeHtml(fullDate)}</span>
-        </div>
+    <!-- Время и неделя -->
+    <div class="flex items-center justify-between py-3 px-3.5 rounded-2xl ios-surface">
+      <div class="flex items-center gap-2.5">
+        <i data-lucide="clock" class="w-4 h-4 text-ios-accent shrink-0"></i>
+        <span class="text-[15px] font-semibold text-primary-adaptive tabular-nums">${escapeHtml(item.startTime)} – ${escapeHtml(item.endTime)}</span>
       </div>
+      <span class="text-[12px] text-secondary-adaptive">${parityText}</span>
+    </div>
 
-      <div class="flex items-start gap-2.5 pt-2 border-t border-white/10">
-        <i data-lucide="map-pin" class="w-4 h-4 text-ios-orange shrink-0 mt-0.5"></i>
+    <!-- Разделы с тонкими разделителями (Тема пары, ДЗ, Заметки) -->
+    <div class="divide-y ios-divider border-t border-b ios-divider">
+      <!-- Тема пары -->
+      <div class="py-3.5 flex items-start justify-between gap-3">
         <div class="min-w-0 flex-1">
-          <span class="text-ios-gray block text-[10px] uppercase font-bold">Аудитория / Место</span>
-          <span class="text-white font-bold break-words">${escapeHtml(item.room || "Не указана")}</span>
+          <div class="text-[12px] font-medium text-secondary-adaptive">Тема пары</div>
+          <p class="text-[15px] font-medium text-primary-adaptive break-words whitespace-pre-wrap mt-0.5">
+            ${escapeHtml(item.topic || "Не указана")}
+          </p>
         </div>
-      </div>
-
-      <div class="flex items-start gap-2.5 pt-2 border-t border-white/10">
-        <i data-lucide="user" class="w-4 h-4 text-ios-orange shrink-0 mt-0.5"></i>
-        <div class="min-w-0 flex-1">
-          <span class="text-ios-gray block text-[10px] uppercase font-bold">Преподаватель</span>
-          <span class="text-white font-bold break-words">${escapeHtml(item.teacher || "Не указан")}</span>
-        </div>
-      </div>
-
-      <div class="flex items-start justify-between gap-2 pt-2 border-t border-white/10">
-        <div class="flex items-start gap-2.5 min-w-0 flex-1">
-          <i data-lucide="bookmark" class="w-4 h-4 text-ios-orange shrink-0 mt-0.5"></i>
-          <div class="min-w-0 flex-1">
-            <span class="text-ios-gray block text-[10px] uppercase font-bold">Тема пары</span>
-            <p class="text-white font-medium break-words whitespace-pre-wrap mt-0.5">${escapeHtml(item.topic || "Не указана")}</p>
-          </div>
-        </div>
-        <button type="button" data-quick-topic="${item.id}" class="ios-press px-2.5 py-1 rounded-xl ios26-pill text-[11px] font-bold text-ios-orange shrink-0">
-          ${item.topic ? "Изм." : "+ Тема"}
+        <button type="button" data-quick-topic="${item.id}" class="ios-press text-[13px] font-semibold text-ios-accent shrink-0 pt-0.5">
+          ${item.topic ? "Изменить" : "+ Добавить"}
         </button>
       </div>
-    </div>
 
-    <!-- ДЗ по предмету -->
-    <div class="bg-ios-elevated rounded-2xl p-3.5 space-y-2">
-      <div class="flex items-center justify-between">
-        <span class="text-xs font-extrabold text-white flex items-center gap-1.5">
-          <i data-lucide="check-circle-2" class="w-4 h-4 text-ios-orange"></i>
-          Домашние задания (${subjectTasks.length})
-        </span>
-        <button type="button" data-quick-add-task="${item.id}" class="ios-press text-xs font-bold text-ios-orange">+ Добавить ДЗ</button>
+      <!-- Домашнее задание -->
+      <div class="py-3.5 space-y-2.5">
+        <div class="flex items-center justify-between">
+          <span class="text-[12px] font-medium text-secondary-adaptive">Домашнее задание (${subjectTasks.length})</span>
+          <button type="button" data-quick-add-task="${item.id}" class="ios-press text-[13px] font-semibold text-ios-accent">+ Добавить ДЗ</button>
+        </div>
+        ${
+          subjectTasks.length > 0
+            ? `<div class="space-y-2">
+                ${subjectTasks
+                  .map(
+                    (t) => `
+                  <div class="flex items-start gap-2.5">
+                    <button type="button" data-toggle-task="${t.id}" class="ios-press mt-0.5 w-5 h-5 rounded-full border-[1.5px] flex items-center justify-center shrink-0 ${
+                      t.completed ? "ios-accent-btn border-transparent" : "border-white/30"
+                    }">
+                      ${t.completed ? '<i data-lucide="check" class="w-3 h-3 stroke-[3]"></i>' : ""}
+                    </button>
+                    <div data-edit-task="${t.id}" class="flex-1 min-w-0 cursor-pointer">
+                      <p class="text-[14px] text-primary-adaptive whitespace-pre-wrap break-words ${t.completed ? "line-through opacity-50" : ""}">${escapeHtml(t.text)}</p>
+                      <span class="text-[11px] text-ios-accent">Сдать до ${escapeHtml(formatShortDate(t.deadline))}</span>
+                      ${renderPhotosRow(t.photos)}
+                    </div>
+                  </div>`
+                  )
+                  .join("")}
+              </div>`
+            : `<p class="text-[13px] text-tertiary-adaptive">Заданий по этому предмету нет</p>`
+        }
       </div>
-      ${
-        subjectTasks.length > 0
-          ? `<div class="space-y-1.5 pt-1">
-              ${subjectTasks
-                .map(
-                  (t) => `
-                <div class="rounded-xl bg-black/35 border border-white/10 p-2.5 space-y-1">
-                  <div class="flex items-center justify-between gap-2">
-                    <span class="text-[10px] font-bold text-ios-orange">Дедлайн: ${escapeHtml(formatShortDate(t.deadline))}</span>
-                    <span class="text-[10px] font-bold ${t.completed ? "text-ios-green" : "text-ios-gray"}">${t.completed ? "Выполнено ✓" : "Активно"}</span>
-                  </div>
-                  <p class="text-xs text-white whitespace-pre-wrap break-words">${escapeHtml(t.text)}</p>
-                  ${renderPhotosRow(t.photos)}
-                </div>`
-                )
-                .join("")}
-            </div>`
-          : `<p class="text-xs text-ios-gray italic">Активных заданий нет</p>`
-      }
-    </div>
 
-    <!-- Заметки к паре -->
-    <div class="bg-ios-elevated rounded-2xl p-3.5 space-y-2">
-      <div class="flex items-center justify-between">
-        <span class="text-xs font-extrabold text-white flex items-center gap-1.5">
-          <i data-lucide="notebook-pen" class="w-4 h-4 text-ios-blue"></i>
-          Заметки к паре (${classNotes.length})
-        </span>
-        <button type="button" data-quick-add-note="${item.id}" class="ios-press text-xs font-bold text-ios-blue">+ Заметка</button>
+      <!-- Заметки к паре -->
+      <div class="py-3.5 space-y-2.5">
+        <div class="flex items-center justify-between">
+          <span class="text-[12px] font-medium text-secondary-adaptive">Заметки к паре (${classNotes.length})</span>
+          <button type="button" data-quick-add-note="${item.id}" class="ios-press text-[13px] font-semibold text-ios-accent">+ Заметка</button>
+        </div>
+        ${
+          classNotes.length > 0
+            ? `<div class="divide-y ios-divider">
+                ${classNotes
+                  .map(
+                    (n) => `
+                  <div data-edit-note="${n.id}" class="py-2 cursor-pointer">
+                    <div class="text-[14px] font-semibold text-primary-adaptive break-words">${escapeHtml(n.title || "Заметка")}</div>
+                    <p class="text-[13px] text-secondary-adaptive whitespace-pre-wrap break-words mt-0.5">${escapeHtml(n.content)}</p>
+                    ${renderPhotosRow(n.photos)}
+                  </div>`
+                  )
+                  .join("")}
+              </div>`
+            : `<p class="text-[13px] text-tertiary-adaptive">Заметок пока нет</p>`
+        }
       </div>
-      ${
-        classNotes.length > 0
-          ? `<div class="space-y-1.5 pt-1">
-              ${classNotes
-                .map(
-                  (n) => `
-                <div class="rounded-xl bg-black/35 border border-white/10 p-2.5 space-y-1">
-                  <div class="text-xs font-extrabold text-white break-words">${escapeHtml(n.title || "Заметка")}</div>
-                  <p class="text-xs text-gray-200 whitespace-pre-wrap break-words">${escapeHtml(n.content)}</p>
-                  ${renderPhotosRow(n.photos)}
-                </div>`
-                )
-                .join("")}
-            </div>`
-          : `<p class="text-xs text-ios-gray italic">Заметок к этой паре пока нет</p>`
-      }
     </div>
 
-    <div class="grid grid-cols-2 gap-2 pt-1">
-      <button type="button" data-edit-schedule="${item.id}" data-close-modal="modal-item-details" class="ios-press py-2.5 px-3 rounded-2xl ios26-pill text-xs font-extrabold text-white flex items-center justify-center gap-1.5">
-        <i data-lucide="pencil" class="w-3.5 h-3.5 text-ios-orange"></i>
-        <span>Изменить пару</span>
+    <!-- Действия с парой -->
+    <div class="space-y-2">
+      <button type="button" data-copy-next-week="${item.id}" class="ios-press w-full py-3 rounded-2xl ios-accent-soft-btn text-[14px] font-semibold flex items-center justify-center gap-2">
+        <i data-lucide="calendar-plus" class="w-4 h-4"></i>
+        <span>Дублировать на следующую неделю</span>
       </button>
-      <button type="button" data-ask-delete-schedule="${item.id}" data-close-modal="modal-item-details" class="ios-press py-2.5 px-3 rounded-2xl bg-ios-red/20 border border-ios-red/40 text-xs font-extrabold text-ios-red flex items-center justify-center gap-1.5">
-        <i data-lucide="eye-off" class="w-3.5 h-3.5"></i>
-        <span>Скрыть / Удалить</span>
-      </button>
+
+      <div class="grid grid-cols-2 gap-2">
+        <button type="button" data-edit-schedule="${item.id}" data-close-modal="modal-item-details" class="ios-press py-3 rounded-2xl ios-surface text-[13px] font-semibold text-primary-adaptive flex items-center justify-center gap-1.5">
+          <i data-lucide="pencil" class="w-3.5 h-3.5 text-secondary-adaptive"></i>
+          <span>Изменить пару</span>
+        </button>
+        <button type="button" data-ask-delete-schedule="${item.id}" data-close-modal="modal-item-details" class="ios-press py-3 rounded-2xl bg-ios-red/15 text-[13px] font-semibold text-ios-red flex items-center justify-center gap-1.5">
+          <i data-lucide="eye-off" class="w-3.5 h-3.5"></i>
+          <span>Скрыть / Удалить</span>
+        </button>
+      </div>
     </div>
   `;
 
@@ -3774,9 +3487,10 @@ function openTaskModalFor(classItem) {
   state.draftTaskPhotos = [];
   document.getElementById("form-task")?.reset();
   document.getElementById("task-edit-id").value = "";
-  document.getElementById("modal-task-title").textContent = "Домашнее задание";
+  document.getElementById("modal-task-title").textContent = "Новое ДЗ";
   document.getElementById("task-subject").value = classItem ? classItem.subject : "";
   document.getElementById("task-completed").checked = false;
+  document.getElementById("btn-delete-task-from-modal")?.classList.add("hidden");
   renderDraftPhotos("task-photos-preview", state.draftTaskPhotos, "task");
   applyTaskTargetMode(classItem ? "next" : "current");
   openModal("modal-task");
@@ -3786,6 +3500,8 @@ function openNoteModalFor(classItem) {
   closeModal("modal-item-details");
   state.contextClassItem = classItem;
   state.draftNotePhotos = [];
+  state.noteModalPinned = false;
+  syncNoteModalPinUI();
   document.getElementById("form-note")?.reset();
   document.getElementById("note-edit-id").value = "";
   document.getElementById("modal-note-title").textContent = classItem ? "Заметка к паре" : "Новая заметка";
@@ -3793,6 +3509,8 @@ function openNoteModalFor(classItem) {
   document.getElementById("note-subject").value = classItem ? classItem.subject : "";
   document.getElementById("note-notify-enabled").checked = false;
   document.getElementById("note-notify-time").value = "";
+  document.getElementById("note-notify-time-wrap")?.classList.add("hidden");
+  document.getElementById("btn-delete-note-from-modal")?.classList.add("hidden");
   renderDraftPhotos("note-photos-preview", state.draftNotePhotos, "note");
   applyNoteTargetMode(classItem ? "current" : "none");
   openModal("modal-note");
@@ -3835,7 +3553,9 @@ function parseICSFile(icsText) {
   return events;
 }
 
-// Состояние зума и перемещения для полноэкранного просмотра фото
+// ============================================================================
+// 18. ПРОСМОТРЩИК ФОТО С ЗУМОМ И СМАХИВАНИЕМ
+// ============================================================================
 const photoZoomState = {
   scale: 1,
   panX: 0,
@@ -3891,7 +3611,6 @@ async function saveOrShareCurrentPhoto() {
     const blob = await res.blob();
     const file = new File([blob], fileName, { type: blob.type || "image/jpeg" });
 
-    // На iPhone / Android вызываем системное меню («Сохранить изображение» в Фотопленку)
     const isMobile = window.matchMedia("(pointer: coarse)").matches || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
     if (isMobile && navigator.canShare && navigator.canShare({ files: [file] })) {
       await navigator.share({
@@ -3901,7 +3620,6 @@ async function saveOrShareCurrentPhoto() {
       return;
     }
 
-    // Фоллбек для ПК и браузеров — прямое скачивание файла
     const blobUrl = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = blobUrl;
@@ -3912,7 +3630,7 @@ async function saveOrShareCurrentPhoto() {
     setTimeout(() => URL.revokeObjectURL(blobUrl), 3000);
     showInAppToast("Фото сохранено", "Изображение загружено на устройство.");
   } catch (err) {
-    if (err && err.name === "AbortError") return; // Пользователь сам закрыл меню «Поделиться»
+    if (err && err.name === "AbortError") return;
     const a = document.createElement("a");
     a.href = src;
     a.download = fileName;
@@ -4084,7 +3802,7 @@ function initPhotoViewerGestures() {
 }
 
 // ============================================================================
-// 17. ИНТЕРАКТИВНЫЕ ВКЛАДКИ, ДВУХПАНЕЛЬНЫЙ СВАЙП ДНЕЙ, ШТОРКИ И КНОПКИ
+// 19. ИНТЕРАКТИВНЫЕ ВКЛАДКИ, ДВУХПАНЕЛЬНЫЙ СВАЙП ДНЕЙ, ШТОРКИ И КНОПКИ
 // ============================================================================
 function resetAllTabViewsToCleanState(activeTabName) {
   const tabOrder = ["schedule", "tasks", "notes"];
@@ -4129,8 +3847,8 @@ function switchTabWithSpring(newTab, options = {}) {
   document.querySelectorAll(".nav-tab").forEach((b) => {
     const active = b.dataset.tab === newTab;
     b.classList.toggle("active-tg-pill", active);
-    b.classList.toggle("text-ios-orange", active);
-    b.classList.toggle("text-ios-gray", !active);
+    b.classList.toggle("text-ios-accent", active);
+    b.classList.toggle("text-secondary-adaptive", !active);
 
     if (active && !isReducedMotion()) {
       const icon = b.querySelector("svg, i");
@@ -4153,7 +3871,6 @@ function switchTabWithSpring(newTab, options = {}) {
 
   if (oldIdx === newIdx && !options.fromDrag) return;
 
-  // Если предыдущая анимация вкладки еще шла — мгновенно приводим все вкладки в чистое состояние
   stopTrackedSpring("tab_switch");
   const oldTab = state.activeTab;
   resetAllTabViewsToCleanState(oldTab);
@@ -4163,10 +3880,6 @@ function switchTabWithSpring(newTab, options = {}) {
   if (newTab !== "schedule" && state.weekGridMode) {
     toggleWeekGridView(false);
   }
-
-  const titles = { schedule: "Расписание", tasks: "ДЗ и Задачи", notes: "Заметки" };
-  const hTitle = document.getElementById("header-title");
-  if (hTitle) hTitle.textContent = titles[newTab];
 
   const mainContainer = document.getElementById("main-container");
   const oldView = document.getElementById(`view-${oldTab}`);
@@ -4186,9 +3899,9 @@ function switchTabWithSpring(newTab, options = {}) {
   oldView.classList.remove("hidden");
 
   oldView.style.position = "absolute";
-  oldView.style.top = "0.625rem";
-  oldView.style.left = "0.875rem";
-  oldView.style.right = "0.875rem";
+  oldView.style.top = "0.25rem";
+  oldView.style.left = "1.25rem";
+  oldView.style.right = "1.25rem";
   oldView.style.pointerEvents = "none";
   oldView.style.willChange = "transform, opacity";
   newView.style.willChange = "transform, opacity";
@@ -4215,10 +3928,10 @@ function switchTabWithSpring(newTab, options = {}) {
   refreshIcons();
 }
 
-// Чистая генерация превью соседнего дня В ПАМЯТИ (НЕ трогает живой DOM и НЕ сбивает touch-таргет в iOS Safari!)
+// Чистая генерация превью соседнего дня В ПАМЯТИ (минималистичный таймлайн)
 function buildDetachedDayPreviewNode(dateISO) {
   const previewWrap = document.createElement("div");
-  previewWrap.className = "space-y-3";
+  previewWrap.className = "space-y-4";
   previewWrap.style.position = "absolute";
   previewWrap.style.top = "0";
   previewWrap.style.left = "0";
@@ -4226,7 +3939,6 @@ function buildDetachedDayPreviewNode(dateISO) {
   previewWrap.style.pointerEvents = "none";
 
   const todayISO = getTodayISO();
-  const mono = isMonoMode();
   const visibleSchedule = getVisibleSchedule();
 
   const dayEvents = state.events
@@ -4237,14 +3949,11 @@ function buildDetachedDayPreviewNode(dateISO) {
 
   if (state.showEvents && dayEvents.length > 0) {
     html += `
-      <div class="space-y-2">
-        <div class="flex items-center justify-between px-1">
-          <span class="text-[11px] font-extrabold uppercase tracking-wider text-ios-purple flex items-center gap-1.5">
-            <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
-            Мероприятия (${dayEvents.length})
-          </span>
-        </div>
-        <div class="space-y-2">
+      <div class="space-y-1 pb-3 border-b ios-divider">
+        <span class="text-[12px] font-semibold uppercase tracking-wider text-ios-accent flex items-center gap-1.5">
+          События · ${dayEvents.length}
+        </span>
+        <div class="divide-y ios-divider">
           ${dayEvents
             .map((ev) => {
               const timeLabel =
@@ -4252,27 +3961,14 @@ function buildDetachedDayPreviewNode(dateISO) {
                   ? `${escapeHtml(ev.startTime)}–${escapeHtml(ev.endTime)}`
                   : ev.startTime
                   ? `в ${escapeHtml(ev.startTime)}`
-                  : ev.endTime
-                  ? `до ${escapeHtml(ev.endTime)}`
                   : "Весь день";
               return `
-                <div class="ios26-card rounded-2xl p-3 border border-ios-purple/40 flex items-center justify-between gap-2.5">
-                  <div class="flex items-center gap-2.5 min-w-0 flex-1">
-                    <div class="px-2.5 py-1.5 rounded-xl bg-ios-purple/20 border border-ios-purple/40 text-center shrink-0 min-w-[68px]">
-                      <span class="block text-[9px] font-extrabold uppercase text-ios-purple">Событие</span>
-                      <span class="block text-[11px] font-bold text-white">${timeLabel}</span>
-                    </div>
-                    <div class="min-w-0 flex-1">
-                      <h4 class="text-sm font-extrabold text-white truncate">${escapeHtml(ev.title)}</h4>
-                      ${
-                        ev.location
-                          ? `<p class="text-xs text-gray-300 flex items-center gap-1 truncate mt-0.5">
-                              <span class="truncate">${escapeHtml(ev.location)}</span>
-                            </p>`
-                          : `<p class="text-[11px] text-ios-purple/80 mt-0.5">Нажмите для подробностей →</p>`
-                      }
-                    </div>
+                <div class="py-3 flex items-center justify-between gap-3">
+                  <div class="flex items-center gap-3 min-w-0 flex-1">
+                    <span class="w-2 h-2 rounded-full bg-ios-accent shrink-0"></span>
+                    <span class="text-[15px] font-semibold text-primary-adaptive truncate">${escapeHtml(ev.title)}</span>
                   </div>
+                  <span class="text-[13px] font-medium text-ios-accent shrink-0">${timeLabel}</span>
                 </div>`;
             })
             .join("")}
@@ -4295,69 +3991,38 @@ function buildDetachedDayPreviewNode(dateISO) {
       month: "long"
     });
     html += `
-      <div class="ios26-card rounded-3xl p-7 text-center space-y-2">
-        <div class="w-11 h-11 rounded-2xl bg-ios-orange/15 text-ios-orange flex items-center justify-center mx-auto">
-          <i data-lucide="coffee" class="w-5 h-5"></i>
-        </div>
-        <p class="font-extrabold text-base capitalize">${escapeHtml(readableDate)}</p>
-        <p class="text-xs text-gray-300">Учебных пар в этот день нет. Нажмите «+» сверху, чтобы добавить пару или событие.</p>
+      <div class="py-12 text-center space-y-2">
+        <p class="font-semibold text-[16px] text-primary-adaptive capitalize">${escapeHtml(readableDate)}</p>
+        <p class="text-[13px] text-secondary-adaptive">Свободный день — пар по расписанию нет</p>
       </div>`;
   } else {
     const now = new Date();
     const nowMinutes = now.getHours() * 60 + now.getMinutes();
 
-    html += `<div class="space-y-3">${dayClasses
+    html += `<div>${dayClasses
       .map((item) => {
         const isLiveNow =
-          !mono &&
           item.date === todayISO &&
           nowMinutes >= timeToMinutes(item.startTime) &&
           nowMinutes < timeToMinutes(item.endTime);
 
-        const subjectTasks = state.tasks.filter(
-          (t) =>
-            String(t.subject).trim().toLowerCase() === String(item.subject).trim().toLowerCase() &&
-            (t.deadline === item.date || (!t.completed && t.deadline >= item.date))
-        );
-
         return `
-        <article class="${isLiveNow ? "ios26-card-orange" : "ios26-card"} rounded-3xl p-3.5 space-y-3">
-          <div class="flex gap-3 items-start">
-            <div class="flex flex-col items-center justify-center ${
-              isLiveNow ? "ios-active-orange" : "bg-white/[0.07] border border-white/15"
-            } rounded-2xl px-2 py-2 min-w-[68px] text-center shrink-0">
-              <span class="text-[11px] font-extrabold ${isLiveNow ? "text-black" : "text-ios-orange"}">${escapeHtml(
-          item.number
-        )} пара</span>
-              <span class="text-xs font-extrabold ${isLiveNow ? "text-black" : "text-white"} mt-0.5">${escapeHtml(
-          item.startTime
-        )}</span>
-              <span class="text-[10px] ${isLiveNow ? "text-black/80" : "text-gray-300"}">${escapeHtml(
-          item.endTime
-        )}</span>
+        <div class="timeline-row ${isLiveNow ? "is-live" : ""}">
+          <div class="timeline-rail-col">
+            <span class="timeline-dot"></span>
+            <span class="timeline-rail-line"></span>
+          </div>
+          <div class="flex-1 min-w-0 flex items-start justify-between gap-3">
+            <div class="min-w-0 flex-1">
+              <h3 class="text-[16px] font-semibold leading-snug text-primary-adaptive break-words">${escapeHtml(item.subject)}</h3>
+              <p class="text-[13px] text-secondary-adaptive truncate mt-0.5">${escapeHtml(item.room)} · ${escapeHtml(item.type)}</p>
             </div>
-            <div class="flex-1 min-w-0">
-              <div class="flex items-center gap-1.5 flex-wrap mb-1">
-                <span class="text-[11px] font-bold px-2 py-0.5 rounded-full border ${getBadgeStyle(
-                  item.type
-                )}">${escapeHtml(item.type)}</span>
-                <span class="text-xs text-gray-200 truncate">${escapeHtml(item.room)}</span>
-              </div>
-              <h3 class="font-extrabold text-sm sm:text-base leading-snug text-white break-words">${escapeHtml(
-                item.subject
-              )}</h3>
-              ${
-                item.teacher
-                  ? `<p class="text-xs text-gray-300 mt-1 truncate">${escapeHtml(item.teacher)}</p>`
-                  : ""
-              }
+            <div class="text-right shrink-0 tabular-nums">
+              <div class="text-[13px] font-medium text-secondary-adaptive">${escapeHtml(item.startTime)}–${escapeHtml(item.endTime)}</div>
+              <div class="text-[11px] text-tertiary-adaptive mt-0.5">${escapeHtml(item.number)} пара</div>
             </div>
           </div>
-          <div class="pt-2.5 border-t border-white/10 flex items-center justify-between text-[11px] text-gray-300">
-            <span class="font-bold uppercase">ДЗ (${subjectTasks.length})</span>
-            <span class="text-ios-orange font-bold">+ ДЗ</span>
-          </div>
-        </article>`;
+        </div>`;
       })
       .join("")}</div>`;
   }
@@ -4371,7 +4036,7 @@ function initInteractiveDayAndTabSwipes() {
   if (!mainEl) return;
 
   const vTracker = createVelocityTracker();
-  let mode = null; // "day" | "tab" | null
+  let mode = null;
   let isPointerDown = false;
   let isLocked = false;
   let isIgnored = false;
@@ -4418,7 +4083,6 @@ function initInteractiveDayAndTabSwipes() {
     mode = state.activeTab === "schedule" && !state.weekGridMode && !isEdge ? "day" : "tab";
 
     if (mode === "day") {
-      // Если предыдущая анимация дня еще шла — аккуратно завершаем ее в точку 0 перед новым жестом
       if (activeSpringsMap.has("day-swipe-track")) {
         forceFinishDaySwipe();
       }
@@ -4595,7 +4259,6 @@ function initInteractiveDayAndTabSwipes() {
     }
   };
 
-  // Слушаем touchmove и touchend на window, чтобы жест никогда не терялся в iOS Safari
   mainEl.addEventListener(
     "touchstart",
     (e) => {
@@ -4636,7 +4299,6 @@ function initInteractiveDayAndTabSwipes() {
     { passive: true }
   );
 
-  // Поддержка мыши на ПК (игнорируем синтетические mouse-события после тача на мобильных)
   mainEl.addEventListener("mousedown", (e) => {
     if (e.button !== 0 || performance.now() - lastTouchTimestamp < 650) return;
     onStart(e.clientX, e.clientY, e.target);
@@ -4651,7 +4313,7 @@ function initInteractiveDayAndTabSwipes() {
   });
 }
 
-// Физический отклик кнопок (.ios-press) и морфинг Dynamic Island
+// Физический отклик кнопок (.ios-press) и морфинг Live-блока
 function initPressAndIslandPhysics() {
   let pressedEl = null;
 
@@ -4682,7 +4344,7 @@ function initPressAndIslandPhysics() {
       animateTrackedSpring(
         btn,
         1,
-        0.925,
+        0.94,
         { stiffness: 820, damping: 48, mass: 1 },
         (sc) => {
           btn.style.transform = `scale(${sc})`;
@@ -4696,7 +4358,6 @@ function initPressAndIslandPhysics() {
   window.addEventListener("pointercancel", releasePressed, { passive: true });
   window.addEventListener("blur", releasePressed);
 
-  // Морфинг капсулы Dynamic Island на пружине SPRING_SNAPPY
   window.__animateIslandMorph = (capsule, enteringSlide) => {
     if (!capsule || isReducedMotion()) return;
     capsule.style.willChange = "transform";
@@ -4704,11 +4365,10 @@ function initPressAndIslandPhysics() {
       "island_morph",
       0,
       1,
-      { ...SPRING_SNAPPY, velocity: 4.5 },
+      { ...SPRING_SNAPPY, velocity: 4.0 },
       (p) => {
-        const sx = 0.95 + 0.05 * p;
-        const sy = 0.93 + 0.07 * p;
-        capsule.style.transform = `scale3d(${sx}, ${sy}, 1)`;
+        const sc = 0.97 + 0.03 * p;
+        capsule.style.transform = `scale3d(${sc}, ${sc}, 1)`;
       },
       () => {
         capsule.style.transform = "";
@@ -4725,7 +4385,7 @@ function initPressAndIslandPhysics() {
         SPRING_SHEET,
         (p) => {
           enteringSlide.style.opacity = String(Math.min(1, Math.max(0, p)));
-          enteringSlide.style.transform = `translate3d(0, ${(1 - p) * 8}px, 0) scale(${0.96 + 0.04 * p})`;
+          enteringSlide.style.transform = `translate3d(0, ${(1 - p) * 6}px, 0)`;
         },
         () => {
           enteringSlide.style.opacity = "";
@@ -4738,10 +4398,8 @@ function initPressAndIslandPhysics() {
 }
 
 // ============================================================================
-// 18. ШТОРКИ (BOTTOM SHEETS) С ПРЕХВАТОМ И СМАХИВАНИЕМ ВНИЗ
+// 20. ШТОРКИ (BOTTOM SHEETS) С ПЕРЕХВАТОМ И СМАХИВАНИЕМ ВНИЗ
 // ============================================================================
-// (sheetRuntimeState объявлен в разделе 2.5, чтобы избежать TDZ при инициализации)
-
 function ensureSheetStructure(modalEl) {
   if (!modalEl || modalEl.id === "modal-photo-viewer") return null;
   let st = sheetRuntimeState.get(modalEl.id);
@@ -4785,7 +4443,6 @@ function attachSheetSwipeHandlers(st) {
       const t = e.touches[0];
       const target = e.target;
 
-      // Если пользователь схватил шторку во время анимации открытия/закрытия — подхватываем!
       const running = stopTrackedSpring(`sheet_${modalEl.id}`);
       const isMidFlight = running && Math.abs(running.pos) > 2;
 
@@ -4821,7 +4478,6 @@ function attachSheetSwipeHandlers(st) {
           isDragging = false;
           return;
         }
-        // Если контент на самом верху и тянем вниз — перехватываем жест под шторку
         if (dy > 6 && panel.scrollTop <= 0) {
           isSheetLocked = true;
           startY = t.clientY;
