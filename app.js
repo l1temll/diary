@@ -382,7 +382,7 @@ const state = {
   theme: localStorage.getItem("diary_theme_v7") || "minimal",
   bgMode: localStorage.getItem("diary_bg_mode_v7") || "abstract",
   customBgDataUrl: localStorage.getItem("diary_custom_bg_img_v6") || "",
-  customBgDim: Number(localStorage.getItem("diary_custom_bg_dim_v6") ?? 48),
+  customBgDim: Number(localStorage.getItem("diary_custom_bg_dim_v7") ?? 25),
   navStyle: localStorage.getItem("diary_nav_style_v5") || "floating",
   rimStyle: localStorage.getItem("diary_rim_style_v5") || "normal",
 
@@ -744,7 +744,7 @@ function syncStateFromStorage() {
   state.theme = localStorage.getItem("diary_theme_v7") || "minimal";
   state.bgMode = localStorage.getItem("diary_bg_mode_v7") || "abstract";
   state.customBgDataUrl = localStorage.getItem("diary_custom_bg_img_v6") || "";
-  state.customBgDim = Number(localStorage.getItem("diary_custom_bg_dim_v6") ?? 48);
+  state.customBgDim = Number(localStorage.getItem("diary_custom_bg_dim_v7") ?? 25);
   state.navStyle = localStorage.getItem("diary_nav_style_v5") || "floating";
   state.rimStyle = localStorage.getItem("diary_rim_style_v5") || "normal";
 
@@ -773,11 +773,11 @@ function initNetworkListeners() {
     const text = document.getElementById("network-text");
     if (!dot || !text) return;
     if (navigator.onLine) {
-      dot.className = "w-2 h-2 rounded-full bg-ios-green shrink-0";
-      text.textContent = "Онлайн";
+      dot.className = "w-2.5 h-2.5 rounded-full bg-ios-green shrink-0";
+      text.textContent = "Онлайн · Облако готово";
     } else {
-      dot.className = "w-2 h-2 rounded-full bg-ios-orange animate-pulse shrink-0";
-      text.textContent = "Оффлайн";
+      dot.className = "w-2.5 h-2.5 rounded-full bg-ios-orange animate-pulse shrink-0";
+      text.textContent = "Оффлайн · Автономный режим";
     }
   };
   window.addEventListener("online", updateUI);
@@ -787,7 +787,9 @@ function initNetworkListeners() {
 
 function setSyncIndicator(active) {
   const el = document.getElementById("sync-indicator");
+  const readyEl = document.getElementById("sync-ready-label");
   if (el) el.classList.toggle("hidden", !active);
+  if (readyEl) readyEl.classList.toggle("hidden", active);
 }
 
 // ============================================================================
@@ -2418,7 +2420,7 @@ function initUIListeners() {
 
   document.getElementById("bg-dim-slider")?.addEventListener("input", (e) => {
     const val = Math.min(85, Math.max(0, Number(e.target.value) || 0));
-    localStorage.setItem("diary_custom_bg_dim_v6", String(val));
+    localStorage.setItem("diary_custom_bg_dim_v7", String(val));
     const label = document.getElementById("bg-dim-value");
     if (label) label.textContent = `${val}%`;
     if (window.__applyDiaryAppearance) window.__applyDiaryAppearance();
@@ -3822,6 +3824,31 @@ function resetAllTabViewsToCleanState(activeTabName) {
   });
 }
 
+let currentNavGliderX = 0;
+
+function getNavGliderTargetX(tabName) {
+  const glider = document.getElementById("tg-nav-glider");
+  const targetBtn = document.querySelector(`.nav-tab[data-tab="${tabName}"]`);
+  if (glider && targetBtn && targetBtn.offsetWidth > 0) {
+    return targetBtn.offsetLeft - glider.offsetLeft;
+  }
+  const tabOrder = ["schedule", "tasks", "notes"];
+  const idx = Math.max(0, tabOrder.indexOf(tabName));
+  const btnWidth = glider?.offsetWidth || 110;
+  return idx * (btnWidth + 4);
+}
+
+function syncNavGliderImmediate(tabName) {
+  const glider = document.getElementById("tg-nav-glider");
+  if (!glider) return;
+  currentNavGliderX = getNavGliderTargetX(tabName);
+  glider.style.transform = `translate3d(${currentNavGliderX}px, 0, 0)`;
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener("resize", () => syncNavGliderImmediate(state.activeTab));
+}
+
 function switchTabWithSpring(newTab, options = {}) {
   const tabOrder = ["schedule", "tasks", "notes"];
   const oldIdx = tabOrder.indexOf(state.activeTab);
@@ -3830,16 +3857,19 @@ function switchTabWithSpring(newTab, options = {}) {
 
   const glider = document.getElementById("tg-nav-glider");
   if (glider) {
-    const btnWidth = glider.offsetWidth || 110;
-    const gapPx = 4;
-    const targetX = newIdx * (btnWidth + gapPx);
+    const targetX = getNavGliderTargetX(newTab);
     animateTrackedSpring(
       "nav_glider",
-      null,
+      currentNavGliderX,
       targetX,
       SPRING_SNAPPY,
       (x) => {
+        currentNavGliderX = x;
         glider.style.transform = `translate3d(${x}px, 0, 0)`;
+      },
+      () => {
+        currentNavGliderX = targetX;
+        glider.style.transform = `translate3d(${targetX}px, 0, 0)`;
       }
     );
   }
@@ -4149,6 +4179,13 @@ function initInteractiveDayAndTabSwipes() {
         curView.style.willChange = "transform";
         curView.style.transform = `translate3d(${currentDx}px, 0, 0)`;
       }
+      const glider = document.getElementById("tg-nav-glider");
+      if (glider) {
+        const baseX = getNavGliderTargetX(state.activeTab);
+        const stepW = (glider.offsetWidth || 110) + 4;
+        currentNavGliderX = baseX - (currentDx / width) * stepW;
+        glider.style.transform = `translate3d(${currentNavGliderX}px, 0, 0)`;
+      }
     }
   };
 
@@ -4242,6 +4279,14 @@ function initInteractiveDayAndTabSwipes() {
           velocity: vx
         });
       } else if (curView) {
+        const backTargetX = getNavGliderTargetX(state.activeTab);
+        const glider = document.getElementById("tg-nav-glider");
+        if (glider) {
+          animateTrackedSpring("nav_glider", currentNavGliderX, backTargetX, SPRING_SNAPPY, (x) => {
+            currentNavGliderX = x;
+            glider.style.transform = `translate3d(${x}px, 0, 0)`;
+          });
+        }
         animateTrackedSpring(
           "tab_switch",
           currentDx,
