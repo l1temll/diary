@@ -1,11 +1,12 @@
-const CACHE_NAME = "student-diary-v22";
+const CACHE_NAME = "student-diary-v23";
 const ASSETS = [
   "./",
   "./index.html",
   "./app.js",
   "./manifest.webmanifest",
   "https://cdn.tailwindcss.com",
-  "https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"
+  "https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js",
+  "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
 ];
 
 self.addEventListener("install", (event) => {
@@ -36,13 +37,14 @@ self.addEventListener("notificationclick", (event) => {
 
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
-  if (event.request.method !== "GET" || url.hostname.includes("googleapis.com")) return;
+  if (event.request.method !== "GET" || url.hostname.includes("googleapis.com") && !url.hostname.includes("fonts.googleapis.com")) return;
 
-  // 1. Внешние неизменяемые библиотеки (Tailwind, Lucide, Firebase): мгновенно из кэша (Cache-First)
+  // 1. Внешние неизменяемые библиотеки и шрифты: мгновенно из кэша (Cache-First)
   const isImmutableCDN =
     url.hostname.includes("cdn.tailwindcss.com") ||
     url.hostname.includes("unpkg.com") ||
-    url.hostname.includes("gstatic.com");
+    url.hostname.includes("gstatic.com") ||
+    url.hostname.includes("fonts.googleapis.com");
 
   if (isImmutableCDN) {
     event.respondWith(
