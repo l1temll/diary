@@ -40,14 +40,16 @@
             }
           },
           fontFamily: {
-            sans: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Display"', '"SF Pro Text"', '"Helvetica Neue"', 'sans-serif']
+            sans: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Display"', '"SF Pro Text"', '"Inter"', '"Segoe UI Variable"', 'system-ui', 'sans-serif']
           }
         }
       }
     };
   </script>
 
-  <link rel="preconnect" href="https://www.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js" defer></script>
 
   <style>
@@ -64,16 +66,18 @@
 
       --surface-bg: rgba(255, 255, 255, 0.045);
       --surface-elevated: rgba(255, 255, 255, 0.075);
-      --surface-sheet: rgba(18, 17, 24, 0.94);
+      --surface-sheet: rgba(17, 16, 23, 0.96);
       --surface-nav: rgba(20, 19, 28, 0.78);
+      --surface-header: rgba(5, 5, 8, 0.55);
       --surface-input: rgba(255, 255, 255, 0.065);
       --hairline: rgba(255, 255, 255, 0.085);
       --hairline-strong: rgba(255, 255, 255, 0.14);
 
+      --desktop-shell-bg: rgba(14, 13, 20, 0.64);
       --glass-border-alpha: 0.12;
       --glass-specular-alpha: 0.22;
       --glass-blur: 28px;
-      --custom-bg-dim: 0.48;
+      --custom-bg-dim: 0.25;
       --ios-ease: cubic-bezier(0.32, 0.72, 0, 1);
     }
 
@@ -96,8 +100,10 @@
       --text-tertiary: #8E8E98;
       --surface-bg: rgba(0, 0, 0, 0.04);
       --surface-elevated: rgba(0, 0, 0, 0.065);
-      --surface-sheet: rgba(248, 248, 252, 0.96);
+      --surface-sheet: rgba(248, 248, 252, 0.97);
       --surface-nav: rgba(255, 255, 255, 0.84);
+      --surface-header: rgba(245, 245, 249, 0.68);
+      --desktop-shell-bg: rgba(255, 255, 255, 0.78);
       --surface-input: rgba(0, 0, 0, 0.055);
       --hairline: rgba(0, 0, 0, 0.08);
       --hairline-strong: rgba(0, 0, 0, 0.14);
@@ -138,7 +144,7 @@
       overflow-x: clip;
       margin: 0;
       padding: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Inter", "Segoe UI Variable", system-ui, sans-serif;
       color: var(--text-primary);
       background-color: #050508;
       user-select: none;
@@ -170,6 +176,12 @@
     .main-scroll-area {
       padding-bottom: calc(6.75rem + env(safe-area-inset-bottom, 0px));
       overflow-x: clip;
+    }
+
+    #top-app-header {
+      background: var(--surface-header);
+      backdrop-filter: blur(20px) saturate(160%);
+      -webkit-backdrop-filter: blur(20px) saturate(160%);
     }
 
     /* ==========================================================================
@@ -207,22 +219,95 @@
     body.bg-mode-abstract { background-color: #050508 !important; }
     body.mode-light.bg-mode-abstract { background-color: #F4F3FA !important; }
     body.bg-mode-abstract #silk-wave-bg { display: block !important; }
-    body.bg-mode-custom #custom-bg-layer,
+    body.bg-mode-custom #custom-bg-layer { display: block !important; }
+    body.bg-mode-abstract #custom-bg-overlay,
     body.bg-mode-custom #custom-bg-overlay { display: block !important; }
+    body.mode-light.bg-mode-abstract #custom-bg-overlay {
+      background: rgba(244, 243, 250, var(--custom-bg-dim));
+    }
 
-    /* Деликатные шёлковые переливы из референса */
+    /* ==========================================================================
+       ДЕСКТОП-ВЕРСИЯ (ПК / ПЛАНШЕТЫ >= 768px): АККУРАТНЫЕ РАМКИ И СТРУКТУРА
+       ========================================================================== */
+    @media (min-width: 768px) {
+      #header-inner-container {
+        max-width: 680px !important;
+      }
+      body.week-grid-open #header-inner-container {
+        max-width: 76rem !important;
+      }
+      main#main-container {
+        max-width: 680px !important;
+        background: var(--desktop-shell-bg);
+        backdrop-filter: blur(28px) saturate(165%);
+        -webkit-backdrop-filter: blur(28px) saturate(165%);
+        border: 1px solid var(--hairline-strong);
+        border-radius: 28px;
+        box-shadow: 0 24px 64px -16px rgba(0, 0, 0, 0.62), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+        margin-top: 14px;
+        margin-bottom: 100px;
+        padding: 24px 28px 28px !important;
+      }
+      body.mode-light main#main-container {
+        box-shadow: 0 20px 54px -16px rgba(15, 15, 30, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+      }
+      body.week-grid-open main#main-container {
+        max-width: 76rem !important;
+      }
+      #day-selector {
+        background: var(--surface-bg);
+        border: 1px solid var(--hairline);
+        border-radius: 20px;
+        padding: 6px;
+      }
+      #live-now-widget {
+        border-bottom: none !important;
+        padding-bottom: 0 !important;
+      }
+      #live-now-widget .live-hero-shell {
+        background: var(--surface-bg);
+        border: 1px solid var(--hairline-strong);
+        border-radius: 20px;
+        padding: 18px 20px;
+      }
+      #schedule-list:has(.timeline-row) {
+        background: var(--surface-bg);
+        border: 1px solid var(--hairline);
+        border-radius: 20px;
+        padding: 4px 18px;
+      }
+      #schedule-list .timeline-row {
+        padding: 15px 6px;
+        border-radius: 12px;
+        transition: background-color 0.18s ease;
+      }
+      #schedule-list .timeline-row:hover {
+        background: rgba(255, 255, 255, 0.03);
+      }
+      body.mode-light #schedule-list .timeline-row:hover {
+        background: rgba(0, 0, 0, 0.025);
+      }
+      #tasks-list > div > div.divide-y,
+      #notes-list:has([data-edit-note]) {
+        background: var(--surface-bg);
+        border: 1px solid var(--hairline);
+        border-radius: 20px;
+        padding: 2px 18px;
+      }
+    }
+
     .silk-bg-svg {
       position: absolute;
       inset: 0;
       width: 100%;
       height: 100%;
       object-fit: cover;
-      opacity: 0.92;
+      opacity: 0.94;
       transition: filter 0.35s ease, opacity 0.35s ease;
     }
     body.mode-light .silk-bg-svg {
-      opacity: 0.36;
-      filter: invert(0.86) hue-rotate(180deg) saturate(1.2);
+      opacity: 0.32;
+      filter: invert(0.88) hue-rotate(180deg) saturate(1.15);
     }
     body.mono-mode #silk-wave-bg {
       filter: grayscale(100%) contrast(115%) brightness(0.75) !important;
@@ -237,15 +322,11 @@
     .ios-divider {
       border-color: var(--hairline);
     }
-
-    .ios-hairline-row {
-      border-bottom: 1px solid var(--hairline);
-    }
-    .ios-hairline-row:last-child {
-      border-bottom: none;
+    .divide-y.ios-divider > :not([hidden]) ~ :not([hidden]) {
+      border-color: var(--hairline);
     }
 
-    /* Тонкие полупрозрачные пилюли и круглые иконки-кнопки (как на референсе) */
+    /* Тонкие полупрозрачные пилюли и круглые иконки-кнопки */
     .ios-icon-btn {
       background: var(--surface-bg);
       border: 1px solid rgba(255, 255, 255, var(--glass-border-alpha));
@@ -255,10 +336,6 @@
     }
     body.mode-light .ios-icon-btn {
       border-color: rgba(0, 0, 0, 0.08);
-    }
-    body.btn-glass .ios-icon-btn {
-      background: linear-gradient(145deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.03) 100%);
-      box-shadow: inset 0 1px 0.5px rgba(255, 255, 255, var(--glass-specular-alpha));
     }
 
     /* Сегментированный переключатель iOS (Активные | Неделя | Готовые) */
@@ -272,7 +349,7 @@
       padding: 3px;
     }
     .ios-seg-active {
-      background: rgb(var(--accent-rgb) / 0.22);
+      background: rgb(var(--accent-rgb) / 0.24);
       color: #FFFFFF !important;
       box-shadow: inset 0 0 0 1px rgb(var(--accent-rgb) / 0.35);
     }
@@ -306,7 +383,6 @@
       color: rgb(var(--accent-rgb)) !important;
     }
 
-    /* Универсальная поверхность (используется дозированно: только для модалок, тостов, инпутов и опционального режима "Стекло") */
     .ios-surface {
       background: var(--surface-bg);
       border: 1px solid var(--hairline);
@@ -332,7 +408,7 @@
     }
     body.mode-light.theme-tg-glass .live-hero-shell,
     body.mode-light.theme-liquid .live-hero-shell {
-      background: rgba(255, 255, 255, 0.65);
+      background: rgba(255, 255, 255, 0.68);
       border-color: rgba(0, 0, 0, 0.08);
     }
     body.theme-liquid .live-hero-shell {
@@ -362,7 +438,7 @@
       color: var(--text-tertiary);
     }
 
-    /* Нативный переключатель iOS Switch (как на референсе Настроек) */
+    /* Нативный переключатель iOS Switch */
     .ios-switch {
       position: relative;
       display: inline-flex;
@@ -475,7 +551,6 @@
       transition: width 0.85s var(--ios-ease);
     }
 
-    /* Полоса пульсирующей точки "Сейчас" */
     @keyframes pulseDot {
       0%, 100% { transform: scale(1); opacity: 1; }
       50% { transform: scale(1.25); opacity: 0.65; }
@@ -667,13 +742,12 @@
     .pb-safe-viewer { padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 1rem); }
     #photo-viewer-stage { touch-action: none; }
 
-    /* Адаптация светлых текстов для светлой темы */
+    /* Адаптация текстов для тёмной/светлой темы */
     body.mode-light .text-primary-adaptive { color: #111116 !important; }
     body.mode-dark .text-primary-adaptive  { color: #F5F5F7 !important; }
     .text-secondary-adaptive { color: var(--text-secondary); }
     .text-tertiary-adaptive  { color: var(--text-tertiary); }
 
-    /* Светлая тема совместимость для select option */
     body.mode-dark select option { background: #18181F; color: #F5F5F7; }
     body.mode-light select option { background: #FFFFFF; color: #111116; }
 
@@ -693,7 +767,6 @@
 
   <!-- СЛОЙ 1: ПОЛЬЗОВАТЕЛЬСКИЙ ФОН ИЗ ГАЛЕРЕИ -->
   <div id="custom-bg-layer" aria-hidden="true"></div>
-  <div id="custom-bg-overlay" aria-hidden="true"></div>
 
   <!-- СЛОЙ 2: МЯГКИЕ АБСТРАКТНЫЕ ШЁЛКОВЫЕ ВОЛНЫ (ПО РЕФЕРЕНСУ) -->
   <div id="silk-wave-bg" aria-hidden="true">
@@ -734,17 +807,19 @@
     </svg>
   </div>
 
+  <!-- СЛОЙ 3: УНИВЕРСАЛЬНОЕ ЗАТЕМНЕНИЕ ФОНА (ДЛЯ ВОЛН И СВОИХ ФОТО) -->
+  <div id="custom-bg-overlay" aria-hidden="true"></div>
+
   <!-- ВЕРХНЯЯ ПАНЕЛЬ (ЧИСТАЯ, БЕЗ ПЛИТОК, НАТИВНЫЙ iOS СТИЛЬ) -->
   <header class="sticky top-0 z-30 pt-safe px-5 pb-2 transition-colors" id="top-app-header">
     <div class="max-w-lg mx-auto flex items-center justify-between gap-2" id="header-inner-container">
-      <!-- Индикатор синхронизации / сети (деликатная точка) -->
       <div class="flex items-center gap-2 min-w-0">
-        <span id="network-dot" class="w-2 h-2 rounded-full bg-ios-green shrink-0" title="Статус сети"></span>
-        <span id="network-text" class="text-[11px] font-medium text-secondary-adaptive tracking-tight">Онлайн</span>
-        <span id="sync-indicator" class="hidden text-[11px] text-ios-accent font-medium shrink-0">· Синхр</span>
+        <span class="hidden md:inline-flex items-center gap-2 text-[13px] font-semibold text-secondary-adaptive tracking-tight">
+          <i data-lucide="book-open" class="w-4 h-4 text-ios-accent"></i>
+          <span>Студенческий дневник</span>
+        </span>
       </div>
 
-      <!-- Справа: компактные минималистичные иконки действий -->
       <div class="flex items-center gap-1.5 shrink-0">
         <button type="button" id="btn-add-event" class="ios-press h-8 px-2.5 rounded-full ios-icon-btn text-[12px] font-medium flex items-center gap-1.5" title="Добавить мероприятие">
           <i data-lucide="sparkles" class="w-3.5 h-3.5 text-ios-accent shrink-0"></i>
@@ -782,11 +857,11 @@
   <main id="main-container" class="relative z-10 flex-1 max-w-lg w-full mx-auto px-5 pt-1 main-scroll-area transition-all">
 
     <!-- ======================================================================
-         ВКЛАДКА 1: РАСПИСАНИЕ (ПО РЕФЕРЕНСУ image_680c11.jpg)
+         ВКЛАДКА 1: РАСПИСАНИЕ
          ====================================================================== -->
     <section id="view-schedule" class="space-y-5">
 
-      <!-- Крупный iOS заголовок и управление неделей (без коробки!) -->
+      <!-- Крупный iOS заголовок и управление неделей (без коробки) -->
       <div id="week-header-card" class="space-y-1">
         <div class="flex items-end justify-between gap-2">
           <div class="min-w-0">
@@ -799,7 +874,6 @@
             </div>
           </div>
 
-          <!-- Компактные стрелки недель, календарь и кнопка «Сегодня» -->
           <div class="flex items-center gap-1 shrink-0 pb-0.5">
             <button type="button" id="btn-today" class="ios-press h-7 px-2.5 rounded-full ios-icon-btn text-[11px] font-semibold text-ios-accent hidden" title="Перейти на сегодня">
               Сегодня
@@ -818,11 +892,11 @@
         </div>
       </div>
 
-      <!-- 7-дневная полоса недели (Пн – Вс) как на референсе -->
+      <!-- 7-дневная полоса недели (Пн – Вс) -->
       <div id="day-selector" class="grid grid-cols-7 gap-1 pt-0.5"></div>
 
       <!-- ====================================================================
-           РЕЖИМ 1: ОБЗОР ВСЕЙ НЕДЕЛИ (ПЛИТКИ / СПИСОК / ТАБЛИЦА)
+           РЕЖИМ 1: ОБЗОР ВСЕЙ НЕДЕЛИ (СПИСОК / СЕТКА / ТАБЛИЦА)
            ==================================================================== -->
       <div id="week-grid-view" class="hidden space-y-3 pt-1">
         <div class="flex items-center justify-between gap-2">
@@ -967,7 +1041,7 @@
     </section>
 
     <!-- ======================================================================
-         ВКЛАДКА 2: ДОМАШНИЕ ЗАДАНИЯ (ПО РЕФЕРЕНСУ image_680c10.jpg, левый экран)
+         ВКЛАДКА 2: ДОМАШНИЕ ЗАДАНИЯ
          ====================================================================== -->
     <section id="view-tasks" class="hidden space-y-5">
       <div class="flex items-center justify-between gap-2">
@@ -977,7 +1051,6 @@
         </button>
       </div>
 
-      <!-- Сегментированный фильтр iOS -->
       <div class="ios-segmented grid grid-cols-3 gap-1">
         <button type="button" data-status="active" class="task-filter-tab ios-press py-2 rounded-[11px] text-[13px] font-semibold transition-all ios-seg-active">
           Активные <span id="count-active-tasks" class="opacity-75 text-[11px] ml-0.5">0</span>
@@ -990,12 +1063,11 @@
         </button>
       </div>
 
-      <!-- Список задач, сгруппированный по датам с тонкими разделителями -->
       <div id="tasks-list" class="space-y-5"></div>
     </section>
 
     <!-- ======================================================================
-         ВКЛАДКА 3: ЗАМЕТКИ (ПО РЕФЕРЕНСУ image_680c10.jpg, средний экран)
+         ВКЛАДКА 3: ЗАМЕТКИ
          ====================================================================== -->
     <section id="view-notes" class="hidden space-y-4">
       <div class="flex items-center justify-between gap-2">
@@ -1016,7 +1088,6 @@
         </div>
       </div>
 
-      <!-- Поиск по заметкам (как на референсе) -->
       <div class="relative">
         <i data-lucide="search" class="w-4 h-4 text-tertiary-adaptive absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
         <input
@@ -1027,14 +1098,12 @@
         />
       </div>
 
-      <!-- Сегментированный фильтр -->
       <div class="ios-segmented grid grid-cols-3 gap-1">
         <button type="button" data-note-filter="all" class="note-filter-tab ios-press py-1.5 rounded-[11px] text-[13px] font-semibold ios-seg-active">Все заметки</button>
         <button type="button" data-note-filter="class" class="note-filter-tab ios-press py-1.5 rounded-[11px] text-[13px] font-semibold text-secondary-adaptive">К парам</button>
         <button type="button" data-note-filter="general" class="note-filter-tab ios-press py-1.5 rounded-[11px] text-[13px] font-semibold text-secondary-adaptive">Личные</button>
       </div>
 
-      <!-- Быстрый инлайн-конструктор (скрыт по умолчанию, открывается или используется через + / #modal-note) -->
       <div id="notes-list" class="divide-y ios-divider"></div>
     </section>
 
@@ -1330,13 +1399,18 @@
           </label>
         </div>
 
-        <button type="submit" class="ios-press w-full py-3.5 rounded-2xl ios-accent-btn font-semibold text-[15px]">Сохранить ДЗ</button>
+        <div class="flex items-center gap-2">
+          <button type="button" id="btn-delete-task-from-modal" class="hidden ios-press py-3.5 px-4 rounded-2xl bg-ios-red/15 text-ios-red font-semibold text-[14px]">
+            Удалить
+          </button>
+          <button type="submit" class="ios-press flex-1 py-3.5 rounded-2xl ios-accent-btn font-semibold text-[15px]">Сохранить ДЗ</button>
+        </div>
       </form>
     </div>
   </div>
 
   <!-- ========================================================================
-       МОДАЛЬНОЕ ОКНО 6: СОЗДАНИЕ / РЕДАКТИРОВАНИЕ ЗАМЕТКИ (ПО РЕФЕРЕНСУ image_680c10.jpg)
+       МОДАЛЬНОЕ ОКНО 6: СОЗДАНИЕ / РЕДАКТИРОВАНИЕ ЗАМЕТКИ
        ======================================================================== -->
   <div id="modal-note" class="fixed inset-0 z-50 hidden items-end sm:items-center justify-center">
     <div class="w-full max-w-lg rounded-t-[28px] sm:rounded-[28px] p-5 pb-safe-nav space-y-4 max-h-[90vh] overflow-y-auto">
@@ -1360,7 +1434,6 @@
           <textarea id="note-content" rows="5" placeholder="Текст заметки..." required class="ios-input w-full px-3.5 py-3 resize-y leading-relaxed"></textarea>
         </div>
 
-        <!-- Привязка к паре и дате -->
         <div class="space-y-2.5 pt-1 border-t ios-divider">
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div class="relative">
@@ -1382,7 +1455,6 @@
           <p id="note-target-hint" class="text-[11px] text-ios-accent font-medium px-0.5"></p>
         </div>
 
-        <!-- Фото и напоминание (как на референсе) -->
         <div class="space-y-3 pt-2 border-t ios-divider">
           <div class="flex items-center justify-between gap-2">
             <label class="ios-press px-3.5 py-2 rounded-full ios-accent-soft-btn text-[13px] font-semibold flex items-center gap-1.5 cursor-pointer">
@@ -1408,7 +1480,7 @@
         </div>
 
         <div class="flex items-center gap-2 pt-1">
-          <button type="button" id="btn-delete-note-from-modal" class="hidden ios-press py-3 px-4 rounded-2xl bg-ios-red/15 text-ios-red font-semibold text-[14px]">
+          <button type="button" id="btn-delete-note-from-modal" class="hidden ios-press py-3.5 px-4 rounded-2xl bg-ios-red/15 text-ios-red font-semibold text-[14px]">
             Удалить
           </button>
           <button type="submit" class="ios-press flex-1 py-3.5 rounded-2xl ios-accent-btn font-semibold text-[15px]">Сохранить</button>
@@ -1418,7 +1490,7 @@
   </div>
 
   <!-- ========================================================================
-       МОДАЛЬНОЕ ОКНО 7: НАСТРОЙКИ УВЕДОМЛЕНИЙ (СОХРАНЕНО ДЛЯ СОВМЕСТИМОСТИ)
+       МОДАЛЬНОЕ ОКНО 7: НАСТРОЙКИ УВЕДОМЛЕНИЙ (СОВМЕСТИМОСТЬ)
        ======================================================================== -->
   <div id="modal-notifications" class="fixed inset-0 z-50 hidden items-end sm:items-center justify-center">
     <div class="w-full max-w-lg rounded-t-[28px] sm:rounded-[28px] p-5 pb-safe-nav space-y-4 max-h-[88vh] overflow-y-auto">
@@ -1426,7 +1498,7 @@
         <h2 class="text-[17px] font-semibold text-primary-adaptive">Уведомления</h2>
         <button type="button" data-close-modal="modal-notifications" class="ios-press text-[15px] font-medium text-ios-accent">Готово</button>
       </div>
-      <p class="text-[13px] text-secondary-adaptive">Все переключатели уведомлений также доступны прямо в главном экране Настроек.</p>
+      <p class="text-[13px] text-secondary-adaptive">Все переключатели уведомлений доступны в главном окне Настроек.</p>
       <button type="button" id="btn-test-notification-alt" class="ios-press w-full py-3 rounded-2xl ios-accent-soft-btn text-[14px] font-semibold">
         Отправить тестовое уведомление
       </button>
@@ -1434,7 +1506,7 @@
   </div>
 
   <!-- ========================================================================
-       МОДАЛЬНОЕ ОКНО 8: НАСТРОЙКИ (ПО РЕФЕРЕНСУ image_680c10.jpg, правый экран)
+       МОДАЛЬНОЕ ОКНО 8: НАСТРОЙКИ
        ======================================================================== -->
   <div id="modal-tools" class="fixed inset-0 z-50 hidden items-end sm:items-center justify-center">
     <div class="w-full max-w-lg rounded-t-[28px] sm:rounded-[28px] p-5 pb-safe-nav space-y-5 max-h-[92vh] overflow-y-auto">
@@ -1443,7 +1515,17 @@
         <button type="button" data-close-modal="modal-tools" class="ios-press text-[15px] font-semibold text-ios-accent">Готово</button>
       </div>
 
-      <!-- СЕКЦИЯ 1: УВЕДОМЛЕНИЯ (НАТИВНЫЕ iOS SWITCHES) -->
+      <!-- СТАТУС СЕТИ И ОБЛАЧНОЙ СИНХРОНИЗАЦИИ -->
+      <div class="flex items-center justify-between gap-3 py-2.5 px-3.5 rounded-2xl ios-surface">
+        <div class="flex items-center gap-2.5 min-w-0">
+          <span id="network-dot" class="w-2.5 h-2.5 rounded-full bg-ios-green shrink-0"></span>
+          <span id="network-text" class="text-[13px] font-medium text-primary-adaptive truncate">Онлайн · Облако готово</span>
+        </div>
+        <span id="sync-indicator" class="hidden text-[12px] font-semibold text-ios-accent shrink-0">Синхронизация...</span>
+        <span id="sync-ready-label" class="text-[12px] text-tertiary-adaptive shrink-0">Локальный кэш</span>
+      </div>
+
+      <!-- СЕКЦИЯ 1: УВЕДОМЛЕНИЯ -->
       <div class="space-y-1">
         <p class="text-[12px] font-semibold uppercase tracking-wider text-tertiary-adaptive pb-1">Уведомления</p>
         <div class="divide-y ios-divider">
@@ -1501,11 +1583,10 @@
         </div>
       </div>
 
-      <!-- СЕКЦИЯ 2: ОТОБРАЖЕНИЕ (КАК НА РЕФЕРЕНСЕ + ВЫБОР АКЦЕНТНОГО ЦВЕТА) -->
+      <!-- СЕКЦИЯ 2: ОТОБРАЖЕНИЕ -->
       <div class="space-y-1">
         <p class="text-[12px] font-semibold uppercase tracking-wider text-tertiary-adaptive pb-1">Отображение</p>
         <div class="divide-y ios-divider">
-          <!-- Акцентный цвет -->
           <div class="py-3 space-y-2.5">
             <div class="flex items-center justify-between">
               <div class="flex items-center gap-3">
@@ -1523,7 +1604,6 @@
             </div>
           </div>
 
-          <!-- События в расписании -->
           <div class="py-3 flex items-center justify-between gap-3">
             <div class="flex items-center gap-3 min-w-0">
               <i data-lucide="sparkles" class="w-5 h-5 text-secondary-adaptive shrink-0"></i>
@@ -1535,7 +1615,6 @@
             </label>
           </div>
 
-          <!-- Тема (Тёмная / Светлая) -->
           <div class="py-3 flex items-center justify-between gap-3">
             <div class="flex items-center gap-3 min-w-0">
               <i data-lucide="moon" class="w-5 h-5 text-secondary-adaptive shrink-0"></i>
@@ -1547,7 +1626,6 @@
             </div>
           </div>
 
-          <!-- Монохромный режим -->
           <div class="py-3 flex items-center justify-between gap-3">
             <div class="flex items-center gap-3 min-w-0">
               <i data-lucide="contrast" class="w-5 h-5 text-secondary-adaptive shrink-0"></i>
@@ -1559,7 +1637,6 @@
             </label>
           </div>
 
-          <!-- Стиль поверхности -->
           <div class="py-3 space-y-2">
             <div class="flex items-center gap-3">
               <i data-lucide="layers" class="w-5 h-5 text-secondary-adaptive shrink-0"></i>
@@ -1572,7 +1649,6 @@
             </div>
           </div>
 
-          <!-- Фон приложения -->
           <div class="py-3 space-y-2.5">
             <div class="flex items-center gap-3">
               <i data-lucide="image" class="w-5 h-5 text-secondary-adaptive shrink-0"></i>
@@ -1597,13 +1673,12 @@
             </div>
 
             <div class="flex items-center gap-3 pt-0.5">
-              <span class="text-[12px] text-secondary-adaptive shrink-0">Затемнение фото</span>
-              <input type="range" id="bg-dim-slider" min="0" max="85" value="48" class="flex-1 accent-ios-purple" />
-              <span id="bg-dim-value" class="text-[12px] text-secondary-adaptive w-8 text-right tabular-nums">48%</span>
+              <span class="text-[12px] text-secondary-adaptive shrink-0">Затемнение фона</span>
+              <input type="range" id="bg-dim-slider" min="0" max="85" value="25" class="flex-1 accent-ios-purple" />
+              <span id="bg-dim-value" class="text-[12px] text-secondary-adaptive w-8 text-right tabular-nums">25%</span>
             </div>
           </div>
 
-          <!-- Стиль нижней панели -->
           <div class="py-3 flex items-center justify-between gap-3">
             <div class="flex items-center gap-3 min-w-0">
               <i data-lucide="panel-bottom" class="w-5 h-5 text-secondary-adaptive shrink-0"></i>
@@ -1615,7 +1690,6 @@
             </div>
           </div>
 
-          <!-- Яркость стекла -->
           <div class="py-3 flex items-center justify-between gap-3">
             <div class="flex items-center gap-3 min-w-0">
               <i data-lucide="sun" class="w-5 h-5 text-secondary-adaptive shrink-0"></i>
@@ -1667,7 +1741,7 @@
   </div>
 
   <!-- ========================================================================
-       МОДАЛЬНОЕ ОКНО 10: ПОДРОБНЫЙ ПРОСМОТР ПАРЫ ИЛИ МЕРОПРИЯТИЯ (ПО РЕФЕРЕНСУ)
+       МОДАЛЬНОЕ ОКНО 10: ПОДРОБНЫЙ ПРОСМОТР ПАРЫ ИЛИ МЕРОПРИЯТИЯ
        ======================================================================== -->
   <div id="modal-item-details" class="fixed inset-0 z-50 hidden items-end sm:items-center justify-center">
     <div class="w-full max-w-lg rounded-t-[28px] sm:rounded-[28px] p-5 pb-safe-nav space-y-5 max-h-[92vh] overflow-y-auto">
@@ -1681,7 +1755,6 @@
         </button>
       </div>
 
-      <!-- Контент пары или мероприятия (рендерится динамически) -->
       <div id="details-modal-body" class="space-y-5 text-[14px]"></div>
     </div>
   </div>
@@ -1728,13 +1801,13 @@
   <!-- КОНТРОЛЛЕР ВНЕШНЕГО ВИДА И LIVE-ПЕРЕКЛЮЧАТЕЛЯ ДО СТАРТА МОДУЛЯ -->
   <script>
     (function () {
-      if ("caches" in window && localStorage.getItem("diary_sw_cleaned_v22") !== "1") {
+      if ("caches" in window && localStorage.getItem("diary_sw_cleaned_v23") !== "1") {
         caches.keys().then(function (keys) {
           keys.forEach(function (k) {
-            if (k !== "student-diary-v22") caches.delete(k);
+            if (k !== "student-diary-v23") caches.delete(k);
           });
         });
-        localStorage.setItem("diary_sw_cleaned_v22", "1");
+        localStorage.setItem("diary_sw_cleaned_v23", "1");
       }
 
       var ACCENT_NAMES = {
@@ -1800,7 +1873,7 @@
         var navStyle = localStorage.getItem("diary_nav_style_v5") || "floating";
         var rimStyle = localStorage.getItem("diary_rim_style_v5") || "normal";
         var customBg = localStorage.getItem("diary_custom_bg_img_v6") || "";
-        var dim = Number(localStorage.getItem("diary_custom_bg_dim_v6") || 48);
+        var dim = Number(localStorage.getItem("diary_custom_bg_dim_v7") || 25);
 
         var isLight = cMode === "light" || cMode === "mono-light";
         var isMono = cMode === "mono-dark" || cMode === "mono-light";
@@ -1832,7 +1905,6 @@
         var meta = document.getElementById("meta-theme-color");
         if (meta) meta.setAttribute("content", isLight ? "#F5F5F9" : "#050508");
 
-        // Синхронизация контролов настроек
         syncSegmented(".base-theme-btn", "data-set-base-theme", isLight ? "light" : "dark");
         syncSegmented(".theme-choice-btn", "data-set-theme", theme);
         syncSegmented(".bg-choice-btn", "data-set-bg", bgMode);
@@ -1944,6 +2016,6 @@
     })();
   </script>
 
-  <script type="module" src="./app.js?v=22"></script>
+  <script type="module" src="./app.js?v=23"></script>
 </body>
 </html>
